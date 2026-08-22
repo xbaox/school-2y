@@ -24,7 +24,8 @@
     var words = State.wordBank().length;
     return '<div class="card"><div class="stats3">' +
       stat(words, U.plural(words, 'слово', 'слова', 'слов')) +
-      stat(st.lessonsDone || 0, 'уроков закрыто') +
+      stat(st.lessonsDone || 0,
+        U.plural(st.lessonsDone || 0, 'урок закрыт', 'урока закрыто', 'уроков закрыто')) +
       stat(st.bestStreak || 0, 'рекорд серии') +
       '</div></div>';
   }
@@ -65,8 +66,9 @@
     return '<section class="block"><h2>Карточки</h2>' +
       '<p class="lead">Слова из итогов и открытые долги, старые вперёд. Тап переворачивает.</p>' +
       '<div class="card rowline">' +
-      '<div class="k">В колоде ' + deck + '<span class="dim tiny">сегодня просмотрено: ' + n + '</span></div>' +
-      '<button class="btn pr" style="width:auto;padding:9px 16px" data-open-cards>Листать</button>' +
+      '<div class="k">В колоде ' + deck + ' ' + U.plural(deck, 'карточка', 'карточки', 'карточек') +
+      '<span>сегодня просмотрено: ' + n + '</span></div>' +
+      '<button class="btn pr" style="width:auto;min-height:44px;padding:0 16px" data-open-cards>Листать</button>' +
       '</div></section>';
   }
 
@@ -83,7 +85,7 @@
         return '<div class="item" data-sum="' + U.esc(i) + '">' +
           '<div class="rowline"><div style="min-width:0">' +
           '<div class="t">' + U.esc(s.lessonId) + ' · ' + U.esc(p.topics || '—') + '</div>' +
-          '<div class="s">' + U.fmtShort(s.date) + ' · ' + (p.level || '—') + ' · ' +
+          '<div class="s"><span class="mono">' + U.fmtShort(s.date) + '</span> · ' + (p.level || '—') + ' · ' +
           ((p.words || []).length) + ' ' + U.plural((p.words || []).length, 'слово', 'слова', 'слов') +
           ((p.debts || []).length ? ' · +' + p.debts.length + ' ' +
             U.plural(p.debts.length, 'долг', 'долга', 'долгов') : '') + '</div>' +
@@ -203,8 +205,8 @@ window.Cards = (function () {
       sub: 'Тап по карточке — перевернуть. Старые вперёд.',
       body: '<div class="cardbox" data-box></div>' +
         '<div class="btn-row" style="margin-top:12px">' +
-        '<button class="btn sec" data-prev>← назад</button>' +
-        '<button class="btn pr" data-next>дальше →</button></div>' +
+        '<button class="btn sec" data-prev' + (list.length < 2 ? ' disabled' : '') + '>← назад</button>' +
+        '<button class="btn pr" data-next' + (list.length < 2 ? ' disabled' : '') + '>дальше →</button></div>' +
         '<div class="center tiny dim" style="margin-top:10px" data-counter></div>',
       onMount: function (root) {
         var box = root.querySelector('[data-box]');
@@ -219,6 +221,8 @@ window.Cards = (function () {
           counter.textContent = (idx + 1) + ' из ' + list2.length + ' · сегодня просмотрено: ' + count();
         }
         function step(n) {
+          // одна карточка — листать некуда: счётчик просмотров не должен расти
+          if (list2.length < 2) return;
           idx = (idx + n + list2.length) % list2.length;
           flipped = false;
           bump();

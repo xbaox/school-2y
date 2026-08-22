@@ -101,6 +101,7 @@ section.block:first-of-type{margin-top:0}
 /* ---------- карточки ---------- */
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card .empty{margin-top:0}
 .card2{background:var(--card2);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .card + .card{margin-top:10px}
 .rowline{display:flex;justify-content:space-between;align-items:center;gap:10px}

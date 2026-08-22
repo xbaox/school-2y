@@ -472,7 +472,7 @@ window.Radar = (function () {
     U.on(host, 'click', '[data-seed-todos]', function () {
       var n = seedTodos();
       State.touch();
-      UI.toast(n ? 'Добавлено дел: ' + n : 'Список уже загружен', 'ok');
+      UI.toast(n ? 'Добавлено ' + n + ' ' + U.plural(n, 'дело', 'дела', 'дел') : 'Список уже загружен', 'ok');
     });
     U.on(host, 'click', '[data-toggle-past]', function () { showPast = !showPast; App.renderScreen('radar'); });
     U.on(host, 'click', '[data-toggle-arch]', function () { showArchive = !showArchive; App.renderScreen('radar'); });

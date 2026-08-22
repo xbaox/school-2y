@@ -101,16 +101,23 @@ window.Lesson = (function () {
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
       '<div class="params">' + U.esc(STEPS.cardLine(p)) + '</div>' +
-      (b.deadline ? '<div class="meta">' + U.esc(pace ? PACE.line(pace, b.deadline) : 'до ' + U.fmtShort(b.deadline)) + '</div>' : '') +
+      (b.deadline ? '<div class="meta mono">' +
+        U.esc(pace ? PACE.line(pace, b.deadline) : 'до ' + U.fmtShort(b.deadline)) + '</div>' : '') +
       (PROMPTS.video(lesson) ? '<div class="meta">▶ YouTube: «' + U.esc(PROMPTS.video(lesson)) + '»</div>' : '') +
       buttons(lessonId, closedToday, todayIso) +
-      '<div class="foot">долгов по дорожке: ' + debts + ' · ' + U.esc(lastScore) + '</div>' +
+      '<div class="foot">' + U.esc(debtLine(debts)) + ' · ' + U.esc(lastScore) + '</div>' +
       swapLink() +
       freshBars() +
       minimalRow() +
       '</div>';
 
     function freshBars() { return window.Waterfall ? Waterfall.miniBars() : ''; }
+  }
+
+  /** «1 долг», а не «долгов по дорожке: 1». */
+  function debtLine(n) {
+    if (!n) return 'долгов по дорожке нет';
+    return 'по дорожке ' + n + ' ' + U.plural(n, 'открытый долг', 'открытых долга', 'открытых долгов');
   }
 
   function emptyCard() {

@@ -310,7 +310,9 @@ window.StepsFlow = (function () {
     var rows = [
       row(c.okDays, 'дней с очками ' + c.daysWithPoints + ' из 14', 'нужно ≥10'),
       row(c.okScore, 'средний счёт ' + (c.avgScore == null ? '—' : c.avgScore.toFixed(1)), 'нужно ≥7.5'),
-      row(c.okReds, c.reds.length ? 'красных блоков: ' + c.reds.length : 'красных светофоров нет', 'нужно 0')
+      row(c.okReds, c.reds.length
+        ? c.reds.length + ' ' + U.plural(c.reds.length, 'красный блок', 'красных блока', 'красных блоков')
+        : 'красных светофоров нет', 'нужно 0')
     ].join('');
 
     var canAuto = c.okDays && c.okScore && c.okReds;
@@ -385,7 +387,8 @@ window.StepsFlow = (function () {
         c.daysWithPoints + '/14</div></div>' +
         '<div class="srow"><div class="k">Средний счёт</div><div class="mono ' + (c.okScore ? 'g' : '') + '">' +
         (c.avgScore == null ? '—' : c.avgScore.toFixed(1)) + '</div></div>' +
-        '<div class="srow"><div class="k">Красные блоки</div><div class="mono ' + (c.okReds ? 'g' : 'r') + '">' +
+        '<div class="srow"><div class="k">Красные блоки<span>блоки, которые не успеть без доп. уроков</span></div>' +
+        '<div class="mono ' + (c.okReds ? 'g' : 'r') + '">' +
         c.reds.length + '</div></div>'
         : '<div class="fnote">Летом шкала спит. Старт с S1 — ' + U.fmtLong(State.AUTO_SCHOOL_DATE) + '.</div>') +
       '<div class="btns" style="margin-top:12px">' +
@@ -449,17 +452,18 @@ window.StepsFlow = (function () {
     }
   }
 
-  /** Ручной override (Настройки, доступен всегда). */
+  /** Ручной выбор ступени (Настройки, доступен всегда). */
   function openManual() {
     var s = step();
     UI.sheet({
       title: 'Ступень вручную',
-      sub: 'Ручной override доступен всегда. Новая ступень применяется со следующего скопированного промпта.',
+      sub: 'Поставить ступень вручную можно в любой момент. Новая ступень применяется ' +
+        'со следующего скопированного промпта.',
       body: '<div class="steplist">' + STEPS.TABLE.map(function (r) {
         return '<button class="step-opt' + (r.pos === s.position ? ' on' : '') + '" data-pos="' + U.esc(r.pos) +
           '" aria-pressed="' + (r.pos === s.position) + '">' +
           '<b class="mono">' + r.name + '</b>' +
-          '<span class="mono tiny">~' + r.lesson + '\' · ≥' + r.minQ + ' вопр. · старт ' + r.start +
+          '<span class="mono tiny">~' + r.lesson + '’ · ≥' + r.minQ + ' вопр. · старт ' + r.start +
           ' · перенос ×' + r.transfer + ' · RU ' + r.ru + '</span>' +
           '<em>' + U.esc(r.note) + '</em></button>';
       }).join('') + '</div>',

@@ -89,7 +89,7 @@ window.Onboarding = (function () {
         'без очков и без итогов, просто чтобы очередь не предлагала их снова.</p>' +
         '<div class="onb-list">' + rows + '</div>' +
         '<div class="btns" style="margin-top:18px">' +
-        '<button class="btn pr" data-next>' + (n ? 'Зачесть ' + n + ' и дальше' : 'Ничего не пройдено') + '</button></div>';
+        '<button class="btn pr" data-next>' + grantLabel(n) + '</button></div>';
     },
 
     // 4 — подтверждение дат
@@ -103,13 +103,23 @@ window.Onboarding = (function () {
         '<div class="mono small">до ' + U.fmtShort(pd.p0.end) + '</div></div>' +
         '<div class="srow"><div class="k">Старт шкалы<span>школа начинается со ступени S1</span></div>' +
         '<div class="mono small">' + U.fmtShort(State.AUTO_SCHOOL_DATE) + '</div></div>' +
-        '<div class="srow"><div class="k">Дела из плана<span>17 записей: placement, guidance, OSSLT, IELTS, OUAC…</span></div>' +
-        '<div class="mono small">будут добавлены</div></div>' +
+        '<div class="srow"><div class="k">Дела из плана<span>placement, guidance, OSSLT, IELTS, OUAC…</span></div>' +
+        '<div class="mono small">' + seedCount() + ' ' +
+        U.plural(seedCount(), 'запись', 'записи', 'записей') + '</div></div>' +
         '</div>' +
         '<div class="btns" style="margin-top:18px">' +
         '<button class="btn pr" data-finish>Готово — к «Сегодня»</button></div>';
     }
   ];
+
+  function seedCount() {
+    return (window.Radar && Radar.SEED_TODOS) ? Radar.SEED_TODOS.length : 0;
+  }
+
+  function grantLabel(n) {
+    return n ? 'Зачесть ' + n + ' ' + U.plural(n, 'урок', 'урока', 'уроков') + ' и дальше'
+      : 'Ничего не пройдено';
+  }
 
   function wire() {
     var next = root.querySelector('[data-next]');
@@ -136,7 +146,7 @@ window.Onboarding = (function () {
       data.done[el.dataset.done] = el.checked;
       var btn = root.querySelector('[data-next]');
       var n = Object.keys(data.done).filter(function (k) { return data.done[k]; }).length;
-      if (btn) btn.textContent = n ? 'Зачесть ' + n + ' и дальше' : 'Ничего не пройдено';
+      if (btn) btn.textContent = grantLabel(n);
     });
 
     var fin = root.querySelector('[data-finish]');

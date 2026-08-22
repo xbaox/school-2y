@@ -245,18 +245,35 @@ window.App = (function () {
         if (!sw) return;
         sw.addEventListener('statechange', function () {
           if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-            UI.toast('Новая версия готова — перезагрузи страницу', 'ok', 6000);
+            // тост уезжает через шесть секунд, а обновиться надо обязательно —
+            // поэтому стойкая плашка с кнопкой
+            UI.banner('sw-update', {
+              kind: 'ok',
+              text: 'Новая версия готова.',
+              dismissible: false,
+              action: {
+                label: 'Перезагрузить',
+                onClick: function () { location.reload(); }
+              }
+            });
           }
         });
       });
     }).catch(function (e) { console.warn('service worker не зарегистрировался:', e); });
 
     navigator.serviceWorker.addEventListener('message', function (e) {
-      if (e.data && e.data.version) { swVersion = e.data.version; }
+      if (!e.data || !e.data.version) return;
+      swVersion = e.data.version;
+      // «Настройки» могли отрисоваться раньше ответа — обновим строку версии
+      if (active === 'settings') renderScreen('settings');
     });
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage('version');
-    }
+
+    // при первой установке controller ещё пуст: ждём готовности воркера,
+    // иначе в Настройках навсегда остаётся «не активен»
+    navigator.serviceWorker.ready.then(function (reg) {
+      var sw = navigator.serviceWorker.controller || reg.active;
+      if (sw) sw.postMessage('version');
+    }).catch(function () { /* воркера нет — так и напишем */ });
   }
 
   function version() { return swVersion; }

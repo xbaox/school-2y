@@ -50,7 +50,7 @@
     var p = STEPS.params(s, State.today(), State.mode());
     return '<section class="block"><h2>Ступень нагрузки</h2>' +
       '<p class="lead">Шкала из 7 позиций: S1–S4 растят время, Г1–Г3 — глубину. ' +
-      'Растёт сама по циклам, но ручной override доступен всегда.</p>' +
+      'Растёт сама по циклам, но поставить ступень вручную можно в любой момент.</p>' +
       '<div class="card">' +
       '<div class="srow"><div class="k">Сейчас<span>' + U.esc(STEPS.cardLine(p)) + '</span></div>' +
       '<div class="mono">' + U.esc(STEPS.label(pos)) + '</div></div>' +
@@ -113,9 +113,12 @@
     }).join('');
     return '<section class="block"><h2>Если — то</h2>' +
       '<p class="lead">3–5 правил. На «Сегодня» показывается одно, по дню недели.</p>' +
-      '<div class="card">' + (rows || '<div class="dim small">Пока пусто.</div>') +
-      (rules.length < 5 ? '<button class="btn ghost" data-ifthen-add>+ правило</button>' : '') +
-      '</div></section>';
+      (rows
+        ? '<div class="card">' + rows +
+        '<button class="btn ghost" data-ifthen-add>+ правило</button></div>'
+        : UI.empty('🪝', 'Правил пока нет. Одно правило — один автопилот на трудный день.',
+          '<button class="btn sec" data-ifthen-add>Добавить первое правило</button>')) +
+      '</section>';
   }
 
   /** Облако: вход, статус, ручная синхронизация (раздел 3 ТЗ). */
@@ -169,8 +172,10 @@
       '<p class="lead">Весь прогресс — один JSON-файл. Работает без сети и без облака.</p>' +
       '<div class="card">' +
       '<div class="srow"><div class="k">Сейчас в состоянии' +
-      '<span>' + Object.keys(s.days).length + ' дней · ' + Object.keys(s.lessons).length + ' уроков · ' +
-      s.summaries.length + ' итогов · ' + s.debts.length + ' долгов · ~' + size + ' КБ</span></div></div>' +
+      '<span>' + count(Object.keys(s.days).length, 'день', 'дня', 'дней') + ' · ' +
+      count(Object.keys(s.lessons).length, 'урок', 'урока', 'уроков') + ' · ' +
+      count(s.summaries.length, 'итог', 'итога', 'итогов') + ' · ' +
+      count(s.debts.length, 'долг', 'долга', 'долгов') + ' · ~' + size + ' КБ</span></div></div>' +
       '<div class="btn-row" style="margin-top:10px">' +
       '<button class="btn sec" data-export>Скачать JSON</button>' +
       '<button class="btn sec" data-import>Загрузить JSON</button>' +
@@ -178,6 +183,8 @@
       '<input type="file" accept="application/json,.json" class="hidden" data-file>' +
       '</div></section>';
   }
+
+  function count(n, one, few, many) { return n + ' ' + U.plural(n, one, few, many); }
 
   function aboutSection() {
     return '<section class="block"><h2>О приложении</h2>' +

@@ -26,7 +26,8 @@
 
     return '<h1>Программа</h1>' +
       '<p class="lead">' + totalBlocks + ' ' + U.plural(totalBlocks, 'блок', 'блока', 'блоков') +
-      ' · уроков в контенте ' + lessons.length + ', закрыто ' + done +
+      ' · в контенте ' + lessons.length + ' ' + U.plural(lessons.length, 'урок', 'урока', 'уроков') +
+      ', закрыто ' + done +
       '. Дедлайны редактируются, фазу можно сдвинуть целиком.</p>' +
       '<section class="block"><h2>Свежесть дорожек</h2>' +
       '<p class="lead">Свежесть гасит только полноценный урок. 0–3 зелёный · 4–5 жёлтый · 6+ красный.</p>' +
@@ -89,7 +90,8 @@
       '" data-block-toggle="' + U.esc(id) + '">' +
       '<div style="min-width:0">' +
       '<div class="bl-t">' + UI.trackDot(b.track) + ' ' + State.blockLabel(id) + ' · ' + U.esc(b.title) + '</div>' +
-      '<div class="small muted bl-s">' + (b.deadline ? 'до ' + U.fmtShort(b.deadline) + ' · ' : '') + light + '</div>' +
+      '<div class="small muted bl-s">' +
+      (b.deadline ? '<span class="mono">до ' + U.fmtShort(b.deadline) + '</span> · ' : '') + light + '</div>' +
       (b.note ? '<div class="tiny dim">' + U.esc(b.note) + '</div>' : '') +
       '</div>' +
       '<div class="prog mono">' + (dots || '<span class="dim tiny">—</span>') + '</div>' +
@@ -200,7 +202,9 @@
           var n = parseInt(inp.value, 10) || 0;
           close();
           var moved = State.shiftPhase(phaseId, n);
-          UI.toast(moved ? 'Сдвинуто блоков: ' + moved : 'Нечего двигать', moved ? 'ok' : '');
+          UI.toast(moved
+            ? 'Сдвинуто ' + moved + ' ' + U.plural(moved, 'блок', 'блока', 'блоков')
+            : 'Нечего двигать', moved ? 'ok' : '');
         };
       }
     });
