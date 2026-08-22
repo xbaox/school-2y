@@ -213,8 +213,8 @@ section.block:first-of-type{margin-top:0}
 .srow{display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding:12px 0;border-bottom:1px solid var(--line)}
 .srow:last-child{border-bottom:none}
-.srow .k{font-size:13.5px}
-.srow .k span{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+.k{font-size:13.5px}
+.k span{display:block;font-size:11.5px;color:var(--dim);margin-top:2px;line-height:1.4}
 .num{width:64px;background:var(--card2);border:1px solid var(--line);border-radius:9px;
   padding:7px 9px;font-family:var(--mono);font-size:13px;text-align:center}
 .txt{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;
@@ -263,6 +263,9 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
 .item .t{font-size:13.5px}
 .item .s{font-size:11.5px;color:var(--muted);margin-top:3px}
+/* цвет срока обязан перебивать цвет строки: у .item .s тот же вес,
+   что у одиночного .y — без этого подсветка дел не видна (ТЗ 6.3) */
+.s.g{color:var(--ok)} .s.y{color:var(--warn)} .s.r{color:var(--bad)} .s.dim{color:var(--dim)}
 
 /* ---------- экран «Программа» ---------- */
 
