@@ -313,16 +313,32 @@ window.App = (function () {
    * «Воскресный радар» сюда не попадает никогда — он пункт плана в воскресенье
    * и ставится сам, когда закрыт чек-лист недели.
    */
+  /**
+   * Короткие подписи для сетки: «Подготовка к тесту» в полширины на 320px
+   * не помещается. Сокращаем только собственную формулировку доктрины —
+   * если владелец переименовал добавку в Настройках, показываем его слова.
+   */
+  var ADDON_SHORT = { test: 'К тесту' };
+
+  function addonLabel(a) {
+    var def = DOCTRINE.byId(DOCTRINE.ADDONS, a.id);
+    var short = ADDON_SHORT[a.id];
+    return (short && def && def.name === a.name) ? short : a.name;
+  }
+
   function addonChips(d) {
     var list = State.s.settings.addons.filter(function (a) { return a.id !== 'radar'; });
     if (!list.length) return '';
-    return '<div class="addons"><span class="alabel">Сверх плана:</span>' +
-      list.map(function (a) {
+    return '<div class="addons">' +
+      '<div class="alabel">Сверх плана</div>' +
+      '<div class="agrid">' + list.map(function (a) {
         var on = (d.addons || []).indexOf(a.id) >= 0;
-        return '<button class="chip mini addon' + (on ? ' on' : '') +
+        return '<button class="chip addon' + (on ? ' on' : '') +
           (flashing(a.id) ? ' pop' : '') + '" data-addon="' + U.esc(a.id) +
-          '" aria-pressed="' + on + '">+ ' + U.esc(a.name) + '</button>';
-      }).join('') + '</div>';
+          '" aria-pressed="' + on + '" aria-label="' + U.esc(a.name + ', +' + a.points) + '">' +
+          '<span class="an">' + U.esc(addonLabel(a)) + '</span>' +
+          '<b class="mono">+' + a.points + '</b></button>';
+      }).join('') + '</div></div>';
   }
 
   /* ============================================================

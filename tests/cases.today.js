@@ -279,11 +279,30 @@
     fresh();
     var d = State.day(MON, true);
     var html = App.addonChips(d);
-    ok(html.indexOf('Сверх плана:') > 0, 'заголовок строки добавок');
+    ok(html.indexOf('>Сверх плана</div>') > 0, 'заголовок отдельной строкой и без двоеточия');
+    ok(html.indexOf('class="agrid"') > 0, 'чипы лежат в сетке');
     eq(html.indexOf('Воскресный радар'), -1, 'радара среди чипов нет');
     ok(html.indexOf('Доп. урок') > 0, 'остальные добавки на месте');
+    eq((html.match(/data-addon=/g) || []).length, 4, 'в сетке всегда четыре добавки');
     eq((html.match(/data-addon=/g) || []).length, State.s.settings.addons.length - 1,
       'чипов на один меньше, чем добавок в доктрине');
+
+    // очки берутся из настроек и печатаются моноширинным
+    ok(html.indexOf('<b class="mono">+3</b>') > 0, 'у доп. урока +3');
+    ok(html.indexOf('<b class="mono">+2</b>') > 0, 'у остальных +2');
+    ok(html.indexOf('К тесту') > 0, 'длинная подпись сокращена для полширины');
+    eq(html.indexOf('Подготовка к тесту<'), -1, 'полное название в чип не поехало');
+    ok(html.indexOf('aria-label="Подготовка к тесту, +2"') > 0, 'но остаётся в aria-label');
+
+    // правка веса в Настройках сразу видна в подписи
+    DOCTRINE.byId(State.s.settings.addons, 'project').points = 4;
+    ok(App.addonChips(d).indexOf('<b class="mono">+4</b>') > 0, 'число не захардкожено');
+    DOCTRINE.byId(State.s.settings.addons, 'project').points = 2;
+
+    // переименованную добавку сокращать нельзя — это уже слова владельца
+    DOCTRINE.byId(State.s.settings.addons, 'test').name = 'Репетиция экзамена';
+    ok(App.addonChips(d).indexOf('Репетиция экзамена') > 0, 'своё название показывается целиком');
+    DOCTRINE.byId(State.s.settings.addons, 'test').name = 'Подготовка к тесту';
 
     // сама добавка из доктрины никуда не делась — её ставит чек-лист
     ok(DOCTRINE.byId(State.s.settings.addons, 'radar'), 'в доктрине добавка осталась');

@@ -348,9 +348,25 @@ section.block:first-of-type{margin-top:0}
 
 /* ---------- добавки: то, что сверх плана ---------- */
 
-.addons{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.addons .alabel{font-size:11.5px;color:var(--muted);margin-right:2px}
-.chip.mini{min-height:44px;font-size:11.5px;padding:0 11px}
+.addons{margin-bottom:12px}
+.addons .alabel{
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px;
+}
+/* сетка 2×2: четыре добавки одинаковой ширины, без сирот в переносе */
+.agrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.agrid .chip{
+  width:100%;justify-content:center;text-align:center;gap:5px;
+  font-size:11.5px;padding:0 8px;
+  /* контур на line даёт 1.3:1 — в сетке кнопка переставала читаться кнопкой */
+  border-color:var(--dim);
+}
+.agrid .chip .an{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agrid .chip b{font-weight:700}
+
+@media (min-width:900px){
+  .agrid{grid-template-columns:repeat(4,1fr)}
+}
 
 /* ---------- статусная строка дня ---------- */
 
