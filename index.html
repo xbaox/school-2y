@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Система v2 · Фундамент</title>
+<meta name="theme-color" content="#12151c">
+<meta name="description" content="Трекер двухлетней учебной программы: уровни дня, ступени нагрузки, уроки и промпты для ИИ-преподавателя.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<div id="app">
+  <main id="screens"></main>
+  <nav class="tabbar" role="tablist"></nav>
+</div>
+
+<div id="sheet-root"></div>
+<div id="toast-root"></div>
+
+<!-- ядро -->
+<script src="./util.js"></script>
+<script src="./doctrine.js"></script>
+<script src="./state.js"></script>
+<script src="./ui.js"></script>
+<script src="./app.js"></script>
+
+<!-- экраны -->
+<script src="./settings.js"></script>
+
+</body>
+</html>

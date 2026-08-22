@@ -1,0 +1,281 @@
+/* ============================================================
+   Study System v2 — дизайн-система
+   Токены и компоненты повторяют spec/mechanics-v2.html 1:1.
+   Тёмная тема — единственная. Мобильный экран — основной.
+   ============================================================ */
+
+:root{
+  --bg:#12151c; --card:#1a1f2a; --card2:#151a23; --line:#262d3b;
+  --ink:#e8ebf2; --muted:#8b93a7; --dim:#5b6274;
+  --fire:#f5a524; --fire-soft:rgba(245,165,36,.14);
+  --ok:#4ade80; --warn:#facc15; --bad:#f87171;
+  --ok-soft:rgba(74,222,128,.12); --warn-soft:rgba(250,204,21,.12); --bad-soft:rgba(248,113,113,.1);
+  --r:14px;
+
+  /* цвета дорожек — смысловая метка, не украшение (раздел 4 ТЗ) */
+  --t-math:#f5a524; --t-write:#60a5fa; --t-biz:#c084fc; --t-cs:#34d399; --t-eng:#8b93a7;
+
+  --tabbar-h:60px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:Unbounded,Inter,system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer}
+a{color:var(--fire);text-decoration:none}
+
+/* ---------- каркас приложения ---------- */
+
+#app{min-height:100%;display:flex;flex-direction:column}
+
+#screens{
+  flex:1;
+  padding:calc(18px + env(safe-area-inset-top)) 16px
+          calc(var(--tabbar-h) + 26px + env(safe-area-inset-bottom));
+  max-width:720px;width:100%;margin:0 auto;
+}
+.screen{display:none}
+.screen.active{display:block;animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  display:flex;background:rgba(18,21,28,.94);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar button{
+  flex:1;height:var(--tabbar-h);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--dim);font-size:10.5px;letter-spacing:.01em;
+  position:relative;
+}
+.tabbar button .ic{font-size:18px;line-height:1}
+.tabbar button[aria-selected="true"]{color:var(--fire)}
+.tabbar button .dot{
+  position:absolute;top:9px;right:calc(50% - 18px);
+  width:7px;height:7px;border-radius:50%;background:var(--bad);display:none;
+}
+.tabbar button.has-alert .dot{display:block}
+
+/* ---------- типографика ---------- */
+
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fire);margin-bottom:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(21px,5vw,28px);line-height:1.2;margin-bottom:8px}
+h2{font-family:var(--display);font-weight:500;font-size:17px;margin-bottom:6px}
+h3{font-size:14px;font-weight:600}
+.sub{color:var(--muted);max-width:56ch}
+.lead{color:var(--muted);font-size:14px;margin-bottom:16px;max-width:60ch}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+.g{color:var(--ok)} .y{color:var(--warn)} .r{color:var(--bad)} .fire{color:var(--fire)}
+.bg-g{background:var(--ok)} .bg-y{background:var(--warn)} .bg-r{background:var(--bad)}
+.tiny{font-size:11.5px}
+.small{font-size:12.5px}
+.center{text-align:center}
+.hidden{display:none !important}
+
+section.block{margin-top:28px}
+section.block:first-of-type{margin-top:0}
+
+/* ---------- карточки ---------- */
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card2{background:var(--card2);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.card + .card{margin-top:10px}
+.rowline{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+/* ---------- верхняя строка «Сегодня» ---------- */
+
+.p-top{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-bottom:14px;
+}
+.p-top .streak{color:var(--fire);font-weight:700;font-size:15px}
+.p-top .rank{white-space:nowrap}
+
+/* ---------- плашка ступени ---------- */
+
+.p-step{
+  background:var(--card2);border:1px solid var(--line);border-radius:12px;
+  padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  margin-bottom:12px;
+}
+.p-step .s{font-family:var(--mono);font-size:12px}
+.p-step .bar{height:5px;flex:1;max-width:120px;background:var(--line);border-radius:99px;overflow:hidden}
+.p-step .bar i{display:block;height:100%;background:var(--fire);border-radius:99px}
+
+/* ---------- чипы уровня дня ---------- */
+
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{
+  font-size:12px;padding:7px 11px;border-radius:99px;
+  border:1px solid var(--line);color:var(--muted);background:transparent;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.chip.on{background:var(--fire);color:#12151c;font-weight:600;border-color:var(--fire)}
+.chip.addon.on{background:var(--fire-soft);color:var(--fire);border-color:var(--fire)}
+.chips-label{font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin:2px 0 6px}
+
+/* ---------- карточка урока ---------- */
+
+.lesson{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.lesson .why{
+  display:inline-block;font-size:10.5px;font-family:var(--mono);
+  color:var(--bad);background:var(--bad-soft);padding:3px 8px;border-radius:99px;margin-bottom:8px;
+}
+.lesson .why.w-fresh{color:var(--warn);background:var(--warn-soft)}
+.lesson .why.w-plan{color:var(--muted);background:rgba(139,147,167,.12)}
+.lesson .why.w-swap{color:var(--fire);background:var(--fire-soft)}
+.lesson .place{font-size:12px;color:var(--muted);margin-bottom:3px}
+.lesson h4{font-size:15.5px;line-height:1.35;margin-bottom:6px}
+.lesson .params{font-family:var(--mono);font-size:11.5px;color:var(--fire);background:var(--fire-soft);
+  padding:6px 9px;border-radius:9px;margin:8px 0;line-height:1.5}
+.lesson .meta{font-size:12px;color:var(--muted);margin-bottom:4px}
+.lesson .foot{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.5}
+
+/* бейдж дорожки */
+.tbadge{
+  display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.05em;
+  padding:2px 7px;border-radius:99px;border:1px solid currentColor;opacity:.95;
+}
+.t-math{color:var(--t-math)} .t-write{color:var(--t-write)} .t-biz{color:var(--t-biz)}
+.t-cs{color:var(--t-cs)} .t-eng{color:var(--t-eng)} .t-all{color:var(--ink)}
+.dotmark{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;vertical-align:0}
+
+/* ---------- кнопки ---------- */
+
+.btns{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.btn{
+  display:block;width:100%;border-radius:11px;padding:11px;text-align:center;
+  font-size:13.5px;font-weight:600;border:1px solid transparent;
+}
+.btn.pr{background:var(--fire);color:#12151c}
+.btn.pr:disabled{background:var(--card2);color:var(--dim);border-color:var(--line)}
+.btn.sec{border-color:var(--line);color:var(--ink)}
+.btn.ghost{color:var(--muted);font-weight:500;font-size:12.5px;padding:8px}
+.btn.danger{border-color:rgba(248,113,113,.4);color:var(--bad)}
+.btn:active{transform:scale(.99)}
+.btn-row{display:flex;gap:7px}
+.btn-row .btn{flex:1}
+.linkbtn{color:var(--fire);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- полоски свежести ---------- */
+
+.mini{margin-top:12px;display:flex;gap:5px}
+.mini i{flex:1;height:5px;border-radius:99px}
+.fresh .trow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.fresh .trow:last-child{border-bottom:none}
+.fresh .tname{width:132px;font-size:13px;flex-shrink:0}
+.fresh .tbar{flex:1;height:8px;background:var(--card2);border-radius:99px;overflow:hidden}
+.fresh .tbar i{display:block;height:100%;border-radius:99px}
+.fresh .tdays{width:118px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0}
+
+/* ---------- если-то ---------- */
+
+.ifthen{margin-top:12px;font-size:11.5px;color:var(--dim);font-family:var(--mono);text-align:center;line-height:1.5}
+
+/* ---------- теги и светофоры ---------- */
+
+.tag{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:99px;letter-spacing:.05em}
+.tag.up{background:var(--ok-soft);color:var(--ok)}
+.tag.down{background:var(--bad-soft);color:var(--bad)}
+.tag.rest{background:var(--warn-soft);color:var(--warn)}
+.tag.on{background:var(--fire-soft);color:var(--fire)}
+.tag.off{background:rgba(139,147,167,.12);color:var(--muted)}
+
+/* ---------- пустые состояния ---------- */
+
+.empty{
+  background:var(--card2);border:1px dashed var(--line);border-radius:var(--r);
+  padding:22px 16px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.6;
+}
+.empty .ic{font-size:26px;display:block;margin-bottom:8px;opacity:.8}
+.empty .act{margin-top:12px}
+.fnote{font-size:12.5px;color:var(--muted);margin-top:10px;padding:10px 14px;
+  background:var(--card2);border:1px dashed var(--line);border-radius:12px}
+
+/* ---------- строки настроек ---------- */
+
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:none}
+.srow .k{font-size:13.5px}
+.srow .k span{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+.num{width:64px;background:var(--card2);border:1px solid var(--line);border-radius:9px;
+  padding:7px 9px;font-family:var(--mono);font-size:13px;text-align:center}
+.txt{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 11px;font-size:13.5px}
+.txt:focus,.num:focus{outline:none;border-color:var(--fire)}
+textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+
+.seg{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:3px;gap:3px}
+.seg button{padding:6px 14px;border-radius:99px;font-size:12.5px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--fire);color:#12151c;font-weight:600}
+
+/* ---------- нижняя шторка / модалка ---------- */
+
+.sheet-back{
+  position:fixed;inset:0;background:rgba(9,11,15,.66);z-index:60;
+  display:flex;align-items:flex-end;justify-content:center;
+  animation:fade .15s ease-out;
+}
+.sheet{
+  background:var(--card);border:1px solid var(--line);border-bottom:none;
+  border-radius:18px 18px 0 0;width:100%;max-width:520px;
+  padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+  max-height:88vh;overflow-y:auto;
+  animation:up .2s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes up{from{transform:translateY(18px);opacity:.6}to{transform:none;opacity:1}}
+.sheet h3{font-family:var(--display);font-weight:500;font-size:16px;margin-bottom:4px}
+.sheet .sheet-sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.sheet-grab{width:36px;height:4px;border-radius:99px;background:var(--line);margin:0 auto 14px}
+
+/* ---------- тост ---------- */
+
+#toast-root{position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + 14px + env(safe-area-inset-bottom));
+  z-index:80;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 16px}
+.toast{
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;font-size:13px;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  max-width:520px;animation:up .18s ease-out;
+}
+.toast.ok{border-color:rgba(74,222,128,.45)}
+.toast.bad{border-color:rgba(248,113,113,.45)}
+
+/* ---------- список / строки ---------- */
+
+.list{display:flex;flex-direction:column;gap:8px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.item .t{font-size:13.5px}
+.item .s{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- две колонки на десктопе ---------- */
+
+/* ≥900px: слева «Сегодня», справа «Программа» (раздел 4 ТЗ).
+   Класс split ставит app.js, когда активен один из этих двух табов. */
+@media (min-width:900px){
+  #screens{max-width:1080px;padding-top:26px}
+  .tabbar{max-width:1080px;margin:0 auto;border-radius:14px 14px 0 0;
+    border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  body.split #screens{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+  body.split .screen[data-screen="today"],
+  body.split .screen[data-screen="program"]{display:block}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
