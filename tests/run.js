@@ -126,7 +126,8 @@ const MODULES = [
   'stepsflow.js',
   'sync.js',
   'lesson.js',
-  'app.js'
+  'app.js',
+  'radar.js'
 ];
 
 for (const f of MODULES) {

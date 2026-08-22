@@ -200,6 +200,21 @@ window.Radar = (function () {
     State.touch();
   }
 
+  /**
+   * Отметить или снять весь чек-лист разом — тап по кружку пункта плана
+   * «Воскресный радар». Добавка +1 ставится и снимается вместе с ним.
+   */
+  function setChecklistAll(on, dateIso) {
+    var date = dateIso || State.today();
+    var d = State.day(date, true);
+    d.checklist = CHECKLIST.map(function () { return !!on; });
+    var has = d.addons.indexOf('radar') >= 0;
+    if (on && !has) d.addons.push('radar');
+    if (!on && has) d.addons.splice(d.addons.indexOf('radar'), 1);
+    State.recount(date);
+    State.touch();
+  }
+
   function checklistCard() {
     var t = State.today();
     var isSunday = U.weekday(t) === 7;
@@ -505,6 +520,8 @@ window.Radar = (function () {
     CHECKLIST: CHECKLIST, SEED_TODOS: SEED_TODOS, TYPES: TYPES,
     seedTodos: seedTodos, burningCount: burningCount, todayBadge: todayBadge,
     dueClass: dueClass, dueText: dueText, openChecklist: openChecklist,
-    checklistDone: checklistDone, mountToday: mountToday, addEvent: addEvent, addTodo: addTodo
+    checklistDone: checklistDone, checklistState: checklistState,
+    toggleCheck: toggleCheck, setChecklistAll: setChecklistAll,
+    mountToday: mountToday, addEvent: addEvent, addTodo: addTodo
   };
 })();

@@ -83,16 +83,46 @@ window.Lesson = (function () {
   /* ---------- карточка ---------- */
 
   /**
-   * card(opts) — карточка урока дня.
-   * opts.minRow:false — не печатать строку «Карточки · Промпт минималки»:
-   * на норме и полной те же кнопки уже стоят в шаге «минималка» шапки плана.
+   * Урок дня по номеру: закрытый берётся из дня, будущий — у водопада.
+   * → { lessonId, reason } | null
+   */
+  function dayLesson(n, todayIso) {
+    var t = todayIso || State.today();
+    var d = State.day(t) || {};
+    var list = d.lessons || [];
+
+    if (list.length >= n) {
+      var id = list[n - 1];
+      return { lessonId: id, reason: d.pickReason || { kind: 'plan', text: 'урок дня' } };
+    }
+    if (n === 1) {
+      var sel = current(t);
+      return sel && sel.lessonId ? sel : null;
+    }
+    var first = list[0] || (current(t) || {}).lessonId;
+    if (!first) return null;
+    return window.Waterfall ? Waterfall.second(t, first) : null;
+  }
+
+  /**
+   * card(opts) — карточка урока.
+   *  opts.lessonId/reason — какой именно урок рисуем (иначе — урок дня);
+   *  opts.bare      — без собственной рамки: карточка живёт внутри пункта плана;
+   *  opts.minRow    — печатать ли строку «Карточки · Промпт минималки»;
+   *  opts.freshBars — печатать ли мини-полоски свежести;
+   *  opts.ofDay     — печатать ли бейдж «урок N из 2».
    * Незакрытый урок прошлых дней живёт отдельно, в pendingCard().
    */
   function card(opts) {
     opts = opts || {};
     var minRow = opts.minRow !== false;
+    var bars = opts.freshBars !== false;
+    var withOfDay = opts.ofDay !== false;
+    var bare = !!opts.bare;
     var todayIso = opts.today || State.today();
-    var sel = current(todayIso);
+    var sel = opts.lessonId
+      ? { lessonId: opts.lessonId, reason: opts.reason || { kind: 'plan', text: 'урок дня' } }
+      : current(todayIso);
     if (!sel) return emptyCard();
     if (sel.sunday) return sundayCard(sel);
 
@@ -120,12 +150,12 @@ window.Lesson = (function () {
     var lastScore = last && last.parsed && last.parsed.score != null
       ? 'прошлый урок дорожки: ' + last.parsed.score + '/10' : 'прошлых уроков дорожки нет';
 
-    return '<div class="lesson">' +
+    return '<div class="lesson' + (bare ? ' bare' : '') + '">' +
       '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) +
       '" aria-label="Почему выбран этот урок">выбор: ' +
       U.esc(whyText(sel.reason.text)) + ' ⓘ</button>' +
       '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
-      ofDayLine(lessonId, d) +
+      (withOfDay ? ofDayLine(lessonId, d) : '') +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
       '<div class="params">' + U.esc(STEPS.cardLine(p)) + '</div>' +
@@ -135,11 +165,9 @@ window.Lesson = (function () {
       buttons(lessonId, closedToday, todayIso) +
       '<div class="foot">' + U.esc(debtLine(debts)) + ' · ' + U.esc(lastScore) + '</div>' +
       swapLink() +
-      freshBars() +
+      (bars && window.Waterfall ? Waterfall.miniBars() : '') +
       (minRow ? minimalRow() : '') +
       '</div>';
-
-    function freshBars() { return window.Waterfall ? Waterfall.miniBars() : ''; }
   }
 
   /** «1 долг», а не «долгов по дорожке: 1». */
@@ -418,6 +446,6 @@ window.Lesson = (function () {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
     openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
     findPending: findPending, PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
-    ofDayLine: ofDayLine, dayIndex: dayIndex, pendingCard: unfinished
+    ofDayLine: ofDayLine, dayIndex: dayIndex, pendingCard: unfinished, dayLesson: dayLesson
   };
 })();

@@ -22,13 +22,13 @@
     eq(line(t), 'сегодня: 0 очков · выбери уровень — серия 🔥 0 ждёт', 'пусто');
 
     State.setLevel('min');
-    eq(line(t), 'сегодня: 1 очко · база дня: карточки + аудио', 'минималка');
+    eq(line(t), 'сегодня: 1 очко · план: карточки + пересказ', 'минималка');
 
     State.setLevel('norm');
-    eq(line(t), 'сегодня: 2 очка · минималка + 1 урок', 'норма');
+    eq(line(t), 'сегодня: 2 очка · план: минималка + 1 урок', 'норма');
 
     State.setLevel('full');
-    eq(line(t), 'сегодня: 3 очка · минималка + 2 урока (второй — другая дорожка)', 'полная');
+    eq(line(t), 'сегодня: 3 очка · план: минималка + 2 урока', 'полная');
   });
 
   describe('статусная строка: добавки дописываются с итогом', function () {
@@ -37,7 +37,7 @@
     State.setLevel('full');
     State.toggleAddon('project');
     eq(line(t),
-      'сегодня: 3 очка · минималка + 2 урока (второй — другая дорожка) · + Проект (+2) = 5 очков',
+      'сегодня: 3 очка · план: минималка + 2 урока · + Проект (+2) = 5 очков',
       'полная + проект');
 
     State.toggleAddon('radar');
@@ -85,7 +85,7 @@
     State.setLevel('norm');
     State.recount(t);
     ok(line(t).indexOf('сегодня: 4 очка') === 0, 'вес уровня взят из настроек');
-    ok(line(t).indexOf('минималка + 1 урок') > 0, 'смысл уровня при этом не поехал');
+    ok(line(t).indexOf('план: минималка + 1 урок') > 0, 'смысл уровня при этом не поехал');
   });
 
   /** Слот под чипами на выбранном уровне. Понедельник — урок точно есть. */
@@ -99,112 +99,237 @@
     return App.daySlot(t, d);
   }
 
-  describe('экран по уровню: пусто — карточки урока нет', function () {
-    var html = slot('none');
-    ok(html.indexOf('Сегодня пусто') > 0, 'тихая карточка на месте');
-    ok(html.indexOf('удержит серию') > 0, 'объясняет, зачем минималка');
-    ok(html.indexOf('data-level="min"') > 0, 'кнопка перехода на минималку');
-    eq(html.indexOf('class="lesson"'), -1, 'карточки урока нет');
-    eq(html.indexOf('data-copy'), -1, 'кнопки «Скопировать промпт» нет');
-    eq(html.indexOf('data-summary'), -1, 'кнопки «Вставить итог» нет');
-    eq(html.indexOf('data-minprompt'), -1, 'ссылок минималки тоже нет');
-    eq(html.indexOf('data-cards'), -1, 'и «Карточки» нет');
-    eq(html.indexOf('var(--fire)'), -1, 'ничего оранжевого');
+  /* ============================================================
+     ПЛАН ДНЯ: состав списка, галочки, отметки
+     ============================================================ */
+
+  /** План на понедельник — урок в этот день точно есть. */
+  var MON = '2026-08-24';
+  var SUN = '2026-08-23';
+
+  function plan(level, date, over) {
+    fresh();
+    var t = date || MON;
+    var d = State.day(t, true);
+    d.level = level;
+    Object.assign(d, over || {});
+    State.recount(t);
+    if (over && over.open) App.setOpen(over.open); else App.resetOpen();
+    return { t: t, d: d, items: App.planItems(t, d), html: App.planBlock(t, d) };
+  }
+
+  function ids(p) { return p.items.map(function (x) { return x.id; }); }
+  function titles(p) { return p.items.map(function (x) { return x.title; }); }
+
+  describe('план: пусто — список пуст, внутри призыв', function () {
+    var p = plan('none');
+    eq(ids(p), [], 'пунктов нет');
+    ok(p.html.indexOf('Выбери уровень — серия 🔥') > 0, 'мягкий призыв внутри блока');
+    ok(p.html.indexOf('data-level="min"') > 0, 'кнопка «Минималка ~10 мин»');
+    ok(p.html.indexOf('Минималка ~10 мин') > 0, 'с названием времени');
+    eq(p.html.indexOf('data-summary'), -1, 'кнопки итога нет');
+    eq(p.html.indexOf('data-copy'), -1, 'кнопки промпта урока нет');
   });
 
-  describe('экран по уровню: минималка — два шага вместо урока', function () {
-    var html = slot('min');
-    ok(html.indexOf('Минималка') > 0, 'заголовок карточки');
-    ok(html.indexOf('~10–15 мин') > 0, 'длительность названа');
-    eq(html.indexOf('class="lesson"'), -1, 'карточки урока нет');
-    eq(html.indexOf('data-copy'), -1, 'кнопки промпта урока нет');
-    eq(html.indexOf('data-summary'), -1, 'кнопки «Вставить итог» нет');
-
-    eq((html.match(/data-mstep=/g) || []).length, 2, 'ровно два шага с чекбоксами');
-    ok(html.indexOf('Пересказ вслух: 60 секунд') > 0, 'второй шаг конкретный');
-    ok(html.indexOf('data-minprompt') > 0, 'кнопка «Промпт разминки»');
-    ok(html.indexOf('Итог урока не нужен') > 0, 'внизу сказано, что итог не требуется');
+  describe('план: минималка — два пункта, урока нет', function () {
+    var p = plan('min');
+    eq(ids(p), ['cards', 'retell'], 'карточки и пересказ');
+    eq(titles(p), ['Карточки', 'Пересказ 60 сек'], 'названия пунктов');
+    eq(p.html.indexOf('data-summary'), -1, 'кнопки итога нет');
+    eq(p.html.indexOf('data-copy'), -1, 'кнопки промпта урока нет');
+    ok(plan('min', MON, { open: 'retell' }).html.indexOf('data-minprompt') > 0, 'промпт разминки на месте');
+    eq(p.items[0].sub, 'колода пуста — видео ~5 мин', 'подпись про пустую колоду');
   });
 
-  describe('экран по уровню: минималка с пустой колодой', function () {
-    var html = slot('min');
-    ok(html.indexOf('Колода пока пуста') > 0, 'честно про пустую колоду');
-    ok(html.indexOf('одно видео/аудио на английском ~5 мин') > 0, 'даёт замену');
-    eq(html.indexOf('data-cards'), -1, 'кнопки «Открыть карточки» нет — открывать нечего');
-
-    // наполним банк — первый шаг становится карточками с реальными числами
+  describe('план: минималка — подпись карточек считает банк', function () {
+    fresh();
     State.applySummary('B1.1', {
       score: 8, level: 'L2', topics: 'x',
       words: [{ en: 'rubric', ru: 'критерии' }, { en: 'submit', ru: 'сдать' }],
       debts: ['путает justify'], cleared: [], warmup: [], writing: '', raw: ''
-    }, { date: '2026-08-24' });
-    var d = State.day('2026-08-24', true);
+    }, { date: MON });
+    var d = State.day(MON, true);
     d.level = 'min';
-    var full = App.daySlot('2026-08-24', d);
-    ok(full.indexOf('Карточки: повторить 2 слова + 1 долг') > 0, 'числа реальные и склонённые');
-    ok(full.indexOf('data-cards') > 0, 'кнопка «Открыть карточки» появилась');
+    App.resetOpen();
+    var items = App.planItems(MON, d);
+    eq(items[0].sub, '2 слова + 1 долг', 'реальные числа со склонением');
+    ok(App.planBlock(MON, d).indexOf('data-cards') > 0, 'кнопка карточек появилась');
   });
 
-  describe('экран по уровню: норма — шапка плана плюс урок', function () {
-    var html = slot('norm');
-    ok(html.indexOf('План: минималка → урок') > 0, 'шапка плана');
-    ok(html.indexOf('class="lesson"') > 0, 'карточка урока на месте');
-    ok(html.indexOf('data-copy') > 0, 'кнопка промпта есть');
-    ok(html.indexOf('data-summary') > 0, 'кнопка итога есть');
-    ok(html.indexOf('data-stage-min') > 0, 'этап «минималка» — чекбокс');
-    eq((html.match(/class="pstage/g) || []).length, 2, 'два этапа: минималка и урок');
-    eq(html.indexOf('перерыв'), -1, 'перерыва в норме нет');
+  describe('план: норма — минималка и урок', function () {
+    var p = plan('norm', MON, { open: 'l1' });
+    eq(ids(p), ['min', 'l1'], 'два пункта');
+    ok(p.items[1].title.indexOf('Урок: Б1.1 „') === 0, 'урок назван кодом и темой: ' + p.items[1].title);
+    ok(p.html.indexOf('data-copy') > 0, 'кнопка промпта внутри пункта урока');
+    ok(p.html.indexOf('data-summary') > 0, 'кнопка итога внутри пункта урока');
+    ok(p.html.indexOf('выбор:') > 0, 'бейдж причины выбора сохранён');
+    eq(p.html.indexOf('Перерыв'), -1, 'перерыва в норме нет');
   });
 
-  describe('экран по уровню: полная — четыре этапа и перерыв', function () {
-    var html = slot('full');
-    ok(html.indexOf('План: минималка → урок 1 → перерыв 5–10 мин без экрана → урок 2 (другая дорожка)') > 0,
-      'шапка полной');
-    eq((html.match(/class="pstage/g) || []).length, 4, 'четыре этапа');
-    ok(html.indexOf('data-stage-break') > 0, 'перерыв отмечается руками');
-    ok(html.indexOf('урок 1 из 2 на сегодня') > 0, 'бейдж урока на карточке');
-    eq(html.indexOf('pstage hot'), -1, 'до первого итога перерыв не подсвечен');
+  describe('план: полная — четыре пункта, второй урок заперт', function () {
+    var p = plan('full');
+    eq(ids(p), ['min', 'l1', 'break', 'l2'], 'минималка, урок 1, перерыв, урок 2');
+    ok(p.items[1].title.indexOf('Урок 1: ') === 0, 'первый урок пронумерован');
+    eq(p.items[3].title, 'Урок 2: другая дорожка', 'второй пока без темы');
+    eq(p.items[3].sub, 'после урока 1', 'и с подписью ожидания');
+    eq(p.items[3].locked, true, 'заперт');
+    ok(/pitem[^"]*locked/.test(p.html), 'в разметке приглушён');
 
-    // закрыли первый урок — перерыв загорается
-    var hot = slot('full', { lessons: ['B1.1'] });
-    ok(hot.indexOf('pstage') > 0 && /pstage[^"]*hot/.test(hot), 'после первого урока перерыв подсвечен');
+    // закрыли первый урок — второй ожил
+    var after = plan('full', MON, { lessons: ['B1.1'] });
+    eq(after.items[1].done, true, 'урок 1 отмечен');
+    ok(!after.items[3].locked, 'урок 2 разблокирован');
+    ok(after.items[3].title.indexOf('Урок 2: Б') === 0, 'и получил свой урок: ' + after.items[3].title);
+    ok(after.items[3].sub.indexOf('другая дорожка') === 0, 'подпись про другую дорожку');
   });
 
-  describe('чек-лист минималки: пишется в days и переживает перерисовку', function () {
+  describe('план: воскресенье — радар первым, уроки по запросу', function () {
+    var p = plan('norm', SUN, { open: 'radar' });
+    eq(ids(p), ['radar', 'min'], 'радар первым, урочных пунктов нет');
+    eq(p.items[0].title, 'Воскресный радар', 'название пункта');
+    eq(p.items[0].sub, 'чек-лист недели', 'подпись');
+    eq((p.html.match(/data-check=/g) || []).length, 5, 'пять галочек чек-листа прямо в пункте');
+    ok(p.html.indexOf('data-force-lesson') > 0, 'ссылка «всё равно хочу урок» внутри блока');
+
+    // попросили урок — урочные пункты появились
+    var forced = plan('norm', SUN, { forceLesson: true });
+    eq(ids(forced), ['radar', 'min', 'l1'], 'урок добавился после запроса');
+
+    // в будни радара в плане нет
+    eq(ids(plan('norm')).indexOf('radar'), -1, 'в понедельник радара в плане нет');
+  });
+
+  describe('план: воскресенье — минималка тоже доступна', function () {
+    var p = plan('min', SUN);
+    eq(ids(p), ['radar', 'cards', 'retell'], 'радар и шаги минималки');
+  });
+
+  describe('план: галочка урока ставится только итогом', function () {
+    fresh();
+    var t = State.today();
+    State.setLevel('norm');
+
+    var before = State.day(t).lessons.length;
+    App.tick('lesson');
+    eq(State.day(t).lessons.length, before, 'тап по кружку урока ничего не закрывает');
+
+    var d = State.day(t);
+    eq(App.planItems(t, d).filter(function (x) { return x.id === 'l1'; })[0].done, false,
+      'пункт урока не отмечен');
+
+    // валидный итог — и пункт закрылся
+    var sel = Lesson.dayLesson(1, t);
+    State.applySummary(sel.lessonId, {
+      score: 8, level: 'L2', topics: 'x', words: [], debts: [], cleared: [], warmup: [], writing: '', raw: ''
+    }, { date: t });
+    eq(App.planItems(t, State.day(t)).filter(function (x) { return x.id === 'l1'; })[0].done, true,
+      'после итога пункт отмечен');
+  });
+
+  describe('план: ручные галочки пишутся в день и переживают перерисовку', function () {
+    fresh();
+    var t = State.today();
+    State.setLevel('full');
+
+    App.tick('min');
+    eq(State.day(t).minimalSteps, [true, true], 'кружок «Минималка» ставит оба шага');
+    eq(State.points(t), 3, 'очки не изменились — их дал уровень');
+
+    App.tick('break');
+    eq(State.day(t).breakDone, true, 'перерыв отмечен');
+
+    var items = App.planItems(t, State.day(t));
+    eq(items[0].done, true, 'минималка отмечена после перерисовки');
+    eq(items[2].done, true, 'перерыв отмечен после перерисовки');
+
+    App.tick('min');
+    eq(State.day(t).minimalSteps, [false, false], 'повторный тап снимает');
+    App.tick('break');
+    eq(State.day(t).breakDone, false, 'и перерыв снимается');
+    eq(State.points(t), 3, 'очки по-прежнему от уровня');
+  });
+
+  describe('план: полный чек-лист радара ставит добавку сам', function () {
+    fresh();
+    var t = State.today();          // tick всегда работает по «сегодня»
+    State.setLevel('min');
+
+    eq(Radar.checklistDone(t), false, 'чек-лист пуст');
+    eq(State.day(t).addons.indexOf('radar'), -1, 'добавки нет');
+    var before = State.points(t);
+
+    App.tick('radar');
+    eq(Radar.checklistDone(t), true, 'все пять отмечены');
+    ok(State.day(t).addons.indexOf('radar') >= 0, 'добавка radar поставилась сама');
+    eq(State.points(t), before + 1, 'и дала своё очко по доктрине');
+
+    App.tick('radar');
+    eq(Radar.checklistDone(t), false, 'снятие снимает всё');
+    eq(State.day(t).addons.indexOf('radar'), -1, 'и добавку тоже');
+    eq(State.points(t), before, 'очко ушло вместе с ней');
+
+    // пункт плана зеленеет от закрытого чек-листа своего дня
+    Radar.setChecklistAll(true, SUN);
+    var sd = State.day(SUN, true);
+    sd.level = 'min';
+    eq(App.planItems(SUN, sd)[0].done, true, 'пункт плана зелёный');
+  });
+
+  describe('добавки: «Воскресный радар» из чипов убран навсегда', function () {
+    fresh();
+    var d = State.day(MON, true);
+    var html = App.addonChips(d);
+    ok(html.indexOf('Сверх плана:') > 0, 'заголовок строки добавок');
+    eq(html.indexOf('Воскресный радар'), -1, 'радара среди чипов нет');
+    ok(html.indexOf('Доп. урок') > 0, 'остальные добавки на месте');
+    eq((html.match(/data-addon=/g) || []).length, State.s.settings.addons.length - 1,
+      'чипов на один меньше, чем добавок в доктрине');
+
+    // сама добавка из доктрины никуда не делась — её ставит чек-лист
+    ok(DOCTRINE.byId(State.s.settings.addons, 'radar'), 'в доктрине добавка осталась');
+
+    // и в воскресенье её в чипах тоже нет
+    eq(App.addonChips(State.day(SUN, true)).indexOf('Воскресный радар'), -1, 'в вс тоже нет');
+  });
+
+  describe('план: закрытый день получает зелёный блок', function () {
     fresh();
     var t = State.today();
     State.setLevel('min');
+    var open = App.planBlock(t, State.day(t));
+    eq(/class="plan done"/.test(open), false, 'пока не всё сделано — обычный блок');
 
-    App.setMinimalStep(0, true);
-    eq(State.day(t).minimalSteps, [true, false], 'первый шаг записан в день');
-
-    // перерисовка берёт отметку из состояния, а не из DOM
-    var again = App.daySlot(t, State.day(t));
-    eq((again.match(/data-mstep="0" checked/g) || []).length, 1, 'после перерисовки шаг отмечен');
-    eq((again.match(/data-mstep="1" checked/g) || []).length, 0, 'второй — нет');
-
-    App.setMinimalStep(1, true);
-    eq(State.day(t).minimalSteps, [true, true], 'оба шага записаны');
-
-    // на очки чек-лист не влияет — их дал чип уровня
-    eq(State.points(t), 1, 'очки дня остались минималочные');
-
-    App.setMinimalStep(0, false);
-    eq(State.day(t).minimalSteps, [false, true], 'снятие тоже пишется');
-    eq(State.points(t), 1, 'и снятие очков не трогает');
+    App.tick('m0');
+    App.tick('m1');
+    var closed = App.planBlock(t, State.day(t));
+    ok(/class="plan done"/.test(closed), 'все пункты — блок закрыт');
+    ok(closed.indexOf('День закрыт ✓ 1 очко') > 0, 'строка итога дня со склонением');
   });
 
-  describe('чек-лист минималки: этап «минималка» в норме ставит оба шага', function () {
+  describe('план: селектор уровня — сегмент-контрол', function () {
     fresh();
-    var t = '2026-08-24';
-    var d = State.day(t, true);
+    var d = State.day(MON, true);
     d.level = 'norm';
-    d.minimalSteps = [true, true];
-    var html = App.daySlot(t, d);
-    ok(/pstage on/.test(html), 'этап отмечен, когда оба шага сделаны');
+    var html = App.levelSeg(d);
+    eq((html.match(/data-level=/g) || []).length, 4, 'четыре сегмента');
+    ok(html.indexOf('data-level="norm" aria-pressed="true"') > 0, 'активный отмечен');
+    ok(html.indexOf('data-level="min" aria-pressed="false"') > 0, 'остальные — нет');
+    eq(html.indexOf('data-addon'), -1, 'добавок в селекторе нет');
+  });
 
-    d.minimalSteps = [true, false];
-    ok(!/pstage on[^"]*"[\s\S]{0,80}минималка/.test(App.daySlot(t, d)), 'полшага — этап не закрыт');
+  describe('план: раскрыт первый невыполненный пункт', function () {
+    var p = plan('full');
+    ok(/pitem[^"]*open/.test(p.html), 'какой-то пункт раскрыт');
+    // первый невыполненный — минималка
+    var first = p.html.slice(p.html.indexOf('pitem'), p.html.indexOf('pitem', 40));
+    ok(first.indexOf('open') > 0, 'раскрыт именно первый');
+
+    // минималка сделана — раскрывается урок
+    var next = plan('full', MON, { minimalSteps: [true, true] });
+    var body = next.html;
+    var l1 = body.indexOf('Урок 1');
+    ok(body.slice(0, l1).lastIndexOf('open') > body.slice(0, l1).lastIndexOf('pitem done'),
+      'после закрытой минималки раскрыт урок 1');
   });
 
   describe('полоса недели: строка ранга в формате v1', function () {
@@ -267,36 +392,6 @@
     ok(full.indexOf('url(#ringgrad)') > 0, 'полная — градиент fire→ok');
     ok(full.indexOf('ring done') > 0, 'план дня выполнен — кольцо замкнулось');
     ok(full.indexOf('stroke-dashoffset="0.0"') > 0, 'дуга полная');
-  });
-
-  describe('карточка урока: «урок N из 2» только у полной', function () {
-    eq(Lesson.ofDayLine('B1.1', { level: 'norm', lessons: [] }), '', 'у нормы ничего не пишем');
-    eq(Lesson.ofDayLine('B1.1', { level: 'min', lessons: [] }), '', 'у минималки тоже');
-    eq(Lesson.ofDayLine('B1.1', { level: 'none', lessons: [] }), '', 'и у пусто');
-
-    var first = Lesson.ofDayLine('B1.1', { level: 'full', lessons: [] });
-    ok(first.indexOf('урок 1 из 2 на сегодня') > 0, 'первый урок полной');
-
-    var second = Lesson.ofDayLine('B2.1', { level: 'full', lessons: ['B1.1'] });
-    ok(second.indexOf('урок 2 из 2') > 0, 'после закрытия первого — второй');
-    ok(second.indexOf('на сегодня') < 0, 'у второго хвоста «на сегодня» нет');
-
-    // уже закрытый первый урок остаётся первым, а не съезжает во второй
-    var reopened = Lesson.ofDayLine('B1.1', { level: 'full', lessons: ['B1.1', 'B2.1'] });
-    ok(reopened.indexOf('урок 1 из 2') > 0, 'закрытый первый остаётся первым');
-
-    // третий урок дня (доп. урок) не даёт «3 из 2»
-    var third = Lesson.ofDayLine('B3.1', { level: 'full', lessons: ['B1.1', 'B2.1'] });
-    ok(third.indexOf('урок 2 из 2') > 0, 'счётчик не выходит за двойку');
-  });
-
-  describe('карточка урока: строка живёт в самой карточке', function () {
-    fresh();
-    var t = State.today();
-    State.setLevel('full');
-    ok(Lesson.card().indexOf('урок 1 из 2 на сегодня') > 0, 'при полной строка на карточке есть');
-    State.setLevel('norm');
-    eq(Lesson.card().indexOf('из 2 на сегодня'), -1, 'при норме её нет');
   });
 
 })();

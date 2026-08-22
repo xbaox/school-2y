@@ -95,12 +95,17 @@ window.App = (function () {
       var t = State.today();
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
       return topRow(t) + weekStrip(t) + badges() + stepCard() +
-        chips(d) + dayLine(t, d) + daySlot(t, d) + ifThenLine(t);
+        levelSeg(d) + planBlock(t, d) + addonChips(d) +
+        freshBars() + ifThenLine(t);
     },
     mount: function (host) {
+      // сегмент-контрол: повторный тап по активному уровню его не снимает
       U.on(host, 'click', '[data-level]', function (e, el) {
-        flash(el.dataset.level);
-        State.setLevel(el.dataset.level);
+        var id = el.dataset.level;
+        if (((State.day(State.today()) || {}).level || 'none') === id) return;
+        openItem = null;                       // новый уровень — новый первый пункт
+        flash(id);
+        State.setLevel(id);
       });
       U.on(host, 'click', '[data-addon]', function (e, el) {
         flash(el.dataset.addon);
@@ -108,23 +113,20 @@ window.App = (function () {
       });
       U.on(host, 'click', '[data-step]', function () { StepsFlow.openDetails(); });
 
-      // отметки минималки и перерыва: память дня, очков не дают
+      // аккордеон плана: раскрыт один пункт за раз
+      U.on(host, 'click', '[data-open]', function (e, el) {
+        var id = el.dataset.open;
+        openItem = (resolveOpen(planItems(State.today(), State.day(State.today()) || {})) === id) ? '' : id;
+        renderScreen('today');
+      });
+      U.on(host, 'click', '[data-tick]', function (e, el) { tick(el.dataset.tick); });
+
+      // отметки внутри раскрытых пунктов: память дня, очков не дают
       U.on(host, 'change', '[data-mstep]', function (e, el) {
         setMinimalStep(+el.dataset.mstep, el.checked);
       });
-      U.on(host, 'change', '[data-stage-min]', function (e, el) {
-        setMinimalStep(0, el.checked);
-        setMinimalStep(1, el.checked);
-      });
-      U.on(host, 'change', '[data-stage-break]', function (e, el) {
-        State.day(State.today(), true).breakDone = el.checked;
-        State.touch();
-      });
-      U.on(host, 'click', '[data-stage-open]', function () {
-        var d = State.day(State.today()) || {};
-        var ms = d.minimalSteps || [];
-        minOpen = !(minOpen === null ? !(ms[0] && ms[1]) : minOpen);
-        renderScreen('today');
+      U.on(host, 'change', '[data-check]', function (e, el) {
+        if (window.Radar) Radar.toggleCheck(+el.dataset.check);
       });
 
       if (window.Lesson) Lesson.mount(host);
@@ -289,19 +291,315 @@ window.App = (function () {
   function flash(id) { flashed = { id: id, at: Date.now() }; }
   function flashing(id) { return flashed.id === id && Date.now() - flashed.at < FLASH_MS; }
 
-  function chips(d) {
-    var html = '<div class="chips">';
-    State.s.settings.levels.forEach(function (l) {
-      var on = d.level === l.id;
-      html += '<button class="chip' + (on ? ' on' : '') + (flashing(l.id) ? ' pop' : '') +
-        '" data-level="' + U.esc(l.id) + '" aria-pressed="' + on + '">' + U.esc(l.name) + '</button>';
-    });
-    State.s.settings.addons.forEach(function (a) {
-      var on = (d.addons || []).indexOf(a.id) >= 0;
-      html += '<button class="chip addon' + (on ? ' on' : '') + (flashing(a.id) ? ' pop' : '') +
-        '" data-addon="' + U.esc(a.id) + '" aria-pressed="' + on + '">+ ' + U.esc(a.name) + '</button>';
-    });
-    return html + '</div>';
+  /* ---------- селектор уровня и добавки ---------- */
+
+  /**
+   * Уровень дня — сегмент-контрол, единственный переключатель экрана.
+   * Повторный тап по активному сегменту ничего не снимает: «ничего»
+   * здесь называется «Пусто» и выбирается явно.
+   */
+  function levelSeg(d) {
+    var cur = d.level || 'none';
+    return '<div class="seg lvlseg" role="group" aria-label="Уровень дня">' +
+      State.s.settings.levels.map(function (l) {
+        var on = cur === l.id;
+        return '<button data-level="' + U.esc(l.id) + '" aria-pressed="' + on + '"' +
+          (flashing(l.id) ? ' class="pop"' : '') + '>' + U.esc(l.name) + '</button>';
+      }).join('') + '</div>';
+  }
+
+  /**
+   * Добавки — мелкими чипами под планом: это не план, а то, что сверх него.
+   * «Воскресный радар» сюда не попадает никогда — он пункт плана в воскресенье
+   * и ставится сам, когда закрыт чек-лист недели.
+   */
+  function addonChips(d) {
+    var list = State.s.settings.addons.filter(function (a) { return a.id !== 'radar'; });
+    if (!list.length) return '';
+    return '<div class="addons"><span class="alabel">Сверх плана:</span>' +
+      list.map(function (a) {
+        var on = (d.addons || []).indexOf(a.id) >= 0;
+        return '<button class="chip mini addon' + (on ? ' on' : '') +
+          (flashing(a.id) ? ' pop' : '') + '" data-addon="' + U.esc(a.id) +
+          '" aria-pressed="' + on + '">+ ' + U.esc(a.name) + '</button>';
+      }).join('') + '</div>';
+  }
+
+  /* ============================================================
+     ПЛАН ДНЯ — главный блок экрана.
+     Один вертикальный список: что именно сделать сегодня. Состав
+     определяет уровень дня, раскрыт один пункт за раз.
+     ============================================================ */
+
+  var openItem = null;    // null — авто: раскрыт первый невыполненный
+
+  function planBlock(t, d) {
+    var items = planItems(t, d);
+    var allDone = items.length > 0 && items.every(function (it) { return it.done; });
+    var openId = resolveOpen(items);
+
+    var body = items.length
+      ? items.map(function (it) { return planRow(it, openId); }).join('')
+      : emptyPlan(t);
+
+    return '<div class="plan' + (allDone ? ' done' : '') + '">' +
+      body + sundayEscape(t, d) + planStatus(t, d, allDone) + '</div>';
+  }
+
+  /** Раскрыт первый невыполненный пункт, пока владелец не решил иначе. */
+  function resolveOpen(items) {
+    if (openItem !== null) return openItem;
+    for (var i = 0; i < items.length; i++) {
+      if (!items[i].done && !items[i].locked) return items[i].id;
+    }
+    return '';
+  }
+
+  /** Пункт списка: кружок, строка, раскрывающееся тело. */
+  function planRow(it, openId) {
+    var open = !it.locked && it.id === openId && !!it.body;
+    var cls = 'pitem' + (it.done ? ' done' : '') + (it.locked ? ' locked' : '') + (open ? ' open' : '');
+
+    var dot = '<button class="pdot" data-tick="' + U.esc(it.tick || 'none') +
+      '" aria-pressed="' + !!it.done + '" aria-label="' +
+      U.esc((it.done ? 'Снять отметку: ' : 'Отметить: ') + it.title) + '">' +
+      (it.done ? '✓' : '') + '</button>';
+
+    var row = '<button class="prow" data-open="' + U.esc(it.id) +
+      '" aria-expanded="' + open + '"' + (it.locked || !it.body ? ' disabled' : '') + '>' +
+      '<span class="ptext"><span class="pt">' + U.esc(it.title) + '</span>' +
+      (it.sub ? '<span class="ps">' + U.esc(it.sub) + '</span>' : '') + '</span>' +
+      (it.locked || !it.body ? '' : '<span class="pchev">' + (open ? '▾' : '▸') + '</span>') +
+      '</button>';
+
+    return '<div class="' + cls + '">' + dot + row +
+      (open ? '<div class="pbody">' + it.body + '</div>' : '') + '</div>';
+  }
+
+  /**
+   * Состав плана по уровню дня.
+   * Воскресенье добавляет пункт радара первым; урочные пункты в этот день
+   * появляются только после «всё равно хочу урок» (раздел 7.8).
+   */
+  function planItems(t, d) {
+    var out = [];
+    var level = d.level || 'none';
+    var sunday = U.weekday(t) === 7;
+    var wantLesson = !sunday || !!(d.forceLesson || d.pick);
+
+    if (sunday) out.push(radarItem(t, d));
+    if (level === 'none') return out;
+
+    if (level === 'min') {
+      out.push(cardsItem(d), retellItem(d));
+      return out;
+    }
+
+    out.push(minimalItem(d));
+    if (!wantLesson) return out;
+
+    var full = level === 'full';
+    out.push(lessonItem(1, t, d, full));
+    if (full) {
+      out.push(breakItem(d));
+      out.push(lessonItem(2, t, d, true));
+    }
+    return out;
+  }
+
+  /* ---------- пункты плана ---------- */
+
+  function deckCounts() {
+    return { words: State.wordBank().length, debts: State.openDebts().length };
+  }
+
+  function cardsSub() {
+    var c = deckCounts();
+    if (!c.words && !c.debts) return 'колода пуста — видео ~5 мин';
+    return c.words + ' ' + U.plural(c.words, 'слово', 'слова', 'слов') +
+      (c.debts ? ' + ' + c.debts + ' ' + U.plural(c.debts, 'долг', 'долга', 'долгов') : '');
+  }
+
+  function cardsItem(d) {
+    var ms = d.minimalSteps || [];
+    var c = deckCounts();
+    return {
+      id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(), done: !!ms[0],
+      body: (c.words || c.debts)
+        ? '<p class="pnote">Старые вперёд, тап переворачивает. Без оценок «знаю / не знаю» — ' +
+        'минималке хватает просмотра.</p>' +
+        '<button class="btn sec pact" data-cards>Открыть карточки</button>'
+        : '<p class="pnote">Колода наполнится из «ИТОГА УРОКА»: слова и долги приходят оттуда. ' +
+        'Пока её нет — одно видео или аудио на английском, минут на пять.</p>'
+    };
+  }
+
+  function retellItem(d) {
+    var ms = d.minimalSteps || [];
+    return {
+      id: 'retell', tick: 'm1', title: 'Пересказ 60 сек', sub: 'вслух, по видео или аудио',
+      done: !!ms[1],
+      body: '<p class="pnote">Итог урока не нужен — минималка закрывается уровнем дня.</p>' +
+        '<button class="btn sec pact" data-minprompt>Промпт разминки</button>'
+    };
+  }
+
+  /** На норме и полной оба шага минималки сворачиваются в один пункт. */
+  function minimalItem(d) {
+    var ms = d.minimalSteps || [];
+    return {
+      id: 'min', tick: 'min', title: 'Минималка', sub: '~10–15 мин · ' + cardsSub(),
+      done: !!(ms[0] && ms[1]),
+      body: minimalSteps(d)
+    };
+  }
+
+  function minimalSteps(d) {
+    var done = d.minimalSteps || [];
+    var c = deckCounts();
+    var steps = [
+      {
+        text: (c.words || c.debts)
+          ? 'Карточки: повторить ' + cardsSub()
+          : 'Колода пуста — вместо неё одно видео/аудио на английском ~5 мин',
+        act: (c.words || c.debts)
+          ? '<button class="btn sec pact" data-cards>Открыть карточки</button>' : ''
+      },
+      {
+        text: 'Пересказ вслух: 60 секунд по видео/аудио',
+        act: '<button class="btn sec pact" data-minprompt>Промпт разминки</button>'
+      }
+    ];
+    return '<div class="msteps">' + steps.map(function (s, i) {
+      return '<div class="mstep' + (done[i] ? ' on' : '') + '">' +
+        '<label class="check"><input type="checkbox" data-mstep="' + i + '"' +
+        (done[i] ? ' checked' : '') + '><span>' + U.esc(s.text) + '</span></label>' +
+        (s.act ? '<div class="macts">' + s.act + '</div>' : '') +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
+  function breakItem(d) {
+    var lessons = (d.lessons || []).length;
+    return {
+      id: 'break', tick: 'break', title: 'Перерыв 5–10 мин без экрана',
+      sub: lessons >= 1 && !d.breakDone ? 'сейчас — до второго урока' : 'между уроками',
+      done: !!d.breakDone, hot: lessons >= 1 && !d.breakDone,
+      body: '<p class="pnote">Тихий отдых после учёбы улучшает консолидацию памяти — ' +
+        'лента её съедает. Встать, вода, окно, движение.</p>'
+    };
+  }
+
+  /**
+   * Урок. Галочка ставится только валидным «ИТОГОМ УРОКА»: тап по кружку
+   * об этом и говорит. Второй урок ждёт, пока закрыт первый.
+   */
+  function lessonItem(n, t, d, full) {
+    var lessons = d.lessons || [];
+    var done = lessons.length >= n;
+    var locked = n === 2 && lessons.length < 1;
+    var head = full ? 'Урок ' + n : 'Урок';
+
+    if (locked) {
+      return {
+        id: 'l2', tick: 'lesson', title: head + ': другая дорожка',
+        sub: 'после урока 1', done: false, locked: true, body: ''
+      };
+    }
+
+    var sel = Lesson.dayLesson(n, t);
+    if (!sel) {
+      return {
+        id: 'l' + n, tick: 'lesson', title: head, sub: 'уроков в контенте не осталось',
+        done: done,
+        body: '<p class="pnote">Уроки текущих фаз закрыты. Следующий пакет контента добавит новые.</p>'
+      };
+    }
+
+    var l = CONTENT.lesson(sel.lessonId);
+    var b = (l && State.block(l.blockId)) || {};
+    var code = l ? State.blockLabel(l.blockId) + '.' + State.lessonNum(sel.lessonId) : sel.lessonId;
+
+    return {
+      id: 'l' + n, tick: 'lesson',
+      title: head + ': ' + code + ' „' + (l ? l.title : '') + '“',
+      sub: (n === 2 && full ? 'другая дорожка · ' : '') + State.trackName(b.track),
+      done: done,
+      body: Lesson.card({
+        lessonId: sel.lessonId, reason: sel.reason, today: t,
+        minRow: false, freshBars: false, ofDay: false, bare: true
+      })
+    };
+  }
+
+  /** Воскресный радар — пункт плана, а не добавка в чипах. */
+  function radarItem(t, d) {
+    var done = window.Radar ? Radar.checklistDone(t) : false;
+    var state = window.Radar ? Radar.checklistState(t) : [];
+    var list = window.Radar ? Radar.CHECKLIST : [];
+    var body = '<p class="pnote">Пять пунктов. Закрыл все — добавка +1 к дню ставится сама.</p>' +
+      list.map(function (text, i) {
+        return '<label class="check"><input type="checkbox" data-check="' + U.esc(i) + '"' +
+          (state[i] ? ' checked' : '') + '><span>' + U.esc(text) + '</span></label>';
+      }).join('');
+    return {
+      id: 'radar', tick: 'radar', title: 'Воскресный радар', sub: 'чек-лист недели',
+      done: done, body: body
+    };
+  }
+
+  /* ---------- пустой план, хвост и статус ---------- */
+
+  function emptyPlan(t) {
+    return '<div class="pempty">' +
+      '<div class="pe-t">Выбери уровень — серия 🔥 ' + State.streak() + ' ждёт</div>' +
+      '<button class="btn sec" data-level="min">Минималка ~10 мин</button>' +
+      '</div>';
+  }
+
+  /** В воскресенье урок не назначается, но право на него остаётся (7.8). */
+  function sundayEscape(t, d) {
+    if (U.weekday(t) !== 7) return '';
+    if (d.forceLesson || d.pick) return '';
+    var level = d.level || 'none';
+    if (level !== 'norm' && level !== 'full') return '';
+    return '<div class="center"><button class="linkbtn" data-force-lesson>всё равно хочу урок</button></div>';
+  }
+
+  function planStatus(t, d, allDone) {
+    if (allDone) {
+      var p = State.points(t);
+      return '<div class="pstatus done">День закрыт ✓ ' + p + ' ' +
+        U.plural(p, 'очко', 'очка', 'очков') + '</div>';
+    }
+    return '<div class="pstatus">' + dayLine(t, d) + '</div>';
+  }
+
+  function setMinimalStep(i, on) {
+    var d = State.day(State.today(), true);
+    d.minimalSteps = d.minimalSteps || [false, false];
+    d.minimalSteps[i] = !!on;
+    State.touch();
+  }
+
+  /** Тап по кружку пункта. Уроки руками не отмечаются — только итогом. */
+  function tick(id) {
+    var t = State.today();
+    var d = State.day(t, true);
+    if (id === 'lesson') {
+      UI.toast('Урок закрывается «ИТОГОМ УРОКА» — открой пункт и вставь его', '', 3200);
+      return;
+    }
+    if (id === 'm0' || id === 'm1') { setMinimalStep(id === 'm0' ? 0 : 1, !(d.minimalSteps || [])[id === 'm0' ? 0 : 1]); return; }
+    if (id === 'min') {
+      var ms = d.minimalSteps || [];
+      var on = !(ms[0] && ms[1]);
+      setMinimalStep(0, on);
+      setMinimalStep(1, on);
+      return;
+    }
+    if (id === 'break') { d.breakDone = !d.breakDone; State.touch(); return; }
+    if (id === 'radar' && window.Radar) { Radar.setChecklistAll(!Radar.checklistDone(t), t); }
   }
 
   /**
@@ -310,9 +608,9 @@ window.App = (function () {
    */
   var LEVEL_HINT = {
     none: 'выбери уровень — серия ждёт',
-    min: 'база дня: карточки + аудио',
-    norm: 'минималка + 1 урок',
-    full: 'минималка + 2 урока (второй — другая дорожка)'
+    min: 'план: карточки + пересказ',
+    norm: 'план: минималка + 1 урок',
+    full: 'план: минималка + 2 урока'
   };
 
   function dayLine(t, d) {
@@ -353,136 +651,9 @@ window.App = (function () {
 
     return '<div class="dayline">' + head + ' · ' + U.esc(desc) + tail + '</div>';
   }
-
-  /* ============================================================
-     Что показывать под чипами: экран перестраивается под уровень дня.
-     Смысл — показать то, что делают на этом уровне, и ничего сверх:
-     карточка урока на минималке делала минималку неотличимой от нормы.
-     ============================================================ */
-
-  function daySlot(t, d) {
-    if (typeof Lesson === 'undefined' || !Lesson.card) {
-      return '<div class="lesson">' +
-        '<span class="why w-plan">выбор: ждёт водопада</span>' +
-        '<h4>Урок дня появится вместе с программой</h4></div>';
-    }
-
-    var pending = Lesson.pendingCard(t);      // незакрытый урок прошлых дней — на любом уровне
-    var sel = Lesson.current(t);
-
-    // радар-день: урока нет ни на одном уровне, прятать нечего
-    if (sel && sel.sunday) return pending + Lesson.card({ today: t });
-
-    var level = d.level || 'none';
-    if (level === 'none') return pending + emptyDayCard(t);
-    if (level === 'min') return pending + minimalCard(t, d);
-    return pending + planHeader(t, d) + Lesson.card({ minRow: false, today: t });
-  }
-
-  /** Пусто: ничего оранжевого — один тихий шаг обратно в серию. */
-  function emptyDayCard(t) {
-    var st = State.streak();
-    return '<div class="card quiet">' +
-      '<div class="qt">Сегодня пусто</div>' +
-      '<div class="qs">Минималка займёт ~10 минут и удержит серию 🔥 ' + st + '</div>' +
-      '<button class="btn sec" data-level="min">Перейти на минималку</button>' +
-      '</div>';
-  }
-
-  /** Минималка: два конкретных шага и ни одной кнопки урока. */
-  function minimalCard(t, d) {
-    return '<div class="card mincard">' +
-      '<div class="mhead"><b>Минималка</b><span class="mono">~10–15 мин</span></div>' +
-      minimalSteps(d) +
-      '<div class="mnote">Итог урока не нужен — минималка закрывается чипом.</div>' +
-      '</div>';
-  }
-
-  /**
-   * Два шага минималки. Отметки живут в days[date].minimalSteps и на очки
-   * не влияют: очки за минималку уже дал чип уровня (доктрина, правило 1).
-   */
-  function minimalSteps(d) {
-    var done = d.minimalSteps || [];
-    var words = State.wordBank().length;
-    var debts = State.openDebts().length;
-
-    var first = (words || debts)
-      ? {
-        text: 'Карточки: повторить ' + words + ' ' + U.plural(words, 'слово', 'слова', 'слов') +
-          (debts ? ' + ' + debts + ' ' + U.plural(debts, 'долг', 'долга', 'долгов') : ''),
-        act: '<button class="btn sec mact" data-cards>Открыть карточки</button>'
-      }
-      : {
-        text: 'Колода пока пуста — она наполнится из итогов уроков. ' +
-          'Вместо неё: одно видео/аудио на английском ~5 мин',
-        act: ''
-      };
-
-    var second = {
-      text: 'Пересказ вслух: 60 секунд по видео/аудио',
-      act: '<button class="btn sec mact" data-minprompt>Промпт разминки</button>'
-    };
-
-    return '<div class="msteps">' + [first, second].map(function (s, i) {
-      return '<div class="mstep' + (done[i] ? ' on' : '') + '">' +
-        '<label class="check"><input type="checkbox" data-mstep="' + i + '"' +
-        (done[i] ? ' checked' : '') + '><span>' + U.esc(s.text) + '</span></label>' +
-        (s.act ? '<div class="macts">' + s.act + '</div>' : '') +
-        '</div>';
-    }).join('') + '</div>';
-  }
-
-  /**
-   * Шапка плана дня для нормы и полной: цепочка этапов и отметки по ним.
-   * Уроки отмечаются сами — закрытием итога; минималка и перерыв руками.
-   */
-  var minOpen = null;      // null — решает состояние: не сделана → раскрыта
-
-  function planHeader(t, d) {
-    var full = d.level === 'full';
-    var lessons = (d.lessons || []).length;
-    var ms = d.minimalSteps || [];
-    var minDone = !!(ms[0] && ms[1]);
-    var open = minOpen === null ? !minDone : minOpen;
-
-    var chain = full
-      ? 'План: минималка → урок 1 → перерыв 5–10 мин без экрана → урок 2 (другая дорожка)'
-      : 'План: минималка → урок';
-
-    var rows = '<div class="pstage' + (minDone ? ' on' : '') + '">' +
-      '<label class="check"><input type="checkbox" data-stage-min' + (minDone ? ' checked' : '') +
-      '><span>минималка</span></label>' +
-      '<button class="pchev" data-stage-open aria-expanded="' + open +
-      '" aria-label="Показать шаги минималки">' + (open ? '▾' : '▸') + '</button></div>' +
-      (open ? '<div class="psub">' + minimalSteps(d) + '</div>' : '');
-
-    if (full) {
-      rows += stageRow('урок 1', lessons >= 1);
-      var hot = lessons >= 1 && !d.breakDone;
-      rows += '<div class="pstage' + (d.breakDone ? ' on' : '') + (hot ? ' hot' : '') + '">' +
-        '<label class="check"><input type="checkbox" data-stage-break' +
-        (d.breakDone ? ' checked' : '') + '><span>перерыв 5–10 мин без экрана</span></label></div>';
-      rows += stageRow('урок 2 (другая дорожка)', lessons >= 2);
-    } else {
-      rows += stageRow('урок', lessons >= 1);
-    }
-
-    return '<div class="plan"><div class="plan-t mono">' + U.esc(chain) + '</div>' + rows + '</div>';
-  }
-
-  function setMinimalStep(i, on) {
-    var d = State.day(State.today(), true);
-    d.minimalSteps = d.minimalSteps || [false, false];
-    d.minimalSteps[i] = !!on;
-    State.touch();
-  }
-
-  /** Этап-урок отмечается только итогом — руками его не поставить. */
-  function stageRow(text, done) {
-    return '<div class="pstage auto' + (done ? ' on' : '') + '">' +
-      '<label class="check"><input type="checkbox" disabled' + (done ? ' checked' : '') +
-      '><span>' + U.esc(text) + '</span></label></div>';
+  /** Мини-полоски свежести живут под планом: это фон дня, а не его пункт. */
+  function freshBars() {
+    return window.Waterfall ? Waterfall.miniBars() : '';
   }
 
   function ifThenLine(t) {
@@ -592,8 +763,10 @@ window.App = (function () {
     boot: boot, version: version,
     dayLine: dayLine, LEVEL_HINT: LEVEL_HINT,
     weekStrip: weekStrip, weekDays: weekDays, dayRing: dayRing, dayPlan: dayPlan,
-    daySlot: daySlot, minimalSteps: minimalSteps, planHeader: planHeader,
-    setMinimalStep: setMinimalStep,
+    planBlock: planBlock, planItems: planItems, levelSeg: levelSeg, addonChips: addonChips,
+    minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
+    resetOpen: function () { openItem = null; },
+    setOpen: function (id) { openItem = id; },
     get active() { return active; }
   };
 })();

@@ -270,50 +270,87 @@ section.block:first-of-type{margin-top:0}
 .fresh .tbar i{display:block;height:100%;border-radius:99px}
 .fresh .tdays{width:auto;min-width:72px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0}
 
-/* ---------- пустой день: тихая карточка, ничего кричащего ---------- */
+/* ---------- селектор уровня дня ---------- */
 
-.quiet{border-style:dashed}
-.quiet .qt{font-size:14px;font-weight:600;color:var(--ink)}
-.quiet .qs{font-size:12.5px;color:var(--muted);margin:4px 0 12px;line-height:1.5}
+.lvlseg{width:100%;margin-bottom:12px}
+.lvlseg button{flex:1;min-width:0;padding:0 6px;font-size:12.5px}
+.lvlseg button[aria-pressed="true"]{background:var(--fire);color:#12151c;font-weight:600}
 
-/* ---------- минималка: два конкретных шага ---------- */
+/* ---------- ПЛАН ДНЯ: главный блок экрана ---------- */
 
-.mincard .mhead{
-  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  padding-bottom:10px;border-bottom:1px solid var(--line);
+.plan{
+  background:linear-gradient(180deg,var(--card),var(--card2));
+  border:1px solid var(--fire);border-radius:16px;
+  box-shadow:0 0 0 3px var(--fire-soft);
+  padding:6px 14px 14px;margin-bottom:14px;
 }
-.mincard .mhead b{font-size:14px}
-.mincard .mhead span{font-size:11.5px;color:var(--muted)}
-.mincard .mnote{
-  font-size:11.5px;color:var(--muted);margin-top:10px;
-  padding-top:10px;border-top:1px solid var(--line);
+.plan.done{border-color:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+
+.pitem{display:grid;grid-template-columns:44px 1fr;align-items:start}
+.pitem + .pitem{border-top:1px solid var(--line)}
+
+.pdot{
+  grid-column:1;position:relative;
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  color:var(--ok);font-size:14px;font-weight:700;
 }
+/* контур пустого кружка — muted, а не dim: он несёт смысл «ещё не сделано»
+   и обязан читаться (dim на карточке даёт 2.7:1, muted — 5.4:1) */
+.pdot::before{
+  content:'';position:absolute;width:20px;height:20px;border-radius:50%;
+  border:2px solid var(--muted);
+}
+.pitem.done .pdot::before{border-color:var(--ok);background:var(--ok)}
+.pitem.done .pdot{color:#12151c;z-index:1}
+
+.prow{
+  grid-column:2;min-height:44px;display:flex;align-items:center;gap:10px;
+  text-align:left;padding:6px 0;
+}
+.ptext{flex:1;min-width:0}
+.pt{display:block;font-size:13.5px;line-height:1.35}
+.ps{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.pchev{color:var(--muted);font-size:12px;flex-shrink:0;width:16px;text-align:right}
+
+/* выполненный пункт отступает зачёркиванием и зелёной галочкой,
+   а не нечитаемым серым: подпись остаётся muted */
+.pitem.done .pt{color:var(--muted);text-decoration:line-through}
+.pitem.locked{opacity:.55}
+.pitem.locked .prow{cursor:default}
+
+.pbody{grid-column:1 / -1;padding:2px 0 12px}
+.pnote{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.btn.pact{width:auto;min-height:44px;padding:0 14px;font-size:12.5px}
+
+/* карточка урока внутри пункта плана — без собственной рамки */
+.plan .lesson.bare{background:none;border:none;border-radius:0;padding:0}
+
+.pempty{text-align:center;padding:10px 0 4px}
+.pempty .pe-t{font-size:13.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.pempty .btn{width:auto;display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;padding:0 18px}
+
+.pstatus{
+  font-size:12.5px;color:var(--muted);font-weight:500;line-height:1.5;
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--line);
+}
+.pstatus b{font-weight:700;font-size:13.5px}
+.pstatus.done{color:var(--ok);font-weight:600}
+
+/* ---------- вложенные шаги минималки ---------- */
+
 .msteps{display:flex;flex-direction:column}
-.mstep{padding:4px 0}
+.mstep{padding:2px 0}
 .mstep + .mstep{border-top:1px solid var(--line);margin-top:2px}
 .mstep .check span{line-height:1.45}
 .mstep.on .check span{color:var(--muted);text-decoration:line-through}
 .macts{padding-left:29px;padding-bottom:6px}
-.btn.mact{width:auto;min-height:44px;padding:0 14px;font-size:12.5px}
 
-/* ---------- шапка плана дня (норма и полная) ---------- */
+/* ---------- добавки: то, что сверх плана ---------- */
 
-.plan{
-  background:var(--card2);border:1px solid var(--line);border-radius:var(--r);
-  padding:12px 14px;margin-bottom:10px;
-}
-.plan-t{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
-.pstage{display:flex;align-items:center;gap:8px}
-.pstage .check{flex:1;min-width:0}
-.pstage.on .check span{color:var(--muted);text-decoration:line-through}
-.pstage.auto .check{cursor:default}
-.pstage.hot{
-  background:var(--warn-soft);border-radius:9px;
-  margin:0 -8px;padding:0 8px;
-}
-.pstage.hot .check span{color:var(--warn)}
-.pchev{width:44px;min-height:44px;color:var(--muted);font-size:13px;flex-shrink:0}
-.psub{padding-left:8px;border-left:2px solid var(--line);margin:0 0 4px 12px}
+.addons{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.addons .alabel{font-size:11.5px;color:var(--muted);margin-right:2px}
+.chip.mini{min-height:44px;font-size:11.5px;padding:0 11px}
 
 /* ---------- статусная строка дня ---------- */
 
