@@ -80,6 +80,125 @@
     ok(line(t).indexOf('минималка + 1 урок') > 0, 'смысл уровня при этом не поехал');
   });
 
+  /** Слот под чипами на выбранном уровне. Понедельник — урок точно есть. */
+  function slot(level, over) {
+    fresh();
+    var t = '2026-08-24';
+    var d = State.day(t, true);
+    d.level = level;
+    Object.assign(d, over || {});
+    State.recount(t);
+    return App.daySlot(t, d);
+  }
+
+  describe('экран по уровню: пусто — карточки урока нет', function () {
+    var html = slot('none');
+    ok(html.indexOf('Сегодня пусто') > 0, 'тихая карточка на месте');
+    ok(html.indexOf('удержит серию') > 0, 'объясняет, зачем минималка');
+    ok(html.indexOf('data-level="min"') > 0, 'кнопка перехода на минималку');
+    eq(html.indexOf('class="lesson"'), -1, 'карточки урока нет');
+    eq(html.indexOf('data-copy'), -1, 'кнопки «Скопировать промпт» нет');
+    eq(html.indexOf('data-summary'), -1, 'кнопки «Вставить итог» нет');
+    eq(html.indexOf('data-minprompt'), -1, 'ссылок минималки тоже нет');
+    eq(html.indexOf('data-cards'), -1, 'и «Карточки» нет');
+    eq(html.indexOf('var(--fire)'), -1, 'ничего оранжевого');
+  });
+
+  describe('экран по уровню: минималка — два шага вместо урока', function () {
+    var html = slot('min');
+    ok(html.indexOf('Минималка') > 0, 'заголовок карточки');
+    ok(html.indexOf('~10–15 мин') > 0, 'длительность названа');
+    eq(html.indexOf('class="lesson"'), -1, 'карточки урока нет');
+    eq(html.indexOf('data-copy'), -1, 'кнопки промпта урока нет');
+    eq(html.indexOf('data-summary'), -1, 'кнопки «Вставить итог» нет');
+
+    eq((html.match(/data-mstep=/g) || []).length, 2, 'ровно два шага с чекбоксами');
+    ok(html.indexOf('Пересказ вслух: 60 секунд') > 0, 'второй шаг конкретный');
+    ok(html.indexOf('data-minprompt') > 0, 'кнопка «Промпт разминки»');
+    ok(html.indexOf('Итог урока не нужен') > 0, 'внизу сказано, что итог не требуется');
+  });
+
+  describe('экран по уровню: минималка с пустой колодой', function () {
+    var html = slot('min');
+    ok(html.indexOf('Колода пока пуста') > 0, 'честно про пустую колоду');
+    ok(html.indexOf('одно видео/аудио на английском ~5 мин') > 0, 'даёт замену');
+    eq(html.indexOf('data-cards'), -1, 'кнопки «Открыть карточки» нет — открывать нечего');
+
+    // наполним банк — первый шаг становится карточками с реальными числами
+    State.applySummary('B1.1', {
+      score: 8, level: 'L2', topics: 'x',
+      words: [{ en: 'rubric', ru: 'критерии' }, { en: 'submit', ru: 'сдать' }],
+      debts: ['путает justify'], cleared: [], warmup: [], writing: '', raw: ''
+    }, { date: '2026-08-24' });
+    var d = State.day('2026-08-24', true);
+    d.level = 'min';
+    var full = App.daySlot('2026-08-24', d);
+    ok(full.indexOf('Карточки: повторить 2 слова + 1 долг') > 0, 'числа реальные и склонённые');
+    ok(full.indexOf('data-cards') > 0, 'кнопка «Открыть карточки» появилась');
+  });
+
+  describe('экран по уровню: норма — шапка плана плюс урок', function () {
+    var html = slot('norm');
+    ok(html.indexOf('План: минималка → урок') > 0, 'шапка плана');
+    ok(html.indexOf('class="lesson"') > 0, 'карточка урока на месте');
+    ok(html.indexOf('data-copy') > 0, 'кнопка промпта есть');
+    ok(html.indexOf('data-summary') > 0, 'кнопка итога есть');
+    ok(html.indexOf('data-stage-min') > 0, 'этап «минималка» — чекбокс');
+    eq((html.match(/class="pstage/g) || []).length, 2, 'два этапа: минималка и урок');
+    eq(html.indexOf('перерыв'), -1, 'перерыва в норме нет');
+  });
+
+  describe('экран по уровню: полная — четыре этапа и перерыв', function () {
+    var html = slot('full');
+    ok(html.indexOf('План: минималка → урок 1 → перерыв 5–10 мин без экрана → урок 2 (другая дорожка)') > 0,
+      'шапка полной');
+    eq((html.match(/class="pstage/g) || []).length, 4, 'четыре этапа');
+    ok(html.indexOf('data-stage-break') > 0, 'перерыв отмечается руками');
+    ok(html.indexOf('урок 1 из 2 на сегодня') > 0, 'бейдж урока на карточке');
+    eq(html.indexOf('pstage hot'), -1, 'до первого итога перерыв не подсвечен');
+
+    // закрыли первый урок — перерыв загорается
+    var hot = slot('full', { lessons: ['B1.1'] });
+    ok(hot.indexOf('pstage') > 0 && /pstage[^"]*hot/.test(hot), 'после первого урока перерыв подсвечен');
+  });
+
+  describe('чек-лист минималки: пишется в days и переживает перерисовку', function () {
+    fresh();
+    var t = State.today();
+    State.setLevel('min');
+
+    App.setMinimalStep(0, true);
+    eq(State.day(t).minimalSteps, [true, false], 'первый шаг записан в день');
+
+    // перерисовка берёт отметку из состояния, а не из DOM
+    var again = App.daySlot(t, State.day(t));
+    eq((again.match(/data-mstep="0" checked/g) || []).length, 1, 'после перерисовки шаг отмечен');
+    eq((again.match(/data-mstep="1" checked/g) || []).length, 0, 'второй — нет');
+
+    App.setMinimalStep(1, true);
+    eq(State.day(t).minimalSteps, [true, true], 'оба шага записаны');
+
+    // на очки чек-лист не влияет — их дал чип уровня
+    eq(State.points(t), 1, 'очки дня остались минималочные');
+
+    App.setMinimalStep(0, false);
+    eq(State.day(t).minimalSteps, [false, true], 'снятие тоже пишется');
+    eq(State.points(t), 1, 'и снятие очков не трогает');
+  });
+
+  describe('чек-лист минималки: этап «минималка» в норме ставит оба шага', function () {
+    fresh();
+    var t = '2026-08-24';
+    var d = State.day(t, true);
+    d.level = 'norm';
+    d.minimalSteps = [true, true];
+    var html = App.daySlot(t, d);
+    ok(/pstage on/.test(html), 'этап отмечен, когда оба шага сделаны');
+
+    d.minimalSteps = [true, false];
+    ok(!/pstage on[^"]*"[\s\S]{0,80}минималка/.test(App.daySlot(t, d)), 'полшага — этап не закрыт');
+  });
+
   describe('полоса недели: строка ранга в формате v1', function () {
     fresh();
     var t = State.today();

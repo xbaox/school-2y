@@ -270,6 +270,51 @@ section.block:first-of-type{margin-top:0}
 .fresh .tbar i{display:block;height:100%;border-radius:99px}
 .fresh .tdays{width:auto;min-width:72px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0}
 
+/* ---------- пустой день: тихая карточка, ничего кричащего ---------- */
+
+.quiet{border-style:dashed}
+.quiet .qt{font-size:14px;font-weight:600;color:var(--ink)}
+.quiet .qs{font-size:12.5px;color:var(--muted);margin:4px 0 12px;line-height:1.5}
+
+/* ---------- минималка: два конкретных шага ---------- */
+
+.mincard .mhead{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding-bottom:10px;border-bottom:1px solid var(--line);
+}
+.mincard .mhead b{font-size:14px}
+.mincard .mhead span{font-size:11.5px;color:var(--muted)}
+.mincard .mnote{
+  font-size:11.5px;color:var(--muted);margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--line);
+}
+.msteps{display:flex;flex-direction:column}
+.mstep{padding:4px 0}
+.mstep + .mstep{border-top:1px solid var(--line);margin-top:2px}
+.mstep .check span{line-height:1.45}
+.mstep.on .check span{color:var(--muted);text-decoration:line-through}
+.macts{padding-left:29px;padding-bottom:6px}
+.btn.mact{width:auto;min-height:44px;padding:0 14px;font-size:12.5px}
+
+/* ---------- шапка плана дня (норма и полная) ---------- */
+
+.plan{
+  background:var(--card2);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:10px;
+}
+.plan-t{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+.pstage{display:flex;align-items:center;gap:8px}
+.pstage .check{flex:1;min-width:0}
+.pstage.on .check span{color:var(--muted);text-decoration:line-through}
+.pstage.auto .check{cursor:default}
+.pstage.hot{
+  background:var(--warn-soft);border-radius:9px;
+  margin:0 -8px;padding:0 8px;
+}
+.pstage.hot .check span{color:var(--warn)}
+.pchev{width:44px;min-height:44px;color:var(--muted);font-size:13px;flex-shrink:0}
+.psub{padding-left:8px;border-left:2px solid var(--line);margin:0 0 4px 12px}
+
 /* ---------- статусная строка дня ---------- */
 
 .dayline{

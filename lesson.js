@@ -82,12 +82,19 @@ window.Lesson = (function () {
 
   /* ---------- карточка ---------- */
 
-  function card() {
-    var todayIso = State.today();
-    var pending = unfinished(todayIso);
+  /**
+   * card(opts) — карточка урока дня.
+   * opts.minRow:false — не печатать строку «Карточки · Промпт минималки»:
+   * на норме и полной те же кнопки уже стоят в шаге «минималка» шапки плана.
+   * Незакрытый урок прошлых дней живёт отдельно, в pendingCard().
+   */
+  function card(opts) {
+    opts = opts || {};
+    var minRow = opts.minRow !== false;
+    var todayIso = opts.today || State.today();
     var sel = current(todayIso);
-    if (!sel) return pending + emptyCard();
-    if (sel.sunday) return pending + sundayCard(sel);
+    if (!sel) return emptyCard();
+    if (sel.sunday) return sundayCard(sel);
 
     var lessonId = sel.lessonId;
     var lesson = CONTENT.lesson(lessonId);
@@ -113,8 +120,7 @@ window.Lesson = (function () {
     var lastScore = last && last.parsed && last.parsed.score != null
       ? 'прошлый урок дорожки: ' + last.parsed.score + '/10' : 'прошлых уроков дорожки нет';
 
-    return pending +
-      '<div class="lesson">' +
+    return '<div class="lesson">' +
       '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) +
       '" aria-label="Почему выбран этот урок">выбор: ' +
       U.esc(whyText(sel.reason.text)) + ' ⓘ</button>' +
@@ -130,7 +136,7 @@ window.Lesson = (function () {
       '<div class="foot">' + U.esc(debtLine(debts)) + ' · ' + U.esc(lastScore) + '</div>' +
       swapLink() +
       freshBars() +
-      minimalRow() +
+      (minRow ? minimalRow() : '') +
       '</div>';
 
     function freshBars() { return window.Waterfall ? Waterfall.miniBars() : ''; }
@@ -412,6 +418,6 @@ window.Lesson = (function () {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
     openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
     findPending: findPending, PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
-    ofDayLine: ofDayLine, dayIndex: dayIndex
+    ofDayLine: ofDayLine, dayIndex: dayIndex, pendingCard: unfinished
   };
 })();
