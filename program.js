@@ -80,10 +80,20 @@
       ? '<span class="' + UI.lightClass(st.color) + '">' + UI.lightDot(st.color) + ' ' + U.esc(st.text) + '</span>'
       : '<span class="dim">уроки придут пакетом</span>';
 
+    // закрытые уроки — цветом своей дорожки: по колонке точек видно,
+    // какие предметы двигаются, а какие стоят
     var dots = '';
     for (var i = 0; i < pr.total; i++) {
-      dots += '<b class="' + (i < pr.done ? 'on' : '') + '">' + (i < pr.done ? '●' : '○') + '</b>';
+      dots += i < pr.done
+        ? '<b class="on t-' + U.esc(b.track) + '">●</b>'
+        : '<b class="off">○</b>';
     }
+
+    // полоска прогресса блока — она же несёт контраст: точки мелкие
+    var bar = pr.total
+      ? '<div class="blbar"><i class="t-' + U.esc(b.track) + '" style="width:' +
+      Math.round(pr.done / pr.total * 100) + '%"></i></div>'
+      : '';
 
     var head =
       '<div class="bl-head" role="button" tabindex="0" aria-expanded="' + !!isOpen +
@@ -97,9 +107,9 @@
       '<div class="prog mono">' + (dots || '<span class="dim tiny">—</span>') + '</div>' +
       '</div>';
 
-    if (!isOpen) return '<div class="item bl">' + head + '</div>';
+    if (!isOpen) return '<div class="item bl">' + head + bar + '</div>';
 
-    return '<div class="item bl open">' + head + lessonsList(id) +
+    return '<div class="item bl open">' + head + bar + lessonsList(id) +
       '<div class="btn-row" style="margin-top:10px">' +
       '<button class="btn ghost" data-deadline="' + U.esc(id) +
       '" aria-label="Изменить дедлайн блока">✏️ дедлайн</button>' +

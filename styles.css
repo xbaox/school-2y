@@ -110,10 +110,69 @@ section.block:first-of-type{margin-top:0}
 
 .p-top{
   display:flex;justify-content:space-between;align-items:center;
-  font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-bottom:14px;
+  font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-bottom:10px;gap:12px;
 }
-.p-top .streak{color:var(--fire);font-weight:700;font-size:15px}
-.p-top .rank{white-space:nowrap}
+.p-top .streak{color:var(--fire);font-weight:700;font-size:15px;min-width:0}
+.p-top .streak em{
+  display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--muted);
+  letter-spacing:.02em;margin-top:1px;
+}
+
+/* ---------- кольцо очков дня ---------- */
+
+.ring{position:relative;width:44px;height:44px;flex-shrink:0}
+.ring svg{width:44px;height:44px;display:block;transform:rotate(-90deg)}
+.ring .ring-bg{fill:none;stroke:var(--line);stroke-width:3}
+.ring .ring-arc{
+  fill:none;stroke-width:3;stroke-linecap:round;
+  transition:stroke-dashoffset .35s ease-out;
+}
+.ring b{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;color:var(--fire);
+}
+.ring.done b{color:var(--ok)}
+@keyframes ring-pulse{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+.ring.pulse{animation:ring-pulse 700ms ease-out 1}
+
+/* ---------- полоса недели ---------- */
+
+.week{margin-bottom:14px}
+.wbar{
+  position:relative;height:6px;border-radius:99px;
+  background:var(--line);overflow:hidden;
+}
+.wbar > span{
+  display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--fire),var(--warn));
+  transition:width .35s ease-out;
+}
+/* засечки порогов рангов поверх заливки */
+.wbar > i{
+  position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;
+  background:var(--bg);opacity:.75;
+}
+.wbar > i.on{background:rgba(18,21,28,.45)}
+.wtext{
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  margin-top:6px;line-height:1.4;
+}
+
+/* ---------- кружки дней недели ---------- */
+
+.wdays{display:flex;justify-content:space-between;gap:4px;margin-top:8px}
+.wd{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0}
+.wd i{
+  width:14px;height:14px;border-radius:50%;
+  border:1.5px solid var(--dim);background:transparent;
+}
+.wd span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.wd.f-min i{background:var(--warn);border-color:var(--warn)}
+.wd.f-norm i{background:var(--fire);border-color:var(--fire)}
+.wd.f-full i{background:var(--ok);border-color:var(--ok)}
+.wd.miss i{border-color:var(--bad)}
+.wd.now i{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--fire)}
+.wd.now span{color:var(--fire)}
 
 /* ---------- плашка ступени ---------- */
 
@@ -342,9 +401,15 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .bl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-height:44px}
 .bl-t{font-size:13.5px;line-height:1.4}
 .bl-s{margin-top:3px}
-.prog{font-size:11px;letter-spacing:1px;color:var(--dim);flex-shrink:0;white-space:nowrap}
+.prog{font-size:11px;letter-spacing:1px;flex-shrink:0;white-space:nowrap}
+/* пустые точки — нейтральный контур; смысл «сколько закрыто» дублирует
+   полоска .blbar, поэтому мелкие ○ остаются декоративными */
 .prog b{font-weight:400}
-.prog b.on{color:var(--fire)}
+.prog b.off{color:var(--line)}
+
+/* полоска прогресса блока — цветом дорожки */
+.blbar{height:3px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:8px}
+.blbar i{display:block;height:100%;border-radius:99px;background:currentColor}
 .lessons{margin-top:11px;border-top:1px solid var(--line);padding-top:9px}
 .lrow{display:flex;align-items:baseline;gap:8px;padding:5px 0;font-size:13px}
 .lrow .lm{width:14px;flex-shrink:0}
@@ -514,5 +579,6 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
   /* подтверждение выбора остаётся — но без движения, одним цветом.
      Специфичность .chip.pop перебивает !important у «*». */
   .chip.pop{animation:chip-flash 150ms ease-out !important}
-  .ring.done .ring-arc{animation:none !important}
+  /* замкнувшееся кольцо не пульсирует — цвет и так меняется на ok */
+  .ring.pulse{animation:none !important}
 }

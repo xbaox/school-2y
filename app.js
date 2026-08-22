@@ -94,7 +94,8 @@ window.App = (function () {
     render: function () {
       var t = State.today();
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
-      return topRow(t) + badges() + stepCard() + chips(d) + dayLine(t, d) + lessonCard() + ifThenLine(t);
+      return topRow(t) + weekStrip(t) + badges() + stepCard() +
+        chips(d) + dayLine(t, d) + lessonCard() + ifThenLine(t);
     },
     mount: function (host) {
       U.on(host, 'click', '[data-level]', function (e, el) {
@@ -113,14 +114,118 @@ window.App = (function () {
 
   function topRow(t) {
     var st = State.streak();
+    return '<div class="p-top">' +
+      '<span class="streak">🔥 ' + st + ' <em>' +
+      U.plural(st, 'день', 'дня', 'дней') + ' подряд</em></span>' +
+      dayRing(t) +
+      '</div>';
+  }
+
+  /* ---------- кольцо дня ---------- */
+
+  var RING_R = 20.5;                          // диаметр 44px при обводке 3px
+  var RING_C = 2 * Math.PI * RING_R;
+  var ringWasDone = false;
+
+  /**
+   * План дня = максимальный уровень доктрины плюс отмеченные добавки;
+   * кольцо замыкается только на полной со всеми выбранными добавками,
+   * то есть показывает, сколько ещё можно взять сегодня.
+   */
+  function dayPlan(d) {
+    var top = (State.s.settings.levels || []).reduce(function (m, l) {
+      return Math.max(m, l.points || 0);
+    }, 0);
+    var extra = (d.addons || []).reduce(function (n, id) {
+      var a = DOCTRINE.byId(State.s.settings.addons, id);
+      return n + (a ? (a.points || 0) : 0);
+    }, 0);
+    return Math.max(1, top + extra);
+  }
+
+  function dayRing(t) {
+    var d = State.day(t) || { level: 'none', addons: [] };
+    var have = State.points(t);
+    var plan = dayPlan(d);
+    var pct = U.clamp(have / plan, 0, 1);
+    var done = have > 0 && have >= plan;
+    var justDone = done && !ringWasDone;
+    ringWasDone = done;
+
+    var stroke = d.level === 'min' ? 'var(--warn)'
+      : (d.level === 'full' ? 'url(#ringgrad)' : 'var(--fire)');
+
+    return '<div class="ring' + (done ? ' done' : '') + (justDone ? ' pulse' : '') +
+      '" title="' + U.esc('очки дня: ' + have + ' из ' + plan) + '">' +
+      '<svg viewBox="0 0 44 44" aria-hidden="true" focusable="false">' +
+      '<defs><linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0%" stop-color="var(--fire)"/>' +
+      '<stop offset="100%" stop-color="var(--ok)"/></linearGradient></defs>' +
+      '<circle class="ring-bg" cx="22" cy="22" r="' + RING_R + '"/>' +
+      '<circle class="ring-arc" cx="22" cy="22" r="' + RING_R +
+      '" stroke-dasharray="' + RING_C.toFixed(1) +
+      '" stroke-dashoffset="' + (RING_C * (1 - pct)).toFixed(1) +
+      '" style="stroke:' + stroke + '"/>' +
+      '</svg>' +
+      '<b class="mono">' + have + '</b>' +
+      '</div>';
+  }
+
+  /* ---------- полоса недели и кружки дней ---------- */
+
+  /**
+   * Очки недели к следующему рангу: заливка идёт до потолка шкалы рангов,
+   * засечки стоят на порогах — видно и текущий ранг, и всю лестницу.
+   */
+  function weekStrip(t) {
     var wp = State.weekPoints(t);
+    var ranks = (State.s.settings.ranks || []).slice()
+      .sort(function (a, b) { return a.min - b.min; });
+    var top = ranks.length ? ranks[ranks.length - 1].min : 0;
+    var pct = top ? U.clamp(Math.round(wp / top * 100), 0, 100) : 0;
+
     var rk = State.rank(t);
     var nx = State.nextRank(t);
-    var rankText = rk ? rk.name : (nx ? 'до «' + nx.rank.name + '» ' + nx.left : '—');
-    return '<div class="p-top">' +
-      '<span class="streak">🔥 ' + st + '</span>' +
-      '<span class="rank">нед: ' + wp + ' pts · ' + U.esc(rankText) + '</span>' +
+    var text = wp + ' ' + U.plural(wp, 'очко', 'очка', 'очков') + ' · ' +
+      (nx
+        ? (rk ? rk.name : 'пока без ранга') + ' — до «' + nx.rank.name + '» ещё ' + nx.left
+        : (rk ? rk.name : '—') + ' — потолок недели');
+
+    var ticks = ranks.map(function (r) {
+      if (!top) return '';
+      return '<i class="' + (wp >= r.min ? 'on' : '') + '" style="left:' +
+        U.clamp(r.min / top * 100, 0, 100) + '%" title="' + U.esc(r.name + ' · ' + r.min) + '"></i>';
+    }).join('');
+
+    return '<div class="week">' +
+      '<div class="wbar"><span style="width:' + pct + '%"></span>' + ticks + '</div>' +
+      '<div class="wtext">' + U.esc(text) + '</div>' +
+      weekDays(t) +
       '</div>';
+  }
+
+  var WD = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+
+  /** Семь кружков пн–вс: индикатор, не навигация. */
+  function weekDays(t) {
+    var start = U.weekStart(t);
+    var cells = '';
+    for (var i = 0; i < 7; i++) {
+      var date = U.addDays(start, i);
+      var pts = State.points(date);
+      var day = State.s.days[date];
+      var lvl = (day && day.level) || 'none';
+      var cls = [];
+      if (pts > 0) cls.push('f-' + (lvl === 'none' ? 'min' : lvl));
+      if (date === t) cls.push('now');
+      else if (date > t) cls.push('future');
+      else if (pts <= 0) cls.push('miss');
+      cells += '<div class="wd ' + cls.join(' ') + '" title="' +
+        U.esc(WD[i] + ' ' + U.fmtShort(date) + ' · ' + pts + ' ' +
+          U.plural(pts, 'очко', 'очка', 'очков')) + '">' +
+        '<i></i><span>' + WD[i] + '</span></div>';
+    }
+    return '<div class="wdays">' + cells + '</div>';
   }
 
   /** Компактные бейджи: горящие дела (раздел 6.3). */
@@ -341,6 +446,7 @@ window.App = (function () {
     TABS: TABS, register: register, go: go, render: render, renderScreen: renderScreen,
     boot: boot, version: version,
     dayLine: dayLine, LEVEL_HINT: LEVEL_HINT,
+    weekStrip: weekStrip, weekDays: weekDays, dayRing: dayRing, dayPlan: dayPlan,
     get active() { return active; }
   };
 })();

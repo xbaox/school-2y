@@ -80,6 +80,68 @@
     ok(line(t).indexOf('минималка + 1 урок') > 0, 'смысл уровня при этом не поехал');
   });
 
+  describe('полоса недели: строка ранга в формате v1', function () {
+    fresh();
+    var t = State.today();
+    var ws = U.weekStart(t);
+    function text() { return App.weekStrip(t).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+    ok(text().indexOf('0 очков · пока без ранга — до «Искра» ещё 4') === 0, 'пустая неделя');
+
+    State.s.days[ws] = { level: 'full', addons: [], lessons: [], points: 3 };
+    State.s.days[U.addDays(ws, 1)] = { level: 'norm', addons: [], lessons: [], points: 2 };
+    ok(text().indexOf('5 очков · Искра — до «Ритм» ещё 2') === 0, 'ранг и остаток до следующего');
+
+    State.s.days[U.addDays(ws, 2)] = { level: 'full', addons: ['extra'], lessons: [], points: 6 };
+    State.s.days[U.addDays(ws, 3)] = { level: 'full', addons: ['extra', 'club'], lessons: [], points: 8 };
+    State.s.days[U.addDays(ws, 4)] = { level: 'full', addons: ['extra'], lessons: [], points: 6 };
+    ok(text().indexOf('25 очков · Легенда — потолок недели') === 0, 'выше Легенды рангов нет');
+  });
+
+  describe('полоса недели: засечки стоят на порогах рангов', function () {
+    fresh();
+    var html = App.weekStrip(State.today());
+    var lefts = (html.match(/left:[\d.]+%/g) || []).map(function (s) { return parseFloat(s.slice(5)); });
+    eq(lefts.length, 6, 'шесть засечек — по числу рангов');
+    // пороги 4/7/11/14/17/21 от потолка 21
+    eq(lefts.map(function (x) { return Math.round(x); }), [19, 33, 52, 67, 81, 100], 'позиции по порогам');
+  });
+
+  describe('кружки дней: закрытый, сегодняшний, пропущенный, будущий', function () {
+    fresh();
+    var t = State.today();
+    var ws = U.weekStart(t);
+    var idx = U.weekday(t) - 1;
+
+    State.s.days[ws] = { level: 'min', addons: [], lessons: [], points: 1 };
+    var html = App.weekDays(t);
+    var cells = html.split('<div class="wd ').slice(1).map(function (s) { return s.slice(0, s.indexOf('"')); });
+
+    eq(cells.length, 7, 'семь кружков');
+    ok(cells[0].indexOf('f-min') >= 0 || idx === 0, 'понедельник залит уровнем минималки');
+    ok(cells[idx].indexOf('now') >= 0, 'сегодняшний обведён');
+    if (idx < 6) ok(cells[6].indexOf('future') >= 0, 'воскресенье впереди — контур');
+    if (idx > 1) ok(cells[1].indexOf('miss') >= 0, 'пустой прошедший помечен пропуском');
+  });
+
+  describe('кольцо дня: план = верхний уровень плюс добавки', function () {
+    fresh();
+    eq(App.dayPlan({ level: 'none', addons: [] }), 3, 'без добавок план — полная');
+    eq(App.dayPlan({ level: 'min', addons: ['project'] }), 5, 'добавка поднимает план');
+    eq(App.dayPlan({ level: 'full', addons: ['extra', 'club'] }), 8, 'две добавки');
+
+    var t = State.today();
+    State.setLevel('min');
+    ok(App.dayRing(t).indexOf('var(--warn)') > 0, 'минималка — warn');
+    State.setLevel('norm');
+    ok(App.dayRing(t).indexOf('var(--fire)') > 0, 'норма — fire');
+    State.setLevel('full');
+    var full = App.dayRing(t);
+    ok(full.indexOf('url(#ringgrad)') > 0, 'полная — градиент fire→ok');
+    ok(full.indexOf('ring done') > 0, 'план дня выполнен — кольцо замкнулось');
+    ok(full.indexOf('stroke-dashoffset="0.0"') > 0, 'дуга полная');
+  });
+
   describe('карточка урока: «урок N из 2» только у полной', function () {
     eq(Lesson.ofDayLine('B1.1', { level: 'norm', lessons: [] }), '', 'у нормы ничего не пишем');
     eq(Lesson.ofDayLine('B1.1', { level: 'min', lessons: [] }), '', 'у минималки тоже');
