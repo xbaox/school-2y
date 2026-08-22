@@ -20,6 +20,9 @@ window.Sync = (function () {
   var URL_BASE = 'https://myvhwicdrqfzvsirkonh.supabase.co';
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15dmh3aWNkcnFmenZzaXJrb25oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNDczODUsImV4cCI6MjEwMjgyMzM4NX0.9rlTwojhssYBugaldfwn_3Dmf54mBit0km9pN54ZmE8';
 
+  /** Тексты наружу — только человеческие; сырые ответы уходят в console.error. */
+  var AUTH_LOST = 'Облако не узнало вход — зайди заново';
+
   var SESSION_KEY = 'study-system-v2-session';
   /** Метка последнего успешного push. Переживает закрытие вкладки — по ней
       при следующем запуске видно, что локальные правки ещё не уехали. */
@@ -127,10 +130,8 @@ window.Sync = (function () {
     });
   }
 
-  /** Обновляет токен, если он вот-вот истечёт. */
-  function ensureToken() {
-    if (!signedIn()) return Promise.reject(new Error('нет сессии'));
-    if (session.expires_at && Date.now() < session.expires_at - 60000) return Promise.resolve();
+  function refreshToken() {
+    if (!session || !session.refresh_token) return Promise.reject(new Error('нет сессии'));
     return req('/auth/v1/token?grant_type=refresh_token', {
       method: 'POST', noAuth: true, body: { refresh_token: session.refresh_token }
     }).then(function (r) {
@@ -139,7 +140,54 @@ window.Sync = (function () {
     }).then(function (j) { saveSession(fromAuth(j)); });
   }
 
+  /** Обновляет токен, если он вот-вот истечёт. */
+  function ensureToken() {
+    if (!signedIn()) return Promise.reject(new Error('нет сессии'));
+    if (session.expires_at && Date.now() < session.expires_at - 60000) return Promise.resolve();
+    return refreshToken();
+  }
+
+  /** Облако перестало узнавать вход: сессию гасим, дальше решает пользователь. */
+  function sessionLost() {
+    saveSession(null);
+    setLastPushedAt(null);
+    pending = false;
+    setStatus('error', AUTH_LOST);
+    // emit() рисует «Настройки» только для вошедшего — тут дорисовываем сами
+    if (window.App && App.active === 'settings') App.renderScreen('settings');
+    var e = new Error(AUTH_LOST);
+    e.authLost = true;
+    return e;
+  }
+
+  /**
+   * Запрос с авторизацией. На 401 — ровно один refresh и повтор;
+   * повторный отказ означает, что вход больше не действует.
+   */
+  function authed(path, opts) {
+    return ensureToken()
+      .then(function () { return req(path, opts); })
+      .then(function (r) {
+        if (r.status !== 401) return r;
+        return refreshToken().then(
+          function () { return req(path, opts); },
+          function () { throw sessionLost(); }
+        ).then(function (r2) {
+          if (r2.status === 401) throw sessionLost();
+          return r2;
+        });
+      });
+  }
+
   /* ---------- вход и выход ---------- */
+
+  /** Ответ сервера наружу не показываем — только то, что можно сделать. */
+  function loginError(status) {
+    if (status === 400 || status === 401) return 'Почта или пароль не подошли';
+    if (status === 422) return 'Проверь почту и пароль — что-то в них не так';
+    if (status === 429) return 'Слишком много попыток — подожди минуту и повтори';
+    return 'Не вышло войти (ошибка ' + status + '). Проверь связь и повтори';
+  }
 
   function signIn(email, password) {
     setStatus('syncing');
@@ -148,10 +196,8 @@ window.Sync = (function () {
     }).then(function (r) {
       return r.json().then(function (j) {
         if (!r.ok) {
-          var msg = r.status === 400
-            ? 'Почта или пароль не подошли'
-            : (j.msg || j.error_description || j.message || 'Не вышло войти');
-          throw new Error(msg);
+          console.error('[sync] signIn', r.status, j);
+          throw new Error(loginError(r.status));
         }
         return j;
       });
@@ -180,11 +226,14 @@ window.Sync = (function () {
   function pull(force) {
     if (!signedIn()) return Promise.resolve({ ok: false, reason: 'нет входа' });
     setStatus('syncing');
-    return ensureToken().then(function () {
-      return req('/rest/v1/app_state?user_id=eq.' + encodeURIComponent(session.user_id) +
-        '&select=state,updated_at&limit=1');
-    }).then(function (r) {
-      if (!r.ok) throw new Error('облако ответило ' + r.status);
+    return authed('/rest/v1/app_state?user_id=eq.' + encodeURIComponent(session.user_id) +
+      '&select=state,updated_at&limit=1').then(function (r) {
+      if (!r.ok) {
+        return r.text().then(function (t) {
+          console.error('[sync] pull', r.status, t);
+          throw new Error('Облако не отдало состояние (ошибка ' + r.status + ')');
+        });
+      }
       return r.json();
     }).then(function (rows) {
       var row = rows && rows[0];
@@ -211,7 +260,7 @@ window.Sync = (function () {
       if (ts(localAt) > ts(cloudAt)) push();
       return { ok: true, applied: false, at: cloudAt };
     }).catch(function (e) {
-      setStatus(navigator.onLine ? 'error' : 'queued', e.message);
+      if (!e.authLost) setStatus(navigator.onLine ? 'error' : 'queued', e.message);
       return { ok: false, error: e.message };
     });
   }
@@ -224,17 +273,17 @@ window.Sync = (function () {
 
     busy = true;
     setStatus('syncing');
-    var stamp = null;
-    return ensureToken().then(function () {
-      stamp = State.s.meta.updatedAt || new Date().toISOString();
-      return req('/rest/v1/app_state?on_conflict=user_id', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: [{ user_id: session.user_id, state: State.s, updated_at: stamp }]
-      });
+    var stamp = State.s.meta.updatedAt || new Date().toISOString();
+    return authed('/rest/v1/app_state?on_conflict=user_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: [{ user_id: session.user_id, state: State.s, updated_at: stamp }]
     }).then(function (r) {
       if (!r.ok) {
-        return r.text().then(function (t) { throw new Error('облако ответило ' + r.status + ': ' + t.slice(0, 120)); });
+        return r.text().then(function (t) {
+          console.error('[sync] push', r.status, t);
+          throw new Error('Облако не приняло состояние (ошибка ' + r.status + ')');
+        });
       }
       busy = false;
       setLastPushedAt(stamp);
@@ -244,7 +293,8 @@ window.Sync = (function () {
       return { ok: true };
     }).catch(function (e) {
       busy = false;
-      pending = true;
+      if (e.authLost) return { ok: false, error: e.message };
+      pending = true;                       // не уехало — остаётся в очереди
       setStatus(navigator.onLine ? 'error' : 'queued', e.message);
       return { ok: false, error: e.message };
     });
@@ -276,18 +326,30 @@ window.Sync = (function () {
    */
   function init() {
     loadSession();
+    // слушатели ставим всегда: вход может случиться позже, из Настроек или
+    // онбординга, и очередь должна догоняться без перезапуска приложения
+    bindNetworkListeners();
     if (!signedIn()) { setStatus('off'); return; }
     setStatus('idle');
     if (navigator.onLine && lastPushedAt() && hasUnpushed()) push();
     else pull();
+  }
 
+  var bound = false;
+
+  function bindNetworkListeners() {
+    if (bound) return;
+    bound = true;
     window.addEventListener('online', function () {
+      if (!signedIn()) return;
       UI.toast('Сеть вернулась — догоняю облако', '', 2200);
       flush();
     });
-    window.addEventListener('offline', function () { setStatus('queued'); });
+    window.addEventListener('offline', function () {
+      if (signedIn()) setStatus('queued');
+    });
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) return;
+      if (document.hidden || !signedIn()) return;
       flush();
       pull();
     });

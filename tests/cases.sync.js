@@ -90,6 +90,70 @@
     });
   });
 
+  describe('синк A-04: 401 лечится одним refresh и повтором', function () {
+    defer('токен обновляется, запрос повторяется', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z' });
+      var seen = 0;
+      window.__fetch = function (url, o) {
+        if (url.indexOf('/auth/v1/token') >= 0) {
+          return Promise.resolve(window.__res(200, {
+            access_token: 'tok2', refresh_token: 'ref2', expires_in: 3600,
+            user: { id: 'u1', email: 'a@b.c' }
+          }));
+        }
+        seen++;
+        if (seen === 1) return Promise.resolve(window.__res(401, { message: 'JWT expired' }));
+        return Promise.resolve(window.__res(200, cloudRow('2026-08-23T08:00:00.000Z', 11)));
+      };
+
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        eq(seen, 2, 'запрос к данным повторён ровно один раз');
+        var refresh = window.__calls.filter(function (c) { return c.url.indexOf('grant_type=refresh_token') >= 0; });
+        eq(refresh.length, 1, 'refresh был ровно один');
+        eq(State.s.stats.bestStreak, 11, 'после обновления токена pull прошёл');
+        ok(Sync.signedIn(), 'вход остался живым');
+      });
+    });
+
+    defer('второй отказ гасит сессию', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z' });
+      window.__fetch = function (url) {
+        if (url.indexOf('/auth/v1/token') >= 0) {
+          return Promise.resolve(window.__res(200, {
+            access_token: 'tok2', refresh_token: 'ref2', expires_in: 3600,
+            user: { id: 'u1', email: 'a@b.c' }
+          }));
+        }
+        return Promise.resolve(window.__res(401, { message: 'JWT expired' }));
+      };
+
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        eq(Sync.signedIn(), false, 'сессия сброшена');
+        eq(Sync.state().error, 'Облако не узнало вход — зайди заново', 'человеческий статус, а не тело ответа');
+        eq(Sync.state().status, 'error', 'статус — ошибка');
+        eq(window.__store['study-system-v2-session'], undefined, 'сессия убрана из хранилища');
+      });
+    });
+  });
+
+  describe('синк C-05: наружу только человеческие тексты', function () {
+    defer('тело ответа в сообщение не попадает', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T10:00:00.000Z' });
+      window.__fetch = function () {
+        return Promise.resolve(window.__res(500, { hint: 'null value in column "state"' }));
+      };
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        var e = Sync.state().error;
+        eq(e, 'Облако не приняло состояние (ошибка 500)', 'текст человеческий');
+        eq(String(e).indexOf('null value'), -1, 'сырого тела в тексте нет');
+        eq(Sync.state().status, 'error', 'ошибка держится в статусе, а не улетает тостом');
+      });
+    });
+  });
+
   describe('синк: пустое облако получает локальное', function () {
     defer('push после пустого pull', function () {
       stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z' });

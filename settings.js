@@ -97,16 +97,30 @@
     var cls = st.status === 'error' ? 'r' : (st.status === 'queued' ? 'y' : (st.status === 'off' ? 'dim' : 'g'));
 
     if (!Sync.signedIn()) {
+      // вход мог отвалиться на ходу — тогда причина висит над формой
+      var lost = st.status === 'error'
+        ? '<div class="fnote r" style="border-color:rgba(248,113,113,.4);margin-bottom:10px">' +
+        U.esc(st.error) + '. Данные целы и лежат в этом браузере.</div>'
+        : '';
       return '<section class="block"><h2>Облако</h2>' +
         '<p class="lead">Вход по почте и паролю. Пока не вошёл — всё работает локально, ничего не теряется.</p>' +
-        '<div class="card">' + Sync.loginFormHtml() + '</div></section>';
+        lost + '<div class="card">' + Sync.loginFormHtml() + '</div></section>';
     }
+
+    // ошибка синка живёт строкой в карточке, а не тостом: тост уезжает,
+    // а разобраться с облаком надо здесь и сейчас
+    var err = st.status === 'error'
+      ? '<div class="fnote r" style="border-color:rgba(248,113,113,.4)">' +
+      U.esc(st.error || 'Облако не ответило') + '. Данные целы и лежат в этом браузере — ' +
+      'нажми «Отправить сейчас», когда связь вернётся.</div>'
+      : '';
 
     return '<section class="block"><h2>Облако</h2>' +
       '<p class="lead">Изменения уходят через 2 секунды после правки. Без сети копятся в очереди.</p>' +
       '<div class="card">' +
       '<div class="srow"><div class="k">Аккаунт<span>' + U.esc(Sync.email || '') + '</span></div>' +
       '<div class="mono small ' + cls + '">' + U.esc(Sync.status()) + '</div></div>' +
+      err +
       '<div class="btn-row" style="margin-top:10px">' +
       '<button class="btn sec" data-sync-pull>Забрать из облака</button>' +
       '<button class="btn sec" data-sync-push>Отправить сейчас</button>' +
@@ -192,15 +206,18 @@
     if (window.Sync && Sync.available() && !Sync.signedIn()) {
       Sync.wireLoginForm(host, function () { App.renderScreen('settings'); });
     }
+    // удача — тостом, неудача — стойкой строкой в карточке «Облако» (C-05)
     U.on(host, 'click', '[data-sync-pull]', function () {
       Sync.pull(true).then(function (r) {
-        UI.toast(r.ok ? (r.applied ? 'Забрал состояние из облака' : (r.empty ? 'В облаке пока пусто' : 'Локальное новее — оставил его'))
-          : 'Не вышло: ' + (r.error || 'нет связи'), r.ok ? 'ok' : 'bad', 3600);
+        if (!r.ok) { App.renderScreen('settings'); return; }
+        UI.toast(r.applied ? 'Забрал состояние из облака'
+          : (r.empty ? 'В облаке пока пусто' : 'Локальное новее — оставил его'), 'ok', 3600);
       });
     });
     U.on(host, 'click', '[data-sync-push]', function () {
       Sync.push().then(function (r) {
-        UI.toast(r.ok ? 'Отправлено в облако' : 'Не вышло: ' + (r.error || 'нет связи'), r.ok ? 'ok' : 'bad', 3600);
+        if (!r.ok) { App.renderScreen('settings'); return; }
+        UI.toast('Отправлено в облако', 'ok', 3600);
       });
     });
     U.on(host, 'click', '[data-sync-out]', function () {
