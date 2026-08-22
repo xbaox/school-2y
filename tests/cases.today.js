@@ -19,7 +19,7 @@
     fresh();
     var t = State.today();
 
-    eq(line(t), 'сегодня: 0 очков · пустой день рвёт серию', 'пусто');
+    eq(line(t), 'сегодня: 0 очков · выбери уровень — серия 🔥 0 ждёт', 'пусто');
 
     State.setLevel('min');
     eq(line(t), 'сегодня: 1 очко · база дня: карточки + аудио', 'минималка');
@@ -51,19 +51,27 @@
     ok(line(t).indexOf('пустой день рвёт серию') < 0, 'про рваную серию не врём');
   });
 
-  describe('статусная строка: ноль подсвечивается только при живой серии', function () {
+  describe('статусная строка: красный ноль — только если вчера тоже пусто', function () {
     fresh();
     var t = State.today();
-    // истории нет — первый день без очков ничего не рвёт
-    ok(App.dayLine(t, State.day(t) || { level: 'none', addons: [] }).indexOf('mono fire') > 0,
-      'у новичка ноль не красный');
+    function html() { return App.dayLine(t, State.day(t) || { level: 'none', addons: [] }); }
 
+    // истории нет — рвать нечего
+    ok(html().indexOf('mono fire') > 0, 'у новичка ноль не красный');
+    ok(line(t).indexOf('выбери уровень') > 0, 'и текст зовёт, а не ругает');
+
+    // вчера были очки: день ещё идёт, ругаться не за что
     State.s.days[U.addDays(t, -1)] = { level: 'min', addons: [], lessons: [], points: 1 };
-    ok(App.dayLine(t, State.day(t) || { level: 'none', addons: [] }).indexOf('mono r') > 0,
-      'при живой серии ноль красный');
+    ok(html().indexOf('mono fire') > 0, 'после продуктивного вчера ноль не красный');
+    ok(line(t).indexOf('серия 🔥 1 ждёт') > 0, 'строка показывает живую серию');
+
+    // вчера было пусто — вот теперь красный
+    State.s.days[U.addDays(t, -1)] = { level: 'none', addons: [], lessons: [], points: 0 };
+    State.s.days[U.addDays(t, -2)] = { level: 'full', addons: [], lessons: [], points: 3 };
+    ok(html().indexOf('mono r') > 0, 'вчера пусто — ноль красный');
+    eq(line(t), 'сегодня: 0 очков · вчера было пусто — минималка вернёт серию', 'мягкое предупреждение');
 
     // два пустых позади — текст жёстче
-    State.s.days[U.addDays(t, -1)] = { level: 'none', addons: [], lessons: [], points: 0 };
     State.s.days[U.addDays(t, -2)] = { level: 'none', addons: [], lessons: [], points: 0 };
     State.s.days[U.addDays(t, -3)] = { level: 'full', addons: [], lessons: [], points: 3 };
     eq(line(t), 'сегодня: 0 очков · серия на грани — хватит минималки', 'серия на грани');

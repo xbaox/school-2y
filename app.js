@@ -309,7 +309,7 @@ window.App = (function () {
    * названия уровней владелец правит в Настройках, смысл — нет.
    */
   var LEVEL_HINT = {
-    none: 'пустой день рвёт серию',
+    none: 'выбери уровень — серия ждёт',
     min: 'база дня: карточки + аудио',
     norm: 'минималка + 1 урок',
     full: 'минималка + 2 урока (второй — другая дорожка)'
@@ -325,18 +325,22 @@ window.App = (function () {
       return DOCTRINE.byId(State.s.settings.addons, id);
     }).filter(Boolean);
 
-    // «грозит стать пустым» — только у того, у кого серия есть: у новичка
-    // первый день без очков ничего не рвёт
+    // день ещё не прошёл: красным ноль становится, только если пустым
+    // было и вчера — иначе приложение ругается на ровном месте.
+    // У новичка серии ещё не было: рвать нечего, пугать не за что.
     var hasHistory = Object.keys(State.s.days).some(function (k) { return State.points(k) > 0; });
-    var risky = total === 0 && hasHistory;
+    var empty = hasHistory ? State.emptyInRow() : 0;
+    var risky = total === 0 && empty >= 1;
 
     var num = '<b class="mono ' + (risky ? 'r' : 'fire') + '">' + lvlPoints + '</b>';
     var head = 'сегодня: ' + num + ' ' + U.plural(lvlPoints, 'очко', 'очка', 'очков');
 
     var desc = LEVEL_HINT[levelId] || '';
-    if (levelId === 'none' && addons.length) desc = 'уровень дня не выбран';
-    else if (levelId === 'none' && risky && State.emptyInRow() >= DOCTRINE.MAX_EMPTY_IN_ROW) {
-      desc = 'серия на грани — хватит минималки';
+    if (levelId === 'none') {
+      if (addons.length) desc = 'уровень дня не выбран';
+      else if (empty >= DOCTRINE.MAX_EMPTY_IN_ROW) desc = 'серия на грани — хватит минималки';
+      else if (empty === 1) desc = 'вчера было пусто — минималка вернёт серию';
+      else desc = 'выбери уровень — серия 🔥 ' + State.streak() + ' ждёт';
     }
 
     var tail = '';
