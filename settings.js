@@ -22,6 +22,7 @@
         'Порог — сумма очков за неделю (пн–вс).',
         st.ranks, 'min') +
       ifThenSection() +
+      backupSection() +
       aboutSection();
   }
 
@@ -85,11 +86,32 @@
       '</div></section>';
   }
 
+  /** Экспорт/импорт полного состояния — страховка (раздел 3 ТЗ). */
+  function backupSection() {
+    var s = State.s;
+    var size = 0;
+    try { size = Math.round(JSON.stringify(s).length / 1024); } catch (e) { size = 0; }
+    return '<section class="block"><h2>Резервная копия</h2>' +
+      '<p class="lead">Весь прогресс — один JSON-файл. Работает без сети и без облака.</p>' +
+      '<div class="card">' +
+      '<div class="srow"><div class="k">Сейчас в состоянии' +
+      '<span>' + Object.keys(s.days).length + ' дней · ' + Object.keys(s.lessons).length + ' уроков · ' +
+      s.summaries.length + ' итогов · ' + s.debts.length + ' долгов · ~' + size + ' КБ</span></div></div>' +
+      '<div class="btn-row" style="margin-top:10px">' +
+      '<button class="btn sec" data-export>Скачать JSON</button>' +
+      '<button class="btn sec" data-import>Загрузить JSON</button>' +
+      '</div>' +
+      '<input type="file" accept="application/json,.json" class="hidden" data-file>' +
+      '</div></section>';
+  }
+
   function aboutSection() {
     return '<section class="block"><h2>О приложении</h2>' +
       '<div class="card">' +
       '<div class="srow"><div class="k">Версия<span>модель данных v' + State.SCHEMA + '</span></div>' +
       '<div class="mono small">' + State.APP_VERSION + '</div></div>' +
+      '<div class="srow"><div class="k">Service worker<span>офлайн-кэш</span></div>' +
+      '<div class="mono small dim">' + U.esc(App.version() || 'не активен') + '</div></div>' +
       '<div class="srow"><div class="k">Последнее изменение</div>' +
       '<div class="mono small dim">' + U.esc(fmtStamp(State.s.meta.updatedAt)) + '</div></div>' +
       '</div>' +
@@ -138,6 +160,14 @@
       State.touch();
     });
 
+    U.on(host, 'click', '[data-export]', function () { exportJson(); });
+    U.on(host, 'click', '[data-import]', function () { U.el('[data-file]', host).click(); });
+    U.on(host, 'change', '[data-file]', function (e, el) {
+      var f = el.files && el.files[0];
+      if (f) importJson(f);
+      el.value = '';
+    });
+
     U.on(host, 'click', '[data-reset]', function () {
       UI.confirm({
         title: 'Сбросить всё?',
@@ -146,6 +176,56 @@
         onYes: function () { State.reset(); UI.toast('Состояние очищено'); }
       });
     });
+  }
+
+  /* ---------- экспорт и импорт ---------- */
+
+  function exportJson() {
+    var text = JSON.stringify(State.s, null, 2);
+    var name = 'study-v2-' + State.today() + '.json';
+    try {
+      var blob = new Blob([text], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      UI.toast('Файл ' + name, 'ok');
+    } catch (e) {
+      UI.copy(text, 'Скачивание не сработало — JSON в буфере');
+    }
+  }
+
+  function importJson(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); }
+      catch (e) { UI.toast('Это не JSON состояния. Выбери файл study-v2-*.json', 'bad', 4200); return; }
+      if (!data || !data.settings || !data.days) {
+        UI.toast('В файле нет состояния приложения. Выбери другой файл.', 'bad', 4200);
+        return;
+      }
+      var stamp = data.meta && data.meta.updatedAt ? fmtStamp(data.meta.updatedAt) : 'без даты';
+      UI.confirm({
+        title: 'Заменить всё содержимое?',
+        sub: 'Файл от ' + U.esc(stamp) + ' · дней ' + Object.keys(data.days || {}).length +
+          ' · итогов ' + ((data.summaries || []).length) +
+          '. Текущие локальные данные будут перезаписаны.',
+        yes: 'Заменить', danger: true,
+        onYes: function () {
+          State.replace(data);
+          State.syncContent();
+          UI.toast('Состояние загружено', 'ok');
+          App.render();
+        }
+      });
+    };
+    reader.onerror = function () { UI.toast('Файл не прочитался. Попробуй ещё раз.', 'bad'); };
+    reader.readAsText(file);
   }
 
   App.register('settings', { render: render, mount: mount });

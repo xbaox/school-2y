@@ -287,8 +287,43 @@ window.Waterfall = (function () {
     });
   }
 
+  /* ---------- объяснение выбора (компонент «водопад» из референса) ---------- */
+
+  var EXPLAIN = [
+    { kind: 'radar', n: 1, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
+    { kind: 'fresh', n: 2, name: 'Свежесть', cond: 'дорожка без урока ≥ 5 дней', act: '→ она' },
+    { kind: 'pace', n: 3, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
+    { kind: 'debts', n: 4, name: 'Долги', cond: '≥ 5 непогашенных по дорожке', act: '→ она' },
+    {
+      kind: 'plan', n: 5, name: 'Шаблон недели',
+      cond: 'пн мат · вт письмо · ср мат · чт инфа/бизнес · пт мат · сб письмо ⭐ · вс радар', act: '→ по шаблону'
+    }
+  ];
+
+  function explain(activeKind) {
+    var rows = EXPLAIN.map(function (r, i) {
+      var on = r.kind === activeKind;
+      return '<div class="frow' + (on ? ' on' : '') + '">' +
+        '<div class="fnum"><div class="n">' + r.n + '</div>' +
+        (i < EXPLAIN.length - 1 ? '<div class="stem"></div>' : '') + '</div>' +
+        '<div class="fbody"><div class="fcard">' +
+        '<div class="cond"><b>' + r.name + '</b><span>' + U.esc(r.cond) + '</span></div>' +
+        '<div class="act">' + r.act + '</div></div></div></div>';
+    }).join('');
+
+    UI.sheet({
+      title: 'Кто получает урок дня',
+      sub: 'Приложение идёт сверху вниз и останавливается на первом сработавшем правиле. ' +
+        'Свапнуть можно всегда — автономия твоя.',
+      body: '<div class="flow">' + rows + '</div>' +
+        '<div class="fnote"><b>Полная = 2 урока:</b> второй берёт следующее сработавшее правило — ' +
+        'всегда другая дорожка.</div>' +
+        '<div style="margin-top:12px">' + fullBars() + '</div>'
+    });
+  }
+
   return {
-    pick: pick, second: second, openSwap: openSwap,
+    pick: pick, second: second, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };

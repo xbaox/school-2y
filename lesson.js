@@ -86,7 +86,8 @@ window.Lesson = (function () {
 
     return pending +
       '<div class="lesson">' +
-      '<span class="why ' + whyClass + '">выбор: ' + U.esc(sel.reason.text) + '</span>' +
+      '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) + '">выбор: ' +
+      U.esc(sel.reason.text) + ' ⓘ</button>' +
       '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
@@ -212,6 +213,9 @@ window.Lesson = (function () {
     });
     U.on(host, 'click', '[data-cards]', function () {
       if (window.Cards) Cards.open();
+    });
+    U.on(host, 'click', '[data-why]', function (e, el) {
+      if (window.Waterfall) Waterfall.explain(el.dataset.why);
     });
     U.on(host, 'click', '[data-swap]', function () {
       if (window.Waterfall && Waterfall.openSwap) Waterfall.openSwap();

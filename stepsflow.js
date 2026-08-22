@@ -334,6 +334,7 @@ window.StepsFlow = (function () {
     var hist = (s.history || []).slice(-6).reverse();
 
     var body =
+      stairs(p.pos) +
       '<div class="card2 mono small">' + U.esc(STEPS.cardLine(p)) + '</div>' +
       (State.isSchool()
         ? '<div class="srow"><div class="k">День цикла<span>пауза при отсрочке и разгрузке</span></div>' +
@@ -367,6 +368,29 @@ window.StepsFlow = (function () {
         root.querySelector('[data-manual]').onclick = function () { close(); openManual(); };
       }
     });
+  }
+
+  /** Лестница ступеней — компонент из mechanics-v2.html. */
+  function stairs(active) {
+    var max = 120;
+    var bars = STEPS.TABLE.slice(0, 4).map(function (r) {
+      var on = r.pos === active;
+      return '<div class="step' + (on ? ' now' : '') + '">' +
+        '<div class="bars">' +
+        '<div class="bar norm" style="height:' + Math.round(r.norm / max * 100) + 'px"><span class="v">' + r.norm + '’</span></div>' +
+        '<div class="bar full" style="height:' + Math.round(r.full / max * 100) + 'px"><span class="v">' + r.full + '’</span></div>' +
+        '</div><div class="name">' + r.name + '</div><div class="note">' + U.esc(r.note) + '</div></div>';
+    }).join('');
+    var depthOn = active >= 5;
+    var depth = '<div class="step depth' + (depthOn ? ' now' : '') + '">' +
+      '<div class="bars"><div class="bar deep" style="height:100px"><span>⏸ ↑</span></div></div>' +
+      '<div class="name">' + (depthOn ? STEPS.label(active) : 'Г1–Г3') + '</div>' +
+      '<div class="note">время стоит,<br>растёт глубина</div></div>';
+    return '<div class="stairs">' + bars + depth +
+      '<div class="rope"></div><div class="rope-label">минималка · 15’ · константа</div></div>' +
+      '<div class="card rope-rule" style="margin-bottom:12px">' +
+      '<div class="ic">🪢</div><div><b>Правило нуля: минималка не растёт никогда.</b> ' +
+      'Её работа — не объём, а серия. Растут норма, полная и глубина уроков.</div></div>';
   }
 
   function histText(h) {

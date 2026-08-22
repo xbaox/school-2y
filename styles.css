@@ -134,7 +134,7 @@ section.block:first-of-type{margin-top:0}
 .lesson{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
 .lesson .why{
   display:inline-block;font-size:10.5px;font-family:var(--mono);
-  color:var(--bad);background:var(--bad-soft);padding:3px 8px;border-radius:99px;margin-bottom:8px;
+  color:var(--bad);background:var(--bad-soft);padding:6px 10px;border-radius:99px;margin-bottom:8px;
 }
 .lesson .why.w-fresh{color:var(--warn);background:var(--warn-soft)}
 .lesson .why.w-plan{color:var(--muted);background:rgba(139,147,167,.12)}
@@ -170,7 +170,8 @@ section.block:first-of-type{margin-top:0}
 .btn:active{transform:scale(.99)}
 .btn-row{display:flex;gap:7px}
 .btn-row .btn{flex:1}
-.linkbtn{color:var(--fire);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.linkbtn{color:var(--fire);font-size:12.5px;text-decoration:underline;text-underline-offset:3px;
+  display:inline-block;padding:7px 6px}
 
 /* ---------- полоски свежести ---------- */
 
@@ -351,6 +352,51 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .cardbox .cb-side{font-size:19px;line-height:1.4}
 .cardbox.flip{border-color:var(--fire);background:var(--fire-soft)}
 .cardbox.debt .cb-side{font-size:15px;color:var(--warn)}
+
+/* ---------- лестница ступеней (компонент из референса) ---------- */
+
+.stairs{position:relative;display:flex;align-items:flex-end;gap:8px;padding:18px 10px 58px;
+  background:var(--card2);border:1px solid var(--line);border-radius:var(--r);overflow-x:auto;margin-bottom:12px}
+.stairs .step{flex:1;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.stairs .bars{display:flex;align-items:flex-end;gap:5px;height:118px}
+.stairs .bar{width:20px;border-radius:5px 5px 0 0;position:relative}
+.stairs .bar.norm{background:transparent;border:2px solid var(--fire);border-bottom:none;opacity:.65}
+.stairs .bar.full{background:linear-gradient(180deg,var(--fire),#c97d0e);opacity:.65}
+.stairs .step.now .bar{opacity:1}
+.stairs .bar .v{position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9.5px;color:var(--muted);white-space:nowrap}
+.stairs .name{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.stairs .step.now .name{color:var(--fire);font-weight:700}
+.stairs .note{font-size:9.5px;color:var(--dim);text-align:center;line-height:1.3}
+.stairs .step.depth .bar.deep{width:52px;
+  background:repeating-linear-gradient(-45deg,var(--fire-soft),var(--fire-soft) 6px,transparent 6px,transparent 12px);
+  border:2px dashed var(--fire);border-bottom:none;border-radius:6px 6px 0 0;
+  display:flex;align-items:center;justify-content:center;opacity:.65}
+.stairs .step.depth.now .bar.deep{opacity:1}
+.stairs .step.depth .bar.deep span{font-size:15px}
+.stairs .rope{position:absolute;left:10px;right:10px;bottom:32px;border-top:2px dashed var(--ok)}
+.stairs .rope-label{position:absolute;left:10px;bottom:10px;font-family:var(--mono);font-size:10px;color:var(--ok)}
+
+.rope-rule{display:flex;gap:14px;align-items:flex-start;border-left:3px solid var(--fire);font-size:13px}
+.rope-rule .ic{font-size:22px;line-height:1}
+.rope-rule b{color:var(--fire)}
+
+/* ---------- водопад (компонент из референса) ---------- */
+
+.flow{display:flex;flex-direction:column;gap:0}
+.frow{display:flex;gap:12px;align-items:stretch}
+.fnum{display:flex;flex-direction:column;align-items:center;width:28px;flex-shrink:0}
+.fnum .n{width:26px;height:26px;border-radius:50%;background:var(--fire-soft);color:var(--fire);
+  font-family:var(--mono);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.fnum .stem{flex:1;width:2px;background:var(--line);margin:4px 0}
+.fbody{flex:1;padding-bottom:12px;min-width:0}
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+  display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.fcard .cond b{font-size:13.5px}
+.fcard .cond span{display:block;font-size:11.5px;color:var(--muted)}
+.fcard .act{font-size:11.5px;font-family:var(--mono);color:var(--fire);white-space:nowrap}
+.frow.on .fcard{border-color:var(--fire);background:var(--fire-soft)}
+.frow.on .fnum .n{background:var(--fire);color:#12151c}
 
 /* ---------- радар и дела ---------- */
 

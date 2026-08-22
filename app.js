@@ -228,11 +228,40 @@ window.App = (function () {
       if (!document.hidden) render();
     });
     scheduleDayRollover();
+    registerSW();
   }
+
+  /* ---------- PWA ---------- */
+
+  var swVersion = null;
+
+  function registerSW() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('./sw.js').then(function (reg) {
+      reg.addEventListener('updatefound', function () {
+        var sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener('statechange', function () {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            UI.toast('Новая версия готова — перезагрузи страницу', 'ok', 6000);
+          }
+        });
+      });
+    }).catch(function (e) { console.warn('service worker не зарегистрировался:', e); });
+
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.version) { swVersion = e.data.version; }
+    });
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage('version');
+    }
+  }
+
+  function version() { return swVersion; }
 
   return {
     TABS: TABS, register: register, go: go, render: render, renderScreen: renderScreen,
-    boot: boot,
+    boot: boot, version: version,
     get active() { return active; }
   };
 })();
