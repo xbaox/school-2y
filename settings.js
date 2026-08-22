@@ -254,9 +254,6 @@
       State.touch();
     });
 
-    if (window.Sync && Sync.available() && !Sync.signedIn()) {
-      Sync.wireLoginForm(host, function () { App.renderScreen('settings'); });
-    }
     // удача — тостом, неудача — стойкой строкой в карточке «Облако» (C-05)
     U.on(host, 'click', '[data-sync-pull]', function () {
       Sync.pull(true).then(function (r) {
@@ -351,5 +348,16 @@
     reader.readAsText(file);
   }
 
-  App.register('settings', { render: render, mount: mount });
+  /**
+   * Форма входа вешает onclick на конкретную кнопку, а её узел пересоздаётся
+   * при каждой перерисовке — значит перевешивать надо каждый раз.
+   * Делегированные слушатели из mount() при этом не дублируются.
+   */
+  function update(host) {
+    if (window.Sync && Sync.available() && !Sync.signedIn()) {
+      Sync.wireLoginForm(host, function () { App.renderScreen('settings'); });
+    }
+  }
+
+  App.register('settings', { render: render, mount: mount, update: update });
 })();

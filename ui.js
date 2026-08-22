@@ -10,9 +10,21 @@ window.UI = (function () {
 
   /* ---------- тосты ---------- */
 
+  var TOAST_DEDUPE_MS = 1500;
+  var lastToast = { text: null, at: 0 };
+
+  /**
+   * Тост. Два одинаковых текста подряд в пределах полутора секунд — это
+   * почти всегда двойной тап или задвоенный обработчик; показываем один.
+   * → true, если тост принят к показу; false, если схлопнут в предыдущий.
+   */
   function toast(text, kind, ms) {
+    var now = Date.now();
+    if (text === lastToast.text && now - lastToast.at < TOAST_DEDUPE_MS) return false;
+    lastToast = { text: text, at: now };
+
     var root = document.getElementById('toast-root');
-    if (!root) return;
+    if (!root) return true;
     var t = document.createElement('div');
     t.className = 'toast' + (kind ? ' ' + kind : '');
     t.textContent = text;
@@ -22,6 +34,7 @@ window.UI = (function () {
       t.style.opacity = '0';
       setTimeout(function () { t.remove(); }, 220);
     }, ms || 2600);
+    return true;
   }
 
   /* ---------- стойкие плашки ---------- */

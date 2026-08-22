@@ -21,6 +21,14 @@ window.Onboarding = (function () {
     root = document.createElement('div');
     root.className = 'onb';
     document.body.appendChild(root);
+    // делегированный слушатель — один раз на весь онбординг: paint() подменяет
+    // разметку на каждом шаге, и внутри него он копился бы по одному за шаг
+    U.on(root, 'change', '[data-done]', function (e, el) {
+      data.done[el.dataset.done] = el.checked;
+      var btn = root.querySelector('[data-next]');
+      var n = Object.keys(data.done).filter(function (k) { return data.done[k]; }).length;
+      if (btn) btn.textContent = grantLabel(n);
+    });
     paint();
   }
 
@@ -141,13 +149,6 @@ window.Onboarding = (function () {
 
     var zero = root.querySelector('[data-zero]');
     if (zero) zero.onclick = function () { data.streak = 0; data.best = 0; step++; paint(); };
-
-    U.on(root, 'change', '[data-done]', function (e, el) {
-      data.done[el.dataset.done] = el.checked;
-      var btn = root.querySelector('[data-next]');
-      var n = Object.keys(data.done).filter(function (k) { return data.done[k]; }).length;
-      if (btn) btn.textContent = grantLabel(n);
-    });
 
     var fin = root.querySelector('[data-finish]');
     if (fin) fin.onclick = finish;

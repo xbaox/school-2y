@@ -15,11 +15,13 @@ window.App = (function () {
   ];
 
   var screens = {};
+  var mounted = {};      // id экрана → делегированные слушатели уже навешаны
   var active = 'today';
   var booted = false;
 
   function register(id, screen) {
     screens[id] = screen;
+    mounted[id] = false;
     if (booted) renderScreen(id);
   }
 
@@ -42,13 +44,25 @@ window.App = (function () {
     window.scrollTo(0, 0);
   }
 
+  /**
+   * Слушатели экрана делегированные и висят на самой секции, а секция живёт
+   * всю сессию — меняется только её innerHTML. Поэтому mount() зовём ровно
+   * один раз за экран: иначе каждая перерисовка добавляла бы ещё один
+   * одинаковый обработчик, и один тап давал бы N срабатываний.
+   * Всё, что надо перевешивать после подмены разметки (прямые onclick
+   * на конкретных узлах), живёт в необязательном update().
+   */
   function renderScreen(id) {
     var host = U.el('.screen[data-screen="' + id + '"]');
     if (!host) return;
     var sc = screens[id];
     if (!sc) { host.innerHTML = stub(id); return; }
     host.innerHTML = sc.render();
-    if (sc.mount) sc.mount(host);
+    if (!mounted[id] && sc.mount) {
+      sc.mount(host);
+      mounted[id] = true;
+    }
+    if (sc.update) sc.update(host);
   }
 
   /** Перерисовать активный экран (и соседний в двухколоночном режиме). */

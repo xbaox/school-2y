@@ -35,9 +35,54 @@ ctx.localStorage = {
 ctx.__store = store;
 
 ctx.navigator = { onLine: true };
-ctx.document = { addEventListener() { }, removeEventListener() { }, hidden: false };
+
+/**
+ * Минимальный DOM: ровно столько, сколько нужно ui.js и app.js, чтобы
+ * загрузиться и не падать. Слушатели настоящие — на них и проверяется,
+ * что делегированные обработчики не копятся при перерисовках.
+ */
+function fakeNode(tag) {
+  const node = {
+    tagName: String(tag || 'div').toUpperCase(),
+    className: '', innerHTML: '', textContent: '', value: '',
+    style: {}, dataset: {}, children: [], _l: {}, _attrs: {},
+    classList: {
+      add() { }, remove() { }, toggle() { }, contains() { return false; }
+    },
+    setAttribute(k, v) { this._attrs[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k) ? this._attrs[k] : null; },
+    removeAttribute(k) { delete this._attrs[k]; },
+    appendChild(c) { this.children.push(c); return c; },
+    removeChild(c) { this.children = this.children.filter(x => x !== c); return c; },
+    remove() { },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    closest() { return null; },
+    contains() { return true; },
+    focus() { }, select() { }, setSelectionRange() { }, click() { },
+    addEventListener(type, fn) { (this._l[type] = this._l[type] || []).push(fn); },
+    removeEventListener(type, fn) { this._l[type] = (this._l[type] || []).filter(x => x !== fn); },
+    /** Сколько слушателей типа висит — этим ловится задвоение. */
+    listenerCount(type) { return (this._l[type] || []).length; },
+    /** Прогоняет событие через всех слушателей, как настоящий bubbling. */
+    fire(type, target) { (this._l[type] || []).slice().forEach(fn => fn({ target, preventDefault() { } })); }
+  };
+  return node;
+}
+ctx.fakeNode = fakeNode;
+
+ctx.document = {
+  addEventListener() { }, removeEventListener() { }, hidden: false,
+  body: fakeNode('body'),
+  createElement(tag) { return fakeNode(tag); },
+  getElementById() { return fakeNode(); },
+  querySelector() { return null; },
+  querySelectorAll() { return []; }
+};
 ctx.addEventListener = function () { };
 ctx.removeEventListener = function () { };
+ctx.innerWidth = 400;
+ctx.scrollTo = function () { };
 
 /** fetch подменяется тестами: ctx.__fetch = (url, opts) => Promise<Response>. */
 ctx.__calls = [];
@@ -58,29 +103,13 @@ ctx.__res = function (status, json) {
   };
 };
 
-/** UI — заглушка: тосты, шторки и баннеры только записываются. */
-ctx.__ui = { toasts: [], sheets: [], banners: [] };
-ctx.UI = {
-  toast(text, kind) { ctx.__ui.toasts.push({ text: text, kind: kind }); },
-  sheet(opts) { ctx.__ui.sheets.push(opts); return null; },
-  close() { },
-  confirm(opts) { ctx.__ui.sheets.push(opts); },
-  prompt(opts) { ctx.__ui.sheets.push(opts); },
-  banner(id, opts) { ctx.__ui.banners.push({ id: id, opts: opts }); },
-  dismissBanner(id) { ctx.__ui.banners = ctx.__ui.banners.filter(b => b.id !== id); },
-  empty(ic, text) { return String(text); },
-  trackBadge(id) { return String(id); },
-  trackDot(id) { return String(id); },
-  lightClass(c) { return c === 'red' ? 'r' : (c === 'yellow' ? 'y' : 'g'); },
-  lightDot(c) { return c === 'red' ? '🔴' : (c === 'yellow' ? '🟡' : '🟢'); },
-  copy() { return Promise.resolve(true); }
-};
-
 vm.createContext(ctx);
 
 /**
- * Модули в порядке зависимостей. Экраны (app.js, lesson.js и прочие)
- * держат DOM в теле функций рендера — их сюда не тянем.
+ * Модули в порядке зависимостей. Экраны, которым нужен настоящий DOM
+ * (program/radar/journal/settings), живут на заглушке выше только косвенно —
+ * их сюда не тянем; app.js и ui.js грузим, они нужны для проверки
+ * обработчиков и статусной строки.
  */
 const MODULES = [
   'util.js',
@@ -92,10 +121,12 @@ const MODULES = [
   'content/phase1.js',
   'state.js',
   'prompts.js',
+  'ui.js',
   'waterfall.js',
   'stepsflow.js',
   'sync.js',
-  'lesson.js'
+  'lesson.js',
+  'app.js'
 ];
 
 for (const f of MODULES) {
