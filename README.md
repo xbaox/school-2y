@@ -1,7 +1,8 @@
 # Система v2 «Фундамент»
 
 PWA-трекер двухлетней учебной программы. Наследник `english-summer` (v1).
-Полное ТЗ и дизайн-референс — в папке [`spec/`](spec/).
+ТЗ, дизайн-референс и рабочий контекст лежат локально в `spec/` и намеренно
+не входят в репозиторий — там личные данные владельца.
 
 Схема работы: **приложение — мозг, пользователь — курьер, ИИ-чат — преподаватель.**
 Приложение собирает промпт урока → пользователь вставляет его в чат с ИИ →
@@ -59,6 +60,42 @@ GitHub Pages: Settings → Pages → Source `main`, папка `/ (root)`.
 3. Закоммитить и запушить — приложение подхватит блоки и уроки само,
    пользовательские дедлайны и прогресс не затрутся.
 
+## Облако (Supabase)
+
+Синхронизация — на голом `fetch`, без SDK и CDN, чтобы офлайн ничего не тянул
+из сети. Схема таблицы и политики RLS:
+
+```sql
+create table if not exists public.app_state (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  state      jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint app_state_user_unique unique (user_id)
+);
+
+alter table public.app_state enable row level security;
+
+create policy "app_state_select_own" on public.app_state
+  for select using (auth.uid() = user_id);
+create policy "app_state_insert_own" on public.app_state
+  for insert with check (auth.uid() = user_id);
+create policy "app_state_update_own" on public.app_state
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "app_state_delete_own" on public.app_state
+  for delete using (auth.uid() = user_id);
+```
+
+Пользователь заводится вручную в Authentication → Users (email + пароль,
+Auto Confirm). Регистрации в приложении нет: пользователь один.
+
+Правила синхронизации: при загрузке — pull, если облако новее локального
+`updatedAt`; при изменениях — push с debounce 2 секунды; без сети изменения
+копятся в очереди и уходят при появлении связи; конфликт решает более поздний
+`updatedAt`. `anon`-ключ в `sync.js` публичный по назначению — доступ к данным
+закрывают политики RLS выше.
+
 ## Резервная копия
 
 Настройки → «Скачать JSON». Файл содержит всё состояние целиком.
+Работает и без облака.

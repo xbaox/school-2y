@@ -5,7 +5,7 @@
    Пути относительные — приложение живёт в подпапке GitHub Pages.
    ============================================================ */
 
-var VERSION = 'v2.0.0-7';
+var VERSION = 'v2.0.1-6';
 var SHELL = 'shell-' + VERSION;
 var FONTS = 'fonts-v1';
 
@@ -23,6 +23,7 @@ var ASSETS = [
   './state.js',
   './prompts.js',
   './ui.js',
+  './sync.js',
   './waterfall.js',
   './stepsflow.js',
   './app.js',

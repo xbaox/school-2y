@@ -115,6 +115,20 @@ window.Onboarding = (function () {
     var next = root.querySelector('[data-next]');
     if (next) next.onclick = function () { collect(); step++; paint(); };
 
+    // вход в облако на первом шаге: если в облаке уже есть состояние —
+    // забираем его и онбординг больше не нужен
+    if (step === 1 && window.Sync && Sync.available() && !Sync.signedIn()) {
+      Sync.wireLoginForm(root, function (res) {
+        if (res && res.applied) {
+          skip();
+          UI.toast('Состояние забрано из облака', 'ok', 3600);
+        } else {
+          step++;
+          paint();
+        }
+      });
+    }
+
     var zero = root.querySelector('[data-zero]');
     if (zero) zero.onclick = function () { data.streak = 0; data.best = 0; step++; paint(); };
 

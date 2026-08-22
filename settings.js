@@ -22,6 +22,7 @@
         'Порог — сумма очков за неделю (пн–вс).',
         st.ranks, 'min') +
       ifThenSection() +
+      cloudSection() +
       backupSection() +
       aboutSection();
   }
@@ -83,6 +84,34 @@
       '<p class="lead">3–5 правил. На «Сегодня» показывается одно, по дню недели.</p>' +
       '<div class="card">' + (rows || '<div class="dim small">Пока пусто.</div>') +
       (rules.length < 5 ? '<button class="btn ghost" data-ifthen-add>+ правило</button>' : '') +
+      '</div></section>';
+  }
+
+  /** Облако: вход, статус, ручная синхронизация (раздел 3 ТЗ). */
+  function cloudSection() {
+    if (!window.Sync || !Sync.available()) {
+      return '<section class="block"><h2>Облако</h2>' +
+        '<div class="fnote">Синхронизация не настроена — всё живёт локально.</div></section>';
+    }
+    var st = Sync.state();
+    var cls = st.status === 'error' ? 'r' : (st.status === 'queued' ? 'y' : (st.status === 'off' ? 'dim' : 'g'));
+
+    if (!Sync.signedIn()) {
+      return '<section class="block"><h2>Облако</h2>' +
+        '<p class="lead">Вход по почте и паролю. Пока не вошёл — всё работает локально, ничего не теряется.</p>' +
+        '<div class="card">' + Sync.loginFormHtml() + '</div></section>';
+    }
+
+    return '<section class="block"><h2>Облако</h2>' +
+      '<p class="lead">Изменения уходят через 2 секунды после правки. Без сети копятся в очереди.</p>' +
+      '<div class="card">' +
+      '<div class="srow"><div class="k">Аккаунт<span>' + U.esc(Sync.email || '') + '</span></div>' +
+      '<div class="mono small ' + cls + '">' + U.esc(Sync.status()) + '</div></div>' +
+      '<div class="btn-row" style="margin-top:10px">' +
+      '<button class="btn sec" data-sync-pull>Забрать из облака</button>' +
+      '<button class="btn sec" data-sync-push>Отправить сейчас</button>' +
+      '</div>' +
+      '<button class="btn ghost" data-sync-out>Выйти из облака</button>' +
       '</div></section>';
   }
 
@@ -158,6 +187,29 @@
     U.on(host, 'click', '[data-ifthen-add]', function () {
       State.s.settings.ifThen.push({ id: U.uid(), text: '' });
       State.touch();
+    });
+
+    if (window.Sync && Sync.available() && !Sync.signedIn()) {
+      Sync.wireLoginForm(host, function () { App.renderScreen('settings'); });
+    }
+    U.on(host, 'click', '[data-sync-pull]', function () {
+      Sync.pull(true).then(function (r) {
+        UI.toast(r.ok ? (r.applied ? 'Забрал состояние из облака' : (r.empty ? 'В облаке пока пусто' : 'Локальное новее — оставил его'))
+          : 'Не вышло: ' + (r.error || 'нет связи'), r.ok ? 'ok' : 'bad', 3600);
+      });
+    });
+    U.on(host, 'click', '[data-sync-push]', function () {
+      Sync.push().then(function (r) {
+        UI.toast(r.ok ? 'Отправлено в облако' : 'Не вышло: ' + (r.error || 'нет связи'), r.ok ? 'ok' : 'bad', 3600);
+      });
+    });
+    U.on(host, 'click', '[data-sync-out]', function () {
+      UI.confirm({
+        title: 'Выйти из облака?',
+        sub: 'Данные останутся в этом браузере. Синхронизация остановится.',
+        yes: 'Выйти',
+        onYes: function () { Sync.signOut(); App.renderScreen('settings'); UI.toast('Вышел из облака'); }
+      });
     });
 
     U.on(host, 'click', '[data-export]', function () { exportJson(); });

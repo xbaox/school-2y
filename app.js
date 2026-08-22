@@ -229,6 +229,7 @@ window.App = (function () {
     });
     scheduleDayRollover();
     registerSW();
+    if (window.Sync && Sync.available()) Sync.init();
   }
 
   /* ---------- PWA ---------- */
