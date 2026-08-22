@@ -28,8 +28,12 @@ window.CONTENT = (function () {
     BMI3C: 'biz', BOH4M: 'biz'
   };
 
-  /** Курсы, которые радар показывает, но водопад не назначает. */
-  var COURSES_NO_TRACK = ['PAF3O', 'CHV2O', 'GLC2O', 'ESLEO'];
+  /**
+   * Курсы, которые радар показывает, но водопад не назначает:
+   * фитнес, граждановедение и карьера (раздел 7.3).
+   * ESLEO сюда не входит — это ESL, дорожка write.
+   */
+  var COURSES_NO_TRACK = ['PAF3O', 'CHV2O', 'GLC2O'];
 
   /** Код курса → дорожка. ESLAO/ESLBO/… ловятся по префиксу ESL. */
   function trackForCourse(code) {
@@ -62,6 +66,19 @@ window.CONTENT = (function () {
     });
   }
 
+  /**
+   * Пакет мог загрузиться раньше реестра — тогда он лежит в очереди
+   * window.__CONTENT_Q. Разбираем её здесь, поэтому порядок тегов <script>
+   * в index.html значения не имеет.
+   */
+  function drainQueue() {
+    var q = window.__CONTENT_Q;
+    if (!q || !q.length) return 0;
+    var n = q.length;
+    while (q.length) register(q.shift());
+    return n;
+  }
+
   function pack(phase) { return packs[phase] || null; }
   function block(id) { return blocks[id] || null; }
   function lesson(id) { return lessons[id] || null; }
@@ -78,8 +95,10 @@ window.CONTENT = (function () {
 
   function num(blockId) { return parseInt(String(blockId).replace(/\D/g, ''), 10) || 0; }
 
+  drainQueue();
+
   return {
-    register: register, pack: pack, block: block, lesson: lesson,
+    register: register, drainQueue: drainQueue, pack: pack, block: block, lesson: lesson,
     lessons: blockLessons, hasLessons: hasLessons,
     allBlocks: allBlocks, phaseBlocks: phaseBlocks, num: num,
     COURSE_TRACK: COURSE_TRACK, COURSES_NO_TRACK: COURSES_NO_TRACK, trackForCourse: trackForCourse

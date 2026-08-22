@@ -21,6 +21,7 @@
       listSection('Ранги недели', 'ranks',
         'Порог — сумма очков за неделю (пн–вс).',
         st.ranks, 'min') +
+      phaseDatesSection() +
       ifThenSection() +
       cloudSection() +
       backupSection() +
@@ -69,6 +70,32 @@
     }).join('');
     return '<section class="block"><h2>' + U.esc(title) + '</h2>' +
       '<p class="lead">' + U.esc(lead) + '</p>' +
+      '<div class="card">' + rows + '</div></section>';
+  }
+
+  /**
+   * Даты фаз (раздел 6.5). Правка дат фазы НЕ двигает дедлайны блоков:
+   * для блоков есть отдельная кнопка «сдвинуть фазу» в «Программе»,
+   * и смешивать их нельзя — иначе поправка одной даты переставит весь план.
+   */
+  function phaseDatesSection() {
+    var pd = State.s.settings.phaseDates;
+    var rows = State.phases().map(function (p) {
+      var d = pd[p.id] || {};
+      return '<div class="prow">' +
+        '<div class="k">' + U.esc(p.name) + '</div>' +
+        '<div class="pdates">' +
+        '<input class="txt" type="date" aria-label="Начало фазы ' + U.esc(p.name) + '" ' +
+        'data-phase-date="' + U.esc(p.id) + '" data-edge="start" value="' + U.esc(d.start || '') + '">' +
+        '<span class="dim">–</span>' +
+        '<input class="txt" type="date" aria-label="Конец фазы ' + U.esc(p.name) + '" ' +
+        'data-phase-date="' + U.esc(p.id) + '" data-edge="end" value="' + U.esc(d.end || '') + '">' +
+        '</div></div>';
+    }).join('');
+
+    return '<section class="block"><h2>Даты фаз</h2>' +
+      '<p class="lead">Начало и конец каждой фазы. Дедлайны блоков живут отдельно — ' +
+      'их двигает кнопка «сдвинуть фазу» в «Программе».</p>' +
       '<div class="card">' + rows + '</div></section>';
   }
 
@@ -188,6 +215,14 @@
       // пересчитать очки всех дней: пороги/веса могли измениться
       Object.keys(State.s.days).forEach(function (d) { State.recount(d); });
       State.touch();
+    });
+
+    U.on(host, 'change', '[data-phase-date]', function (e, el) {
+      var id = el.dataset.phaseDate;
+      var pd = State.s.settings.phaseDates[id] || (State.s.settings.phaseDates[id] = { start: null, end: null });
+      pd[el.dataset.edge] = el.value || null;
+      State.touch();
+      UI.toast(State.phaseName(id) + ': даты обновлены. Дедлайны блоков на месте.', 'ok', 3200);
     });
 
     U.on(host, 'change', '[data-ifthen]', function (e, el) {

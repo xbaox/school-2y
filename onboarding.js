@@ -178,6 +178,8 @@ window.Onboarding = (function () {
 
     if (window.Radar) Radar.seedTodos();
 
+    // точка отсчёта свежести для дорожек, на которых уроков ещё не было (A-14)
+    State.s.meta.onboardedAt = today;
     State.s.onboarded = true;
     State.touch();
     close();

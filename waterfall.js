@@ -72,7 +72,7 @@ window.Waterfall = (function () {
     State.s.tracks.forEach(function (tr) {
       if (tr.embedded || tr.id === exclude) return;
       var f = State.freshness(tr.id, t);
-      if (f == null || f < FRESH_RULE_DAYS) return;   // без истории свежесть не считаем
+      if (f == null || f < FRESH_RULE_DAYS) return;
       if (!available(tr.id)) return;
       if (f > bestDays) { bestDays = f; best = tr; }
     });
@@ -195,15 +195,22 @@ window.Waterfall = (function () {
     };
   }
 
+  var NO_OTHER = { kind: 'plan', text: 'второй урок: другой дорожки с уроками нет' };
+
   /** Второй урок полной: другая дорожка; если другой нет — разрешается та же (7.8). */
   function second(todayIso, firstLessonId) {
     var t = todayIso || State.today();
     var firstTrack = State.lessonTrack(firstLessonId);
     var res = pick(t, { exclude: firstTrack, force: true });
-    if (res && res.lessonId && res.lessonId !== firstLessonId) return res;
+    if (res && res.lessonId && res.lessonId !== firstLessonId) {
+      // водопад мог свалиться в запасной вариант и вернуть ту же дорожку —
+      // бейдж обязан сказать это честно, а не «свободная дорожка»
+      if (State.lessonTrack(res.lessonId) === firstTrack) res.reason = NO_OTHER;
+      return res;
+    }
     var same = State.nextLesson();
     if (!same || same === firstLessonId) return null;
-    return { lessonId: same, reason: { kind: 'plan', text: 'второй урок: другой дорожки с уроками нет' } };
+    return { lessonId: same, reason: NO_OTHER };
   }
 
   /* ---------- свежесть ---------- */
@@ -220,6 +227,9 @@ window.Waterfall = (function () {
     var tr = State.track(trackId);
     if (tr && tr.embedded) return 'в каждом уроке';
     if (days == null) return 'уроков не было';
+    // дорожка без единого урока считается от онбординга — число честное,
+    // но подписать его надо так, чтобы не выглядело пропущенным уроком
+    if (!State.hasTrackHistory(trackId)) return 'ни разу · ' + U.days(days);
     if (days === 0) return 'сегодня ✓';
     return U.days(days);
   }

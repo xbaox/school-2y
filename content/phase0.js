@@ -4,7 +4,12 @@
    тема · цель · YouTube-запрос · фокус практики · письмо.
    ============================================================ */
 
-CONTENT.register({
+/* Пакет регистрируется сам: если реестр ещё не загрузился, кладём его
+   в очередь — порядок тегов <script> в index.html значения не имеет. */
+(function (pack) {
+  if (window.CONTENT) CONTENT.register(pack);
+  else (window.__CONTENT_Q = window.__CONTENT_Q || []).push(pack);
+})({
   phase: 'p0',
   blocks: [
 

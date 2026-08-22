@@ -5,7 +5,12 @@
    целиком (добавить lessons в каждый блок) и поднять VERSION в sw.js.
    ============================================================ */
 
-CONTENT.register({
+/* Пакет регистрируется сам: если реестр ещё не загрузился, кладём его
+   в очередь — порядок тегов <script> в index.html значения не имеет. */
+(function (pack) {
+  if (window.CONTENT) CONTENT.register(pack);
+  else (window.__CONTENT_Q = window.__CONTENT_Q || []).push(pack);
+})({
   phase: 'p1',
   blocks: [
     { id: 'B7', track: 'math', title: 'Аналитическая геометрия: длина, середина, окружность', deadline: '2026-09-20', lessons: [] },

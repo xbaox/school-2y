@@ -33,7 +33,7 @@ window.State = (function () {
   };
 
   var PHASES = [
-    { id: 'p0', name: 'Ф0 «Фундамент»' },
+    { id: 'p0', name: 'Ф0 «Фундамент»', milestone: 'веха: placement-тест 28.08' },
     { id: 'p1', name: 'Ф1 «Семестр 1»' },
     { id: 'p2', name: 'Ф2 «Семестр 2»' },
     { id: 'bridge', name: 'Мост «Лето-2027»' },
@@ -569,11 +569,24 @@ window.State = (function () {
   /** Следующий непройденный урок вообще (по порядку блоков). */
   function nextLesson() { return nextLessonInTrack(null, null); }
 
-  /** Свежесть дорожки в днях; null — если уроков ещё не было. */
+  /**
+   * Свежесть дорожки в днях.
+   * Дорожка без единого урока считается от даты онбординга: «максимальной»
+   * её делать нельзя — иначе правило 2 водопада в первый же день перехватило бы
+   * выбор у радара и светофора. null — только если и точки отсчёта нет.
+   */
   function freshness(trackId, todayIso) {
     var t = track(trackId);
-    if (!t || !t.lastLessonDate) return null;
-    return U.diffDays(t.lastLessonDate, todayIso || today());
+    if (!t) return null;
+    var from = t.lastLessonDate || s.meta.onboardedAt;
+    if (!from) return null;
+    return Math.max(0, U.diffDays(from, todayIso || today()));
+  }
+
+  /** Был ли на дорожке хоть один урок — свежесть без истории подписывается иначе. */
+  function hasTrackHistory(trackId) {
+    var t = track(trackId);
+    return !!(t && t.lastLessonDate);
   }
 
   /** Отметить дорожку пройденной сегодня. track:'all' обновляет все четыре (раздел 7.4). */
@@ -613,13 +626,21 @@ window.State = (function () {
 
   /* ---------- итоги, слова, долги ---------- */
 
-  /** Последние n итогов дорожки, свежие первыми. */
+  /**
+   * Последние n итогов дорожки, свежие первыми.
+   * Уроки блоков track:'all' (финалы вперемешку) касаются всех дорожек —
+   * их итоги видит любая дорожка. Сама дорожка 'all' память не фильтрует.
+   */
   function recentSummaries(trackId, n, excludeLessonId) {
     var out = [];
+    var filter = trackId && trackId !== 'all';
     for (var i = s.summaries.length - 1; i >= 0 && out.length < (n || 3); i--) {
       var sum = s.summaries[i];
       if (excludeLessonId && sum.lessonId === excludeLessonId) continue;
-      if (trackId && lessonTrack(sum.lessonId) !== trackId) continue;
+      if (filter) {
+        var lt = lessonTrack(sum.lessonId);
+        if (lt !== trackId && lt !== 'all') continue;
+      }
       out.push(sum);
     }
     return out;
@@ -660,15 +681,18 @@ window.State = (function () {
     return U.shuffle(recent.concat(picked));
   }
 
+  /**
+   * Открытые долги. С дорожкой — строго её собственные: добора чужими нет,
+   * пусто значит пусто (иначе в промпт математики уезжали долги письма).
+   * Дорожка 'all' и вызов без дорожки берут все.
+   */
   function openDebts(trackId) {
     var list = s.debts.filter(function (d) { return d.status === 'open'; });
-    if (!trackId) return list;
-    return list.slice().sort(function (a, b) {
-      return (a.track === trackId ? 0 : 1) - (b.track === trackId ? 0 : 1);
-    });
+    if (!trackId || trackId === 'all') return list;
+    return list.filter(function (d) { return d.track === trackId; });
   }
 
-  function debtsCount(trackId) { return openDebts().filter(function (d) { return !trackId || d.track === trackId; }).length; }
+  function debtsCount(trackId) { return openDebts(trackId).length; }
 
   function normText(t) {
     return String(t || '').toLowerCase().replace(/[«»"'`.,;:!?()—–-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -833,7 +857,7 @@ window.State = (function () {
     setDeadline: setDeadline, shiftPhase: shiftPhase, phaseBlocks: phaseBlocks,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
-    freshness: freshness, touchTrack: touchTrack,
+    freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,
     markVideoWatched: markVideoWatched, videoWatched: videoWatched,
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,

@@ -6,4 +6,9 @@
    по формату phase0.js и поднять VERSION в sw.js.
    ============================================================ */
 
-CONTENT.register({ phase: 'p3', blocks: [] });
+/* Пакет регистрируется сам: если реестр ещё не загрузился, кладём его
+   в очередь — порядок тегов <script> в index.html значения не имеет. */
+(function (pack) {
+  if (window.CONTENT) CONTENT.register(pack);
+  else (window.__CONTENT_Q = window.__CONTENT_Q || []).push(pack);
+})({ phase: 'p3', blocks: [] });

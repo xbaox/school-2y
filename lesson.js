@@ -93,7 +93,7 @@ window.Lesson = (function () {
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
       '<div class="params">' + U.esc(STEPS.cardLine(p)) + '</div>' +
       (b.deadline ? '<div class="meta">' + U.esc(pace ? PACE.line(pace, b.deadline) : 'до ' + U.fmtShort(b.deadline)) + '</div>' : '') +
-      (lesson.youtube ? '<div class="meta">▶ YouTube: «' + U.esc(lesson.youtube) + '»</div>' : '') +
+      (PROMPTS.video(lesson) ? '<div class="meta">▶ YouTube: «' + U.esc(PROMPTS.video(lesson)) + '»</div>' : '') +
       buttons(lessonId, closedToday, todayIso) +
       '<div class="foot">долгов по дорожке: ' + debts + ' · ' + U.esc(lastScore) + '</div>' +
       swapLink() +
@@ -169,6 +169,9 @@ window.Lesson = (function () {
   function buttons(lessonId, closed, todayIso) {
     var copied = State.promptCopied(lessonId, todayIso);
     var d = State.day(todayIso) || { level: 'none', lessons: [] };
+    // у уроков-повторов видео нет: кнопке «Что смотреть» там нечего открывать
+    var hasVideo = !!PROMPTS.video(CONTENT.lesson(lessonId));
+    var watch = hasVideo ? '<button class="btn sec" data-watch="' + U.esc(lessonId) + '">Что смотреть</button>' : '';
     var html = '<div class="btns">';
 
     if (closed) {
@@ -188,10 +191,10 @@ window.Lesson = (function () {
     } else if (copied) {
       html += '<button class="btn pr" data-summary="' + U.esc(lessonId) + '">Вставить итог урока</button>';
       html += '<button class="btn sec" data-copy="' + U.esc(lessonId) + '">Скопировать ещё раз</button>';
-      html += '<button class="btn sec" data-watch="' + U.esc(lessonId) + '">Что смотреть</button>';
+      html += watch;
     } else {
       html += '<button class="btn pr" data-copy="' + U.esc(lessonId) + '">Скопировать промпт</button>';
-      html += '<button class="btn sec" data-watch="' + U.esc(lessonId) + '">Что смотреть</button>';
+      html += watch;
       html += '<button class="btn sec" data-summary="' + U.esc(lessonId) + '">Вставить итог урока</button>';
     }
     return html + '</div>';
@@ -276,12 +279,12 @@ window.Lesson = (function () {
   function watch(lessonId) {
     var l = CONTENT.lesson(lessonId);
     if (!l) return;
-    State.markVideoWatched(lessonId);
-    var q = l.youtube;
+    var q = PROMPTS.video(l);
     if (!q) {
       UI.toast('У этого урока видео нет — сразу к попытке');
       return;
     }
+    State.markVideoWatched(lessonId);
     var url = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
     UI.sheet({
       title: 'Что смотреть',

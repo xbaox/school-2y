@@ -54,7 +54,9 @@
       (pd.start ? U.fmtShort(pd.start) + ' – ' + U.fmtShort(pd.end) + ' · ' : '') +
       ids.length + ' ' + U.plural(ids.length, 'блок', 'блока', 'блоков') +
       (tot ? ' · ' + dn + '/' + tot + ' ' + U.plural(tot, 'урок', 'урока', 'уроков') : ' · уроки придут пакетом') +
-      '</div></div>' +
+      '</div>' +
+      (p.milestone ? '<div class="tiny fire ph-mile">' + U.esc(p.milestone) + '</div>' : '') +
+      '</div>' +
       '<span class="chev">' + (isOpen ? '▾' : '▸') + '</span>' +
       '</div>';
 

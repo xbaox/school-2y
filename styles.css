@@ -222,6 +222,12 @@ section.block:first-of-type{margin-top:0}
 .txt:focus,.num:focus{outline:none;border-color:var(--fire)}
 textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.5}
 
+/* даты фаз: подпись сверху, пара полей снизу — на 320px в строку не влезают */
+.prow{padding:12px 0;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:none}
+.pdates{display:flex;align-items:center;gap:8px;margin-top:6px}
+.pdates .txt{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px}
+
 .seg{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:3px;gap:3px}
 .seg button{padding:6px 14px;border-radius:99px;font-size:12.5px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--fire);color:#12151c;font-weight:600}
@@ -293,6 +299,7 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
   padding:10px 0;cursor:pointer}
 .phase .ph-head h2{margin-bottom:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .phase .chev{color:var(--dim);font-size:13px;flex-shrink:0}
+.phase .ph-mile{margin-top:2px;font-family:var(--mono)}
 .bl{cursor:pointer}
 .bl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .bl-t{font-size:13.5px;line-height:1.4}
