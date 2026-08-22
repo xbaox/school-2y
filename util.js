@@ -78,6 +78,12 @@ window.U = (function () {
 
   function fmtWeekday(isoDate) { return WD_SHORT[weekday(isoDate) - 1]; }
 
+  /** '2026-09-08' → '08.09' — короткая метка даты для плашек. */
+  function fmtDayMonth(isoDate) {
+    var p = String(isoDate).split('-');
+    return p[2] + '.' + p[1];
+  }
+
   /** Русское склонение: plural(2,'день','дня','дней') → 'дня' */
   function plural(n, one, few, many) {
     var a = Math.abs(n) % 100, b = a % 10;
@@ -127,7 +133,7 @@ window.U = (function () {
     DAY_START_HOUR: DAY_START_HOUR,
     iso: iso, parse: parse, today: today, nextDayBoundary: nextDayBoundary,
     addDays: addDays, diffDays: diffDays, weekday: weekday, weekStart: weekStart,
-    fmtShort: fmtShort, fmtLong: fmtLong, fmtWeekday: fmtWeekday,
+    fmtShort: fmtShort, fmtLong: fmtLong, fmtWeekday: fmtWeekday, fmtDayMonth: fmtDayMonth,
     plural: plural, days: days, uid: uid, clamp: clamp, esc: esc,
     el: el, els: els, on: on, shuffle: shuffle
   };

@@ -115,9 +115,11 @@ window.App = (function () {
   /** Плашка ступени (раздел 7.2). Тап открывает детали цикла и историю. */
   function stepCard() {
     if (!State.isSchool()) {
+      // летом слева режим, справа — когда просыпается шкала; сам пресет S2
+      // виден строкой параметров на карточке урока и в Настройках
       return '<button class="p-step" data-step>' +
-        '<span class="s">Лето · пресет S2</span>' +
-        '<span class="s muted">шкала с 08.09</span>' +
+        '<span class="s">Лето</span>' +
+        '<span class="s muted">шкала с ' + U.fmtDayMonth(State.AUTO_SCHOOL_DATE) + '</span>' +
         '</button>';
     }
     var s = State.s.step;

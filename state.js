@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 1;
-  var APP_VERSION = '2.0.2';
+  var APP_VERSION = '2.1.0';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';

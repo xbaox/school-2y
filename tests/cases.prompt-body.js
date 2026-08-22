@@ -181,6 +181,17 @@
     eq(res.reason.text, 'второй урок: другой дорожки с уроками нет', 'бейдж говорит правду');
   });
 
+  describe('подписи B-16 + A-12: летом на экранах не спорят S1 и пресет S2', function () {
+    eq(U.fmtDayMonth('2026-09-08'), '08.09', 'короткая метка даты старта шкалы');
+    var summer = STEPS.params({ position: 1 }, '2026-08-22', 'summer');
+    eq(summer.stepLabel, 'Лето (пресет S2)', 'строка параметров называет пресет');
+    eq(STEPS.cardLine(summer),
+      'Лето (пресет S2) · ~40 мин · ≥28 вопросов · старт L1 · перенос ×1–2 · RU ≤30%',
+      'та же строка, что в Настройках слева');
+    var school = STEPS.params({ position: 1 }, '2026-09-10', 'school');
+    eq(school.stepLabel, 'S1', 'после 08.09 подпись обычная');
+  });
+
   describe('маппинг B-03: ESLEO — это ESL', function () {
     eq(CONTENT.trackForCourse('ESLEO'), 'write', 'ESLEO ведёт на дорожку письма');
     eq(CONTENT.COURSES_NO_TRACK.indexOf('ESLEO'), -1, 'из списка «водопад не назначает» убран');
