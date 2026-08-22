@@ -118,6 +118,7 @@ window.State = (function () {
         snoozeFrom: null,      // начало отсрочки — чтобы считать паузу цикла
         deloadUntil: null,
         deloadFrom: null,      // начало разгрузки — то же
+        pauses: [],            // отрезки пауз {from,to,kind}: цикл на паузе, не сброшен
         history: []
       },
       tracks: clone(TRACKS),
@@ -184,6 +185,19 @@ window.State = (function () {
     ['debts', 'radar', 'todos', 'summaries', 'tracks'].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = clone(base[k]); });
     if (!out.tracks.length) out.tracks = clone(base.tracks);
     if (!Array.isArray(out.step.history)) out.step.history = [];
+
+    // A-03: паузы цикла живут отрезками. У состояний, знавших только пару
+    // «текущих» полей, отрезок восстанавливается из них — иначе прожитая
+    // разгрузка после миграции укоротила бы цикл.
+    if (!Array.isArray(out.step.pauses)) {
+      out.step.pauses = [];
+      if (out.step.snoozeFrom && out.step.snoozeUntil) {
+        out.step.pauses.push({ from: U.addDays(out.step.snoozeFrom, 1), to: out.step.snoozeUntil, kind: 'snooze' });
+      }
+      if (out.step.deloadFrom && out.step.deloadUntil) {
+        out.step.pauses.push({ from: U.addDays(out.step.deloadFrom, 1), to: out.step.deloadUntil, kind: 'deload' });
+      }
+    }
 
     // A-14: свежесть дорожки без единого урока считается от даты онбординга;
     // у состояний, живших до этого поля, точкой отсчёта становится сегодня

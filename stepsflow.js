@@ -16,30 +16,65 @@ window.StepsFlow = (function () {
 
   /* ---------- пауза цикла ---------- */
 
-  /** Пересечение двух отрезков дат в днях. */
-  function overlap(aFrom, aTo, bFrom, bTo) {
-    if (!aFrom || !aTo) return 0;
-    var from = aFrom > bFrom ? aFrom : bFrom;
-    var to = aTo < bTo ? aTo : bTo;
-    var n = U.diffDays(from, to) + 1;
-    return n > 0 ? n : 0;
+  /**
+   * Паузы живут отрезками в step.pauses[] — не парой «текущих» полей.
+   * Отсрочка и разгрузка ставят счётчик цикла на паузу, а не сбрасывают его,
+   * поэтому истёкшую паузу обнулять нельзя: её дни продолжают вычитаться
+   * из длины цикла. Отрезок начинается со следующего дня после старта:
+   * день, в который нажата кнопка, уже прожит и в паузу не входит.
+   */
+  function addPause(fromIso, toIso, kind) {
+    var s = step();
+    var from = U.addDays(fromIso, 1);
+    if (!toIso || from > toIso) return null;
+    s.pauses = s.pauses || [];
+    var seg = { from: from, to: toIso, kind: kind };
+    s.pauses.push(seg);
+    return seg;
   }
 
-  /**
-   * Дней паузы внутри отрезка: отсрочка и разгрузка ставят счётчик
-   * цикла на паузу (не сбрасывают). Пересечение считаем один раз.
-   */
+  /** Отрезки пауз, слитые по перекрытию — чтобы день не считался дважды. */
+  function mergedPauses() {
+    var list = (step().pauses || [])
+      .filter(function (p) { return p && p.from && p.to && p.from <= p.to; })
+      .sort(function (a, b) { return a.from < b.from ? -1 : (a.from > b.from ? 1 : 0); });
+    var out = [];
+    list.forEach(function (p) {
+      var last = out[out.length - 1];
+      if (last && p.from <= U.addDays(last.to, 1)) {
+        if (p.to > last.to) last.to = p.to;
+      } else {
+        out.push({ from: p.from, to: p.to });
+      }
+    });
+    return out;
+  }
+
+  /** Дней паузы внутри отрезка. */
   function pausedDays(from, to) {
-    var s = step();
-    var a = overlap(s.snoozeFrom, s.snoozeUntil, from, to);
-    var b = overlap(s.deloadFrom, s.deloadUntil, from, to);
-    var both = 0;
-    if (s.snoozeFrom && s.deloadFrom) {
-      var f = s.snoozeFrom > s.deloadFrom ? s.snoozeFrom : s.deloadFrom;
-      var t = (s.snoozeUntil || '') < (s.deloadUntil || '') ? s.snoozeUntil : s.deloadUntil;
-      both = overlap(f, t, from, to);
+    if (!from || !to || from > to) return 0;
+    var n = 0;
+    mergedPauses().forEach(function (p) {
+      var a = p.from > from ? p.from : from;
+      var b = p.to < to ? p.to : to;
+      var d = U.diffDays(a, b) + 1;
+      if (d > 0) n += d;
+    });
+    return n;
+  }
+
+  function inPause(dateIso) {
+    return mergedPauses().some(function (p) { return dateIso >= p.from && dateIso <= p.to; });
+  }
+
+  /** Последние n непаузных дней, старые первыми. */
+  function windowDays(todayIso, n) {
+    var out = [], d = todayIso, guard = 0;
+    while (out.length < n && guard++ < 400) {
+      if (!inPause(d)) out.push(d);
+      d = U.addDays(d, -1);
     }
-    return Math.max(0, a + b - both);
+    return out.reverse();
   }
 
   /** День цикла 1..14 с учётом пауз. */
@@ -61,9 +96,10 @@ window.StepsFlow = (function () {
     return !!step().cycleStart && !isPaused(t) && cycleDay(t) >= STEPS.CYCLE_DAYS;
   }
 
+  /** Завершённый цикл — только подъём или упор в потолок; отсрочка циклом не считается. */
   function completedCycles() {
     return (step().history || []).filter(function (h) {
-      return h.reason === 'up' || h.reason === 'decline' || h.reason === 'top';
+      return h.reason === 'up' || h.reason === 'top';
     }).length;
   }
 
@@ -71,19 +107,20 @@ window.StepsFlow = (function () {
 
   /**
    * criteria() → { daysWithPoints, avgScore, lessonsCounted, reds, ok }
-   * Окно — текущий цикл: от cycleStart до сегодня.
+   * Окно — последние 14 непаузных дней: разгрузка и отсрочка не должны
+   * ни разбавлять статистику пустыми днями, ни укорачивать выборку.
    */
   function criteria(todayIso) {
     var t = todayIso || State.today();
-    var from = step().cycleStart || U.addDays(t, -13);
+    var days = windowDays(t, STEPS.CYCLE_DAYS);
+    var from = days[0] || t;
+    var inWindow = {};
+    days.forEach(function (d) { inWindow[d] = true; });
 
-    var daysWithPoints = 0;
-    for (var d = from; d <= t; d = U.addDays(d, 1)) {
-      if (State.points(d) > 0) daysWithPoints++;
-    }
+    var daysWithPoints = days.filter(function (d) { return State.points(d) > 0; }).length;
 
     var scores = State.s.summaries
-      .filter(function (s) { return s.date >= from && s.date <= t && s.parsed && s.parsed.score != null; })
+      .filter(function (s) { return inWindow[s.date] && s.parsed && s.parsed.score != null; })
       .map(function (s) { return s.parsed.score; });
     var avg = scores.length ? scores.reduce(function (a, b) { return a + b; }, 0) / scores.length : null;
 
@@ -150,6 +187,7 @@ window.StepsFlow = (function () {
     var t = State.today();
     s.snoozeFrom = t;
     s.snoozeUntil = U.addDays(t, 7 * (weeks || 2));
+    addPause(t, s.snoozeUntil, 'snooze');
     s.history = s.history || [];
     s.history.push({ date: t, from: s.position, to: s.position, reason: 'decline', note: weeks + ' нед.' });
     State.touch();
@@ -163,6 +201,7 @@ window.StepsFlow = (function () {
     var t = State.today();
     s.deloadFrom = t;
     s.deloadUntil = U.addDays(t, DELOAD_DAYS - 1);
+    addPause(t, s.deloadUntil, 'deload');
     s.history = s.history || [];
     s.history.push({ date: t, from: s.position, to: Math.max(STEPS.MIN, s.position - 1), reason: 'deload' });
     State.touch();
@@ -189,6 +228,11 @@ window.StepsFlow = (function () {
     var s = step();
     if (s.position <= STEPS.MIN) return false;
     var t = State.today();
+
+    // пустая история — не «сломанная серия»: у новичка серии ещё не было,
+    // и первые же три дня без очков не должны ронять ступень
+    var hasHistory = Object.keys(State.s.days).some(function (k) { return State.points(k) > 0; });
+    if (!hasHistory) return false;
 
     // 1) серия сломалась: три пустых дня подряд
     var empty = DOCTRINE.emptyInRow(State.points, t);
@@ -224,28 +268,24 @@ window.StepsFlow = (function () {
 
   function onDeload(todayIso) { return STEPS.onDeload(step(), todayIso || State.today()); }
 
-  /** Вызывается при загрузке и на смене суток. */
+  /**
+   * Вызывается при загрузке и на смене суток.
+   * Даты пауз здесь не обнуляются: истёкшая пауза сама перестаёт действовать
+   * (сравнение с сегодня), а её дни обязаны остаться в счёте цикла.
+   */
   function check() {
     var s = step();
     var t = State.today();
 
-    // конец разгрузки — позиция возвращается сама
-    if (s.deloadUntil && t > s.deloadUntil) {
-      s.deloadUntil = null;
-      s.deloadFrom = null;
+    // конец разгрузки — позиция возвращается сама, сказать об этом надо один раз
+    if (s.deloadUntil && t > s.deloadUntil && s.deloadNotified !== s.deloadUntil) {
+      s.deloadNotified = s.deloadUntil;
       State.touch(true);
       UI.toast('Разгрузка закончилась — ступень ' + STEPS.label(s.position) + '.', 'ok');
     }
 
     if (!State.isSchool()) return;              // летом шкала неактивна
     if (!s.cycleStart) { s.cycleStart = t; State.touch(true); }
-
-    // конец отсрочки — просто снимаем паузу, дальше обычная проверка цикла
-    if (s.snoozeUntil && t > s.snoozeUntil) {
-      s.snoozeUntil = null;
-      s.snoozeFrom = null;
-      State.touch(true);
-    }
 
     if (checkDemotion()) return;
     if (cycleEnded(t)) offerPromotion();
@@ -395,15 +435,18 @@ window.StepsFlow = (function () {
       'Её работа — не объём, а серия. Растут норма, полная и глубина уроков.</div></div>';
   }
 
+  /** Строка истории по-человечески: что случилось, а не код причины. */
   function histText(h) {
-    var names = {
-      up: 'подъём', decline: 'отсрочка', 'auto-down': 'откат', deload: 'разгрузка',
-      manual: 'вручную', top: 'потолок Г3'
-    };
-    var t = names[h.reason] || h.reason;
-    if (h.from !== h.to) t += ': ' + STEPS.label(h.from) + ' → ' + STEPS.label(h.to);
-    if (h.note) t += ' (' + h.note + ')';
-    return t;
+    var move = h.from !== h.to ? ': ' + STEPS.label(h.from) + ' → ' + STEPS.label(h.to) : '';
+    switch (h.reason) {
+      case 'up': return 'подъём' + move;
+      case 'decline': return 'отсрочка' + (h.note ? ' на ' + h.note : '');
+      case 'auto-down': return (h.note === 'streak' ? 'серия прервалась' : 'два урока ниже 6') + move;
+      case 'deload': return 'разгрузка' + move;
+      case 'manual': return 'вручную' + move;
+      case 'top': return 'потолок шкалы';
+      default: return h.reason + move;
+    }
   }
 
   /** Ручной override (Настройки, доступен всегда). */
@@ -433,6 +476,7 @@ window.StepsFlow = (function () {
   return {
     check: check, criteria: criteria, cycleDay: cycleDay, isPaused: isPaused,
     cycleEnded: cycleEnded, completedCycles: completedCycles, pausedDays: pausedDays,
+    inPause: inPause, windowDays: windowDays, histText: histText,
     promote: promote, snooze: snooze, startDeload: startDeload, setPosition: setPosition,
     checkDemotion: checkDemotion,
     onDeload: onDeload, offerPromotion: offerPromotion, openDetails: openDetails, openManual: openManual
