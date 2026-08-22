@@ -271,6 +271,10 @@
         onYes: function () {
           State.replace(data);
           State.syncContent();
+          // импортированный файл — свежайшая правда этого устройства:
+          // штампуем «сейчас» и отдаём в облако сразу, не дожидаясь следующей правки
+          State.touch(true);
+          if (window.Sync && Sync.signedIn()) Sync.push();
           UI.toast('Состояние загружено', 'ok');
           App.render();
         }

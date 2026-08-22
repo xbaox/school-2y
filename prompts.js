@@ -86,10 +86,13 @@ window.PROMPTS = (function () {
     var sumText = sums.length
       ? sums.map(function (s) {
         var p = s.parsed || {};
+        var warm = (p.warmup || []).filter(function (q) { return q && String(q).trim(); });
         return '\n  – ' + s.lessonId + ' (' + U.fmtShort(s.date) + '): ' +
           (p.score != null ? p.score + '/10' : 'без счёта') +
           (p.level ? ', ' + p.level : '') +
-          (p.topics ? ' — ' + p.topics : '');
+          (p.topics ? ' — ' + p.topics : '') +
+          // «В разогрев» прошлого итога — это и есть первые вопросы этого урока (8.4)
+          (warm.length ? '\n      в разогрев: ' + warm.join('; ') : '');
       }).join('')
       : 'пока нет — это первый урок дорожки';
 

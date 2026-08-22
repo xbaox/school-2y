@@ -21,6 +21,9 @@ window.Sync = (function () {
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15dmh3aWNkcnFmenZzaXJrb25oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNDczODUsImV4cCI6MjEwMjgyMzM4NX0.9rlTwojhssYBugaldfwn_3Dmf54mBit0km9pN54ZmE8';
 
   var SESSION_KEY = 'study-system-v2-session';
+  /** Метка последнего успешного push. Переживает закрытие вкладки — по ней
+      при следующем запуске видно, что локальные правки ещё не уехали. */
+  var PUSHED_KEY = 'study-system-v2-pushed';
   var PUSH_DEBOUNCE = 2000;
 
   var session = null;      // { access_token, refresh_token, expires_at, user_id, email }
@@ -34,6 +37,36 @@ window.Sync = (function () {
 
   function available() { return !!(URL_BASE && ANON_KEY); }
   function signedIn() { return !!(session && session.access_token); }
+
+  /** Все сравнения времён — только через Date.parse: строки ISO из разных
+      источников (локальная правка, столбец updated_at) сравнивать как текст нельзя. */
+  function ts(v) {
+    var n = Date.parse(v || '');
+    return isNaN(n) ? 0 : n;
+  }
+
+  function lastPushedAt() {
+    try { return localStorage.getItem(PUSHED_KEY) || null; } catch (e) { return null; }
+  }
+
+  function setLastPushedAt(iso) {
+    try {
+      if (iso) localStorage.setItem(PUSHED_KEY, iso);
+      else localStorage.removeItem(PUSHED_KEY);
+    } catch (e) { /* приватный режим — переживём */ }
+  }
+
+  /** Есть ли локальные правки, которые ещё не уехали в облако. */
+  function hasUnpushed() {
+    return ts(State.s.meta.updatedAt) > ts(lastPushedAt());
+  }
+
+  /** Есть ли вообще что отдавать: пустое состояние облако затирать не должно. */
+  function hasLocalData() {
+    var s = State.s;
+    return !!(s.onboarded || (s.summaries && s.summaries.length) ||
+      Object.keys(s.days || {}).length);
+  }
   function state() { return { status: status, lastSync: lastSync, error: lastError, email: session && session.email }; }
 
   function onChange(fn) { listeners.push(fn); }
@@ -135,6 +168,7 @@ window.Sync = (function () {
   function signOut() {
     if (signedIn()) req('/auth/v1/logout', { method: 'POST' }).catch(function () { });
     saveSession(null);
+    setLastPushedAt(null);
     pending = false;
     lastSync = null;
     setStatus('off');
@@ -156,13 +190,16 @@ window.Sync = (function () {
       var row = rows && rows[0];
       if (!row || !row.state || !row.state.meta) {
         setStatus('idle');
+        // в облаке пусто — отдаём своё, если оно не пустое
+        if (hasLocalData()) push();
         return { ok: true, applied: false, empty: true };
       }
       var cloudAt = row.state.meta.updatedAt || row.updated_at || '';
       var localAt = State.s.meta.updatedAt || '';
-      if (force || cloudAt > localAt) {
+      if (force || ts(cloudAt) > ts(localAt)) {
         State.replace(row.state);
-        State.syncContent();
+        setLastPushedAt(cloudAt);          // ровно это состояние в облаке и лежит
+        State.syncContent();               // новый пакет контента — уже локальная правка
         lastSync = new Date().toISOString();
         setStatus('idle');
         if (window.App) App.render();
@@ -170,6 +207,8 @@ window.Sync = (function () {
       }
       lastSync = new Date().toISOString();
       setStatus('idle');
+      // конфликт решает более поздний updatedAt: локальное новее — отдаём его
+      if (ts(localAt) > ts(cloudAt)) push();
       return { ok: true, applied: false, at: cloudAt };
     }).catch(function (e) {
       setStatus(navigator.onLine ? 'error' : 'queued', e.message);
@@ -185,22 +224,20 @@ window.Sync = (function () {
 
     busy = true;
     setStatus('syncing');
-    var snapshot = State.s;
+    var stamp = null;
     return ensureToken().then(function () {
+      stamp = State.s.meta.updatedAt || new Date().toISOString();
       return req('/rest/v1/app_state?on_conflict=user_id', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: [{
-          user_id: session.user_id,
-          state: snapshot,
-          updated_at: snapshot.meta.updatedAt || new Date().toISOString()
-        }]
+        body: [{ user_id: session.user_id, state: State.s, updated_at: stamp }]
       });
     }).then(function (r) {
       if (!r.ok) {
         return r.text().then(function (t) { throw new Error('облако ответило ' + r.status + ': ' + t.slice(0, 120)); });
       }
       busy = false;
+      setLastPushedAt(stamp);
       lastSync = new Date().toISOString();
       setStatus('idle');
       if (pending) { pending = false; return push(); }
@@ -232,11 +269,17 @@ window.Sync = (function () {
     if (pending || status === 'queued' || status === 'error') push();
   }
 
+  /**
+   * Старт. Если локальная правка пережила закрытие вкладки (updatedAt новее
+   * метки последнего push) — сначала отдаём её, иначе забираем облако
+   * по правилу «новее побеждает».
+   */
   function init() {
     loadSession();
     if (!signedIn()) { setStatus('off'); return; }
     setStatus('idle');
-    pull();
+    if (navigator.onLine && lastPushedAt() && hasUnpushed()) push();
+    else pull();
 
     window.addEventListener('online', function () {
       UI.toast('Сеть вернулась — догоняю облако', '', 2200);
@@ -300,6 +343,7 @@ window.Sync = (function () {
     available: available, signedIn: signedIn, state: state, status: statusText,
     init: init, signIn: signIn, signOut: signOut, pull: pull, push: push,
     onLocalChange: onLocalChange, flush: flush, onChange: onChange,
+    lastPushedAt: lastPushedAt, hasUnpushed: hasUnpushed,
     loginFormHtml: loginFormHtml, wireLoginForm: wireLoginForm,
     get email() { return session && session.email; }
   };
