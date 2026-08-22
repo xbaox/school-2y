@@ -28,6 +28,9 @@
       '<p class="lead">' + totalBlocks + ' ' + U.plural(totalBlocks, 'блок', 'блока', 'блоков') +
       ' · уроков в контенте ' + lessons.length + ', закрыто ' + done +
       '. Дедлайны редактируются, фазу можно сдвинуть целиком.</p>' +
+      '<section class="block"><h2>Свежесть дорожек</h2>' +
+      '<p class="lead">Свежесть гасит только полноценный урок. 0–3 зелёный · 4–5 жёлтый · 6+ красный.</p>' +
+      (window.Waterfall ? Waterfall.fullBars() : '') + '</section>' +
       State.phases().map(phaseSection).join('');
   }
 

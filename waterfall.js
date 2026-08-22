@@ -1,0 +1,295 @@
+/* ============================================================
+   waterfall.js — водопад выбора урока дня (раздел 7.3 ТЗ)
+   и свежесть дорожек (7.4).
+
+   Сверху вниз, первое сработавшее правило назначает дорожку:
+   1. Радар (событие ≤3 дней) · 2. Свежесть (≥5 дней без урока)
+   3. Светофор (красный блок) · 4. Долги (≥5 открытых)
+   5. Шаблон недели. Воскресенье — радар-день, урок не назначается.
+   Дорожка без доступных уроков пропускается всеми правилами.
+   ============================================================ */
+
+window.Waterfall = (function () {
+  'use strict';
+
+  var FRESH_RULE_DAYS = 5;    // правило 2: дорожка без урока ≥5 дней
+  var DEBTS_RULE_COUNT = 5;   // правило 4: ≥5 открытых долгов
+
+  /** Шаблон недели: пн мат · вт письмо · ср мат · чт инфа/бизнес · пт мат · сб письмо ⭐ · вс радар. */
+  var WEEK = {
+    1: 'math', 2: 'write', 3: 'math', 4: 'alt', 5: 'math', 6: 'write', 7: null
+  };
+  var WD_NAME = { 1: 'понедельник', 2: 'вторник', 3: 'среда', 4: 'четверг', 5: 'пятница', 6: 'суббота', 7: 'воскресенье' };
+
+  /* ---------- вспомогательное ---------- */
+
+  function available(trackId) { return State.nextLessonInTrack(trackId) != null; }
+
+  function firstAvailable(trackIds, exclude) {
+    for (var i = 0; i < trackIds.length; i++) {
+      var t = trackIds[i];
+      if (!t || t === exclude) continue;
+      if (available(t)) return t;
+    }
+    return null;
+  }
+
+  function typeName(t) {
+    return { test: 'тест', quiz: 'квиз', assignment: 'сдача', exam: 'экзамен' }[t] || 'событие';
+  }
+
+  function whenText(days) {
+    if (days <= 0) return 'сегодня';
+    if (days === 1) return 'завтра';
+    return 'через ' + U.days(days);
+  }
+
+  /* ---------- правила ---------- */
+
+  /** 1. Радар: школьное событие ≤3 дней. */
+  function ruleRadar(t, exclude) {
+    var events = (State.s.radar || [])
+      .filter(function (e) { return !e.done && e.date >= t && U.diffDays(t, e.date) <= 3; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    for (var i = 0; i < events.length; i++) {
+      var e = events[i];
+      var track = CONTENT.trackForCourse(e.course);
+      if (!track || track === exclude || !available(track)) continue;
+      return {
+        track: track,
+        reason: {
+          kind: 'radar',
+          text: 'радар: ' + typeName(e.type) + ' ' + e.course + ' ' + whenText(U.diffDays(t, e.date))
+        }
+      };
+    }
+    return null;
+  }
+
+  /** 2. Свежесть: дорожка без урока ≥5 дней. */
+  function ruleFreshness(t, exclude) {
+    var best = null, bestDays = -1;
+    State.s.tracks.forEach(function (tr) {
+      if (tr.embedded || tr.id === exclude) return;
+      var f = State.freshness(tr.id, t);
+      if (f == null || f < FRESH_RULE_DAYS) return;   // без истории свежесть не считаем
+      if (!available(tr.id)) return;
+      if (f > bestDays) { bestDays = f; best = tr; }
+    });
+    if (!best) return null;
+    return {
+      track: best.id,
+      reason: { kind: 'fresh', text: 'свежесть: ' + best.name + ' ' + U.days(bestDays) }
+    };
+  }
+
+  /** 3. Светофор: блок с красным темпом. */
+  function rulePace(t, exclude) {
+    var ids = Object.keys(State.s.blocks).sort(function (a, b) {
+      var da = State.s.blocks[a].deadline || '9999', db = State.s.blocks[b].deadline || '9999';
+      return da < db ? -1 : (da > db ? 1 : 0);
+    });
+    for (var i = 0; i < ids.length; i++) {
+      var b = State.s.blocks[ids[i]];
+      if (b.track === exclude) continue;
+      var st = State.blockPace(ids[i]);
+      if (!st || st.color !== 'red' || st.done) continue;
+      var next = nextInBlock(ids[i]);
+      if (!next) continue;
+      return {
+        track: b.track,
+        blockId: ids[i],
+        lessonId: next,
+        reason: { kind: 'pace', text: 'светофор: ' + State.blockLabel(ids[i]) + ' горит красным' }
+      };
+    }
+    return null;
+  }
+
+  /** 4. Долги: дорожка с ≥5 открытыми долгами. */
+  function ruleDebts(t, exclude) {
+    var counts = {};
+    State.openDebts().forEach(function (d) { counts[d.track] = (counts[d.track] || 0) + 1; });
+    var best = null, bestN = 0;
+    Object.keys(counts).forEach(function (id) {
+      if (id === exclude || counts[id] < DEBTS_RULE_COUNT) return;
+      if (!available(id)) return;
+      if (counts[id] > bestN) { bestN = counts[id]; best = id; }
+    });
+    if (!best) return null;
+    return {
+      track: best,
+      reason: { kind: 'debts', text: 'долги: ' + State.trackName(best) + ' — ' + bestN + ' открытых' }
+    };
+  }
+
+  /** 5. Шаблон недели. Четверг чередует информатику и бизнес по чётности недели. */
+  function ruleTemplate(t, exclude) {
+    var wd = U.weekday(t);
+    var slot = WEEK[wd];
+    if (!slot) return null;
+    var wanted;
+    if (slot === 'alt') {
+      var evenWeek = Math.abs(U.diffDays('2026-08-17', U.weekStart(t)) / 7) % 2 === 0;
+      wanted = evenWeek ? ['cs', 'biz'] : ['biz', 'cs'];
+    } else {
+      wanted = [slot];
+    }
+    var track = firstAvailable(wanted, exclude);
+    if (!track) return null;
+    return {
+      track: track,
+      reason: { kind: 'plan', text: 'шаблон: ' + WD_NAME[wd] + ' — ' + State.trackName(track).toLowerCase() }
+    };
+  }
+
+  var RULES = [ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
+
+  /** Следующий непройденный урок конкретного блока. */
+  function nextInBlock(blockId) {
+    var list = State.blockLessons(blockId);
+    for (var i = 0; i < list.length; i++) {
+      var st = State.s.lessons[list[i].id];
+      if (!st || !st.done) return list[i].id;
+    }
+    return null;
+  }
+
+  /**
+   * Выбор урока дня.
+   * opts.exclude — дорожка первого урока (для второго урока полной)
+   * opts.force   — игнорировать воскресный радар-день
+   * → { lessonId, reason } | { sunday:true, reason } | null
+   */
+  function pick(todayIso, opts) {
+    opts = opts || {};
+    var t = todayIso || State.today();
+    var d = State.day(t) || {};
+
+    if (U.weekday(t) === 7 && !opts.force && !opts.exclude && !d.forceLesson) {
+      return { sunday: true, reason: { kind: 'plan', text: 'воскресенье — радар-день' } };
+    }
+
+    for (var i = 0; i < RULES.length; i++) {
+      var res = RULES[i](t, opts.exclude);
+      if (!res) continue;
+      var lessonId = res.lessonId || State.nextLessonInTrack(res.track);
+      if (!lessonId) continue;
+      return { lessonId: lessonId, reason: res.reason, track: res.track };
+    }
+
+    // fallback: правила молчат — берём следующий непройденный, дорожка любая
+    var any = null;
+    if (opts.exclude) {
+      var tracks = State.s.tracks.filter(function (x) { return !x.embedded && x.id !== opts.exclude; });
+      for (var j = 0; j < tracks.length && !any; j++) any = State.nextLessonInTrack(tracks[j].id);
+    }
+    if (!any) any = State.nextLesson();
+    if (!any) return null;
+    return {
+      lessonId: any,
+      reason: {
+        kind: 'plan',
+        text: opts.exclude ? 'второй урок: свободная дорожка' : 'следующий по программе'
+      }
+    };
+  }
+
+  /** Второй урок полной: другая дорожка; если другой нет — разрешается та же (7.8). */
+  function second(todayIso, firstLessonId) {
+    var t = todayIso || State.today();
+    var firstTrack = State.lessonTrack(firstLessonId);
+    var res = pick(t, { exclude: firstTrack, force: true });
+    if (res && res.lessonId && res.lessonId !== firstLessonId) return res;
+    var same = State.nextLesson();
+    if (!same || same === firstLessonId) return null;
+    return { lessonId: same, reason: { kind: 'plan', text: 'второй урок: другой дорожки с уроками нет' } };
+  }
+
+  /* ---------- свежесть ---------- */
+
+  /** Цвет свежести: 0–3 зелёный · 4–5 жёлтый · ≥6 красный (7.4). */
+  function freshColor(days) {
+    if (days == null) return 'dim';
+    if (days <= 3) return 'g';
+    if (days <= 5) return 'y';
+    return 'r';
+  }
+
+  function freshText(trackId, days) {
+    var tr = State.track(trackId);
+    if (tr && tr.embedded) return 'в каждом уроке';
+    if (days == null) return 'уроков не было';
+    if (days === 0) return 'сегодня ✓';
+    return U.days(days);
+  }
+
+  /** Мини-полоски на «Сегодня». */
+  function miniBars() {
+    return '<div class="mini">' + State.s.tracks.map(function (tr) {
+      if (tr.embedded) return '<i class="bg-g" style="opacity:.35" title="' + U.esc(tr.name) + ' — в каждом уроке"></i>';
+      var f = State.freshness(tr.id);
+      var c = freshColor(f);
+      var bg = c === 'r' ? 'bg-r' : (c === 'y' ? 'bg-y' : (c === 'g' ? 'bg-g' : ''));
+      return '<i class="' + bg + '" style="' + (bg ? '' : 'background:var(--line)') + '" title="' +
+        U.esc(tr.name + ' — ' + freshText(tr.id, f)) + '"></i>';
+    }).join('') + '</div>';
+  }
+
+  /** Полные полоски для «Программы» и шторки свапа. */
+  function fullBars(activeTrack) {
+    return '<div class="card fresh">' + State.s.tracks.map(function (tr) {
+      var f = State.freshness(tr.id);
+      var c = tr.embedded ? 'g' : freshColor(f);
+      var pct = tr.embedded ? 100 : (f == null ? 100 : U.clamp(Math.round(f / 7 * 100), 6, 100));
+      var bg = c === 'r' ? 'bg-r' : (c === 'y' ? 'bg-y' : (c === 'g' ? 'bg-g' : ''));
+      var dim = tr.embedded || f == null ? 'opacity:.35' : '';
+      return '<div class="trow' + (activeTrack === tr.id ? ' on' : '') + '" data-track="' + tr.id + '">' +
+        '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
+        '<div class="tbar"><i class="' + bg + '" style="width:' + pct + '%;' + dim +
+        (bg ? '' : 'background:var(--line)') + '"></i></div>' +
+        '<div class="tdays ' + c + '">' + U.esc(freshText(tr.id, f)) + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
+  /* ---------- ручной свап ---------- */
+
+  function openSwap() {
+    var t = State.today();
+    var rows = State.s.tracks.filter(function (tr) { return !tr.embedded; }).map(function (tr) {
+      var next = State.nextLessonInTrack(tr.id);
+      var l = next ? CONTENT.lesson(next) : null;
+      var f = State.freshness(tr.id);
+      return '<button class="swap-row" ' + (next ? 'data-pick="' + U.esc(next) + '"' : 'disabled') + '>' +
+        '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
+        '<div class="s">' + (l ? U.esc(State.blockLabel(l.blockId) + ' · ' + l.title) : 'уроков в контенте нет') + '</div>' +
+        '<div class="tdays ' + freshColor(f) + '">' + U.esc(freshText(tr.id, f)) + '</div>' +
+        '</button>';
+    }).join('');
+
+    UI.sheet({
+      title: 'Поменять урок',
+      sub: 'Автономия твоя: выбери дорожку. Свап отметится в статистике честности водопада.',
+      body: '<div class="swap-list">' + rows + '</div>',
+      onMount: function (root, close) {
+        U.on(root, 'click', '[data-pick]', function (e, el) {
+          var lessonId = el.dataset.pick;
+          var d = State.day(t, true);
+          d.pick = lessonId;
+          d.pickReason = { kind: 'swap', text: 'свап: выбрано вручную' };
+          d.swapped = true;
+          State.touch();
+          close();
+          UI.toast('Урок дня: ' + lessonId, 'ok');
+        });
+      }
+    });
+  }
+
+  return {
+    pick: pick, second: second, openSwap: openSwap,
+    miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
+    FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
+  };
+})();

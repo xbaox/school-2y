@@ -115,7 +115,9 @@ window.State = (function () {
         position: 1,
         cycleStart: null,
         snoozeUntil: null,
+        snoozeFrom: null,      // начало отсрочки — чтобы считать паузу цикла
         deloadUntil: null,
+        deloadFrom: null,      // начало разгрузки — то же
         history: []
       },
       tracks: clone(TRACKS),

@@ -282,6 +282,45 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .lrow .lt{flex:1;min-width:0}
 .lrow .mono{color:var(--muted);flex-shrink:0}
 
+/* ---------- ступени: критерии, история, ручной выбор ---------- */
+
+.p-step{width:100%;text-align:left}
+.crit{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.crow{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px}
+.crow .ct{flex:1}
+.sleepbox{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13.5px;cursor:pointer}
+.sleepbox input{width:20px;height:20px;accent-color:var(--fire)}
+.snooze .btn.pick{border-color:var(--fire);color:var(--fire)}
+.hist{margin-top:6px}
+.hrow{display:flex;gap:10px;align-items:baseline;padding:4px 0;font-size:12.5px;border-bottom:1px solid var(--line)}
+.hrow:last-child{border-bottom:none}
+.hrow span:first-child{width:56px;flex-shrink:0}
+
+.steplist{display:flex;flex-direction:column;gap:7px}
+.step-opt{display:block;width:100%;text-align:left;background:var(--card2);border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px}
+.step-opt.on{border-color:var(--fire);background:var(--fire-soft)}
+.step-opt b{color:var(--fire);font-size:13px;margin-right:8px}
+.step-opt span{color:var(--muted);font-size:10.5px}
+.step-opt em{display:block;font-style:normal;font-size:11px;color:var(--dim);margin-top:3px}
+
+/* ---------- свап урока ---------- */
+
+.swap-list{display:flex;flex-direction:column;gap:7px}
+.swap-row{display:grid;grid-template-columns:1fr auto;gap:4px 10px;width:100%;text-align:left;
+  background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.swap-row:disabled{opacity:.45}
+.swap-row .tname{font-size:13.5px}
+.swap-row .s{grid-column:1;font-size:11.5px;color:var(--muted)}
+.swap-row .tdays{grid-row:1;grid-column:2;font-family:var(--mono);font-size:11px;text-align:right}
+.fresh .trow.on{background:var(--fire-soft);border-radius:8px}
+
+/* ---------- незакрытый вчерашний урок ---------- */
+
+.pending{border-color:rgba(250,204,21,.4);margin-bottom:12px}
+.pending .t{font-size:14px;font-weight:600;color:var(--warn)}
+.pending .s{font-size:12px;color:var(--muted);margin-top:2px}
+
 /* ---------- строка минималки на «Сегодня» ---------- */
 
 .minrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;

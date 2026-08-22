@@ -17,7 +17,7 @@ ctx.globalThis = ctx;
 vm.createContext(ctx);
 
 /** Модули без DOM-зависимостей — их и проверяем. */
-const MODULES = ['util.js', 'doctrine.js', 'pace.js', 'steps.js', 'prompts.js'];
+const MODULES = ['util.js', 'doctrine.js', 'pace.js', 'steps.js', 'prompts.js', 'content/registry.js'];
 
 for (const f of MODULES) {
   const p = path.join(root, f);

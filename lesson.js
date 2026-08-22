@@ -55,8 +55,10 @@ window.Lesson = (function () {
 
   function card() {
     var todayIso = State.today();
+    var pending = unfinished(todayIso);
     var sel = current(todayIso);
-    if (!sel) return emptyCard();
+    if (!sel) return pending + emptyCard();
+    if (sel.sunday) return pending + sundayCard(sel);
 
     var lessonId = sel.lessonId;
     var lesson = CONTENT.lesson(lessonId);
@@ -82,7 +84,8 @@ window.Lesson = (function () {
     var lastScore = last && last.parsed && last.parsed.score != null
       ? 'прошлый урок дорожки: ' + last.parsed.score + '/10' : 'прошлых уроков дорожки нет';
 
-    return '<div class="lesson">' +
+    return pending +
+      '<div class="lesson">' +
       '<span class="why ' + whyClass + '">выбор: ' + U.esc(sel.reason.text) + '</span>' +
       '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
@@ -93,8 +96,11 @@ window.Lesson = (function () {
       buttons(lessonId, closedToday, todayIso) +
       '<div class="foot">долгов по дорожке: ' + debts + ' · ' + U.esc(lastScore) + '</div>' +
       swapLink() +
+      freshBars() +
       minimalRow() +
       '</div>';
+
+    function freshBars() { return window.Waterfall ? Waterfall.miniBars() : ''; }
   }
 
   function emptyCard() {
@@ -102,6 +108,48 @@ window.Lesson = (function () {
       UI.empty('🎉', 'Уроки текущих фаз закрыты.<br>Следующий пакет контента добавит новые.') +
       minimalRow() +
       '</div>';
+  }
+
+  /** Воскресенье — радар-день: урока нет, только минималка и чек-лист (7.8). */
+  function sundayCard(sel) {
+    return '<div class="lesson">' +
+      '<span class="why w-plan">выбор: ' + U.esc(sel.reason.text) + '</span>' +
+      '<h4>Радар-день</h4>' +
+      '<div class="meta">Урок не назначается. Пройдись по чек-листу недели — он даёт добавку +1.</div>' +
+      '<div class="btns">' +
+      '<button class="btn pr" data-checklist>Открыть чек-лист</button>' +
+      '</div>' +
+      '<div class="center" style="margin-top:10px">' +
+      '<button class="linkbtn" data-force-lesson>всё равно хочу урок</button></div>' +
+      (window.Waterfall ? Waterfall.miniBars() : '') +
+      minimalRow() +
+      '</div>';
+  }
+
+  /**
+   * Незавершённый урок (7.8): промпт скопирован, итог не вставлен
+   * до 04:00 следующего дня.
+   */
+  function unfinished(todayIso) {
+    var prev = U.addDays(todayIso, -1);
+    var d = State.s.days[prev];
+    if (!d || !d.copied || !d.copied.length) return '';
+    var open = d.copied.filter(function (id) {
+      var st = State.s.lessons[id];
+      return (!st || !st.done) &&
+        (d.lessons || []).indexOf(id) < 0 &&
+        (d.dropped || []).indexOf(id) < 0;
+    });
+    if (!open.length) return '';
+    var lessonId = open[0];
+    var l = CONTENT.lesson(lessonId);
+    return '<div class="card2 pending">' +
+      '<div class="t">Вчерашний урок не закрыт</div>' +
+      '<div class="s">' + U.esc(lessonId + (l ? ' · ' + l.title : '')) + '</div>' +
+      '<div class="btn-row" style="margin-top:10px">' +
+      '<button class="btn sec" data-drop="' + U.esc(lessonId) + '">Урок не состоялся</button>' +
+      '<button class="btn pr" data-late="' + U.esc(lessonId) + '">Вставить итог</button>' +
+      '</div></div>';
   }
 
   /** Умная primary-кнопка: всегда ровно одна (раздел 7.8). */
@@ -112,7 +160,11 @@ window.Lesson = (function () {
 
     if (closed) {
       var pts = State.points(todayIso);
-      var second = d.level === 'full' && d.lessons.length < 2 ? State.nextLesson() : null;
+      var second = null;
+      if (d.level === 'full' && d.lessons.length < 2) {
+        var res = window.Waterfall ? Waterfall.second(todayIso, lessonId) : null;
+        second = res ? res.lessonId : State.nextLesson();
+      }
       if (second && second !== lessonId) {
         html += '<button class="btn pr" data-second="' + U.esc(second) + '">Второй урок: скопировать промпт</button>';
       } else {
@@ -163,7 +215,27 @@ window.Lesson = (function () {
     });
     U.on(host, 'click', '[data-swap]', function () {
       if (window.Waterfall && Waterfall.openSwap) Waterfall.openSwap();
-      else UI.toast('Ручной выбор урока появится вместе с водопадом');
+    });
+    U.on(host, 'click', '[data-force-lesson]', function () {
+      var d = State.day(State.today(), true);
+      d.forceLesson = true;
+      State.touch();
+    });
+    U.on(host, 'click', '[data-checklist]', function () {
+      if (window.Radar && Radar.openChecklist) Radar.openChecklist();
+      else UI.toast('Чек-лист появится вместе с радаром');
+    });
+    U.on(host, 'click', '[data-late]', function (e, el) {
+      openSummary(el.dataset.late, { date: U.addDays(State.today(), -1) });
+    });
+    U.on(host, 'click', '[data-drop]', function (e, el) {
+      var prev = U.addDays(State.today(), -1);
+      var d = State.day(prev, true);
+      d.dropped = d.dropped || [];
+      if (d.dropped.indexOf(el.dataset.drop) < 0) d.dropped.push(el.dataset.drop);
+      if (d.pick === el.dataset.drop) { d.pick = null; d.pickReason = null; }
+      State.touch();
+      UI.toast('Урок вернулся в очередь. Без штрафа.', 'ok');
     });
   }
 

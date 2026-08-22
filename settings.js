@@ -11,6 +11,7 @@
     var st = State.s.settings;
     return '<h1>Настройки</h1>' +
       modeSection() +
+      stepSection() +
       listSection('Уровни дня', 'levels',
         'Очки за уровень. Уровни вложенные: очки не суммируются, засчитывается достигнутый.',
         st.levels, 'points') +
@@ -38,6 +39,23 @@
       '<button data-mode="summer" aria-pressed="' + (m === 'summer') + '">Лето</button>' +
       '<button data-mode="school" aria-pressed="' + (m === 'school') + '">Школа</button>' +
       '</div></div></div></section>';
+  }
+
+  function stepSection() {
+    var s = State.s.step;
+    var pos = STEPS.effectivePos(s, State.today());
+    var p = STEPS.params(s, State.today(), State.mode());
+    return '<section class="block"><h2>Ступень нагрузки</h2>' +
+      '<p class="lead">Шкала из 7 позиций: S1–S4 растят время, Г1–Г3 — глубину. ' +
+      'Растёт сама по циклам, но ручной override доступен всегда.</p>' +
+      '<div class="card">' +
+      '<div class="srow"><div class="k">Сейчас<span>' + U.esc(STEPS.cardLine(p)) + '</span></div>' +
+      '<div class="mono">' + U.esc(STEPS.label(pos)) + '</div></div>' +
+      '<div class="srow"><div class="k">День цикла<span>цикл 14 дней, пауза при отсрочке и разгрузке</span></div>' +
+      '<div class="mono">' + (State.isSchool() ? StepsFlow.cycleDay() + '/14' : '—') + '</div></div>' +
+      '<button class="btn ghost" data-step-manual>Изменить ступень вручную</button>' +
+      (State.isSchool() ? '<button class="btn ghost" data-step-deload>Неделя экзаменов — разгрузка</button>' : '') +
+      '</div></section>';
   }
 
   function listSection(title, key, lead, items, numField) {
@@ -91,6 +109,9 @@
       State.setMode(el.dataset.mode);
       UI.toast(el.dataset.mode === 'school' ? 'Режим «Школа»' : 'Режим «Лето»', 'ok');
     });
+
+    U.on(host, 'click', '[data-step-manual]', function () { StepsFlow.openManual(); });
+    U.on(host, 'click', '[data-step-deload]', function () { StepsFlow.startDeload(); });
 
     U.on(host, 'change', '[data-list]', function (e, el) {
       var list = State.s.settings[el.dataset.list];

@@ -89,6 +89,7 @@ window.App = (function () {
       U.on(host, 'click', '[data-addon]', function (e, el) {
         State.toggleAddon(el.dataset.addon);
       });
+      U.on(host, 'click', '[data-step]', function () { StepsFlow.openDetails(); });
       if (window.Lesson) Lesson.mount(host);
       if (window.Radar && Radar.mountToday) Radar.mountToday(host);
     }
@@ -106,26 +107,26 @@ window.App = (function () {
       '</div>';
   }
 
-  /** Плашка ступени. Полная механика — этап 4; здесь режим и позиция из state. */
+  /** Плашка ступени (раздел 7.2). Тап открывает детали цикла и историю. */
   function stepCard() {
     if (!State.isSchool()) {
-      return '<div class="p-step">' +
-        '<span class="s">Лето</span>' +
+      return '<button class="p-step" data-step>' +
+        '<span class="s">Лето · пресет S2</span>' +
         '<span class="s" style="color:var(--dim)">шкала с 08.09</span>' +
-        '</div>';
+        '</button>';
     }
-    var pos = State.s.step.position || 1;
-    var name = (typeof Steps !== 'undefined' && Steps.label) ? Steps.label(pos) : ('S' + pos);
-    var dayN = 1, pct = 0;
-    if (State.s.step.cycleStart) {
-      dayN = U.clamp(U.diffDays(State.s.step.cycleStart, State.today()) + 1, 1, 14);
-      pct = Math.round(dayN / 14 * 100);
-    }
-    return '<div class="p-step">' +
-      '<span class="s">Ступень ' + U.esc(name) + '</span>' +
+    var s = State.s.step;
+    var pos = STEPS.effectivePos(s, State.today());
+    var dayN = StepsFlow.cycleDay(State.today());
+    var pct = Math.round(dayN / STEPS.CYCLE_DAYS * 100);
+    var paused = StepsFlow.isPaused();
+    return '<button class="p-step" data-step>' +
+      '<span class="s">Ступень ' + U.esc(STEPS.label(pos)) +
+      (StepsFlow.onDeload() ? ' · разгрузка' : '') + '</span>' +
       '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
-      '<span class="s" style="color:var(--dim)">день ' + dayN + '/14</span>' +
-      '</div>';
+      '<span class="s" style="color:var(--dim)">день ' + dayN + '/' + STEPS.CYCLE_DAYS +
+      (paused ? ' ⏸' : '') + '</span>' +
+      '</button>';
   }
 
   function chips(d) {
@@ -195,7 +196,11 @@ window.App = (function () {
   /** Перерисовка на границе суток 04:00 (раздел 7.8). */
   function scheduleDayRollover() {
     var ms = U.nextDayBoundary().getTime() - Date.now() + 2000;
-    setTimeout(function () { render(); scheduleDayRollover(); }, Math.max(ms, 5000));
+    setTimeout(function () {
+      if (window.StepsFlow) StepsFlow.check();
+      render();
+      scheduleDayRollover();
+    }, Math.max(ms, 5000));
   }
 
   function boot() {
@@ -206,6 +211,7 @@ window.App = (function () {
     buildShell();
     booted = true;
     go('today');
+    if (window.StepsFlow) StepsFlow.check();
     State.subscribe(function () { render(); });
     window.addEventListener('resize', function () {
       var was = document.body.classList.contains('split');

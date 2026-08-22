@@ -15,6 +15,32 @@
 window.CONTENT = (function () {
   'use strict';
 
+  /**
+   * Маппинг школьных курсов на дорожки (раздел 9 ТЗ) — для радара.
+   * Курсы вне маппинга (PAF3O — фитнес, CHV2O+GLC2O — граждановедение
+   * и карьера) в радаре видны и подсвечиваются, но правило водопада
+   * «радар» их пропускает.
+   */
+  var COURSE_TRACK = {
+    MPM2D: 'math', MCR3U: 'math', MHF4U: 'math', MCV4U: 'math', MDM4U: 'math',
+    ESL: 'write', NBE3U: 'write', ENG4U: 'write', OSSLT: 'write', IELTS: 'write',
+    ICS3U: 'cs',
+    BMI3C: 'biz', BOH4M: 'biz'
+  };
+
+  /** Курсы, которые радар показывает, но водопад не назначает. */
+  var COURSES_NO_TRACK = ['PAF3O', 'CHV2O', 'GLC2O', 'ESLEO'];
+
+  /** Код курса → дорожка. ESLAO/ESLBO/… ловятся по префиксу ESL. */
+  function trackForCourse(code) {
+    var c = String(code || '').toUpperCase().trim();
+    if (!c) return null;
+    if (COURSE_TRACK[c]) return COURSE_TRACK[c];
+    if (COURSES_NO_TRACK.indexOf(c) >= 0) return null;
+    if (c.indexOf('ESL') === 0) return 'write';
+    return null;
+  }
+
   var packs = {};          // phase → pack
   var blocks = {};         // blockId → block
   var lessons = {};        // lessonId → lesson
@@ -55,6 +81,7 @@ window.CONTENT = (function () {
   return {
     register: register, pack: pack, block: block, lesson: lesson,
     lessons: blockLessons, hasLessons: hasLessons,
-    allBlocks: allBlocks, phaseBlocks: phaseBlocks, num: num
+    allBlocks: allBlocks, phaseBlocks: phaseBlocks, num: num,
+    COURSE_TRACK: COURSE_TRACK, COURSES_NO_TRACK: COURSES_NO_TRACK, trackForCourse: trackForCourse
   };
 })();
