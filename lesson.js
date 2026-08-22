@@ -1,0 +1,260 @@
+/* ============================================================
+   lesson.js — карточка урока дня на «Сегодня» (раздел 6.1)
+   и поток «скопировал промпт → провёл урок → вставил итог» (7.8).
+   Выбор урока пока простой: следующий непройденный по программе;
+   на этапе 4 его заменяет водопад (waterfall.js).
+   ============================================================ */
+
+window.Lesson = (function () {
+  'use strict';
+
+  /* ---------- выбор урока дня ---------- */
+
+  function pick(todayIso) {
+    if (window.Waterfall && Waterfall.pick) return Waterfall.pick(todayIso);
+    var id = State.nextLesson();
+    return id ? { lessonId: id, reason: { kind: 'plan', text: 'следующий по программе' } } : null;
+  }
+
+  /**
+   * Урок, который сейчас показывает карточка.
+   * Закрытый урок остаётся на экране до конца дня (раздел 7.8:
+   * «Урок закрыт ✓» / «Второй урок: скопировать промпт»).
+   */
+  function current(todayIso) {
+    var date = todayIso || State.today();
+    var d = State.day(date);
+    if (d && d.pick) {
+      return { lessonId: d.pick, reason: d.pickReason || { kind: 'plan', text: 'урок дня' } };
+    }
+    if (d && d.lessons && d.lessons.length) {
+      return {
+        lessonId: d.lessons[d.lessons.length - 1],
+        reason: d.pickReason || { kind: 'plan', text: 'урок дня' }
+      };
+    }
+    return pick(date);
+  }
+
+  /** Запомнить выбор дня, чтобы бейдж причины и карточка не «прыгали». */
+  function remember(lessonId, reason, dateIso) {
+    var date = dateIso || State.today();
+    var d = State.day(date, true);
+    if (d.pick === lessonId && d.pickReason) return;
+    d.pick = lessonId;
+    d.pickReason = reason || { kind: 'plan', text: 'следующий по программе' };
+    State.touch(true);
+  }
+
+  function isDone(lessonId) {
+    var st = State.s.lessons[lessonId];
+    return !!(st && st.done);
+  }
+
+  /* ---------- карточка ---------- */
+
+  function card() {
+    var todayIso = State.today();
+    var sel = current(todayIso);
+    if (!sel) return emptyCard();
+
+    var lessonId = sel.lessonId;
+    var lesson = CONTENT.lesson(lessonId);
+    if (!lesson) return emptyCard();
+
+    var blockId = lesson.blockId;
+    var b = State.block(blockId) || {};
+    var p = STEPS.params(State.s.step, todayIso, State.mode());
+    var pr = State.blockProgress(blockId);
+    var pace = State.blockPace(blockId);
+    var d = State.day(todayIso) || { lessons: [], addons: [] };
+    var closedToday = d.lessons.indexOf(lessonId) >= 0 || isDone(lessonId);
+
+    var whyClass = sel.reason.kind === 'radar' ? '' :
+      (sel.reason.kind === 'fresh' ? 'w-fresh' : (sel.reason.kind === 'swap' ? 'w-swap' : 'w-plan'));
+
+    var pos = State.lessonNum(lessonId);
+    var place = State.trackName(b.track) + ' · ' + State.blockLabel(blockId) + ' „' + U.esc(b.title) + '“ · урок ' +
+      pos + '/' + (pr.total || 4);
+
+    var debts = State.debtsCount(b.track);
+    var last = State.recentSummaries(b.track, 1, lessonId)[0];
+    var lastScore = last && last.parsed && last.parsed.score != null
+      ? 'прошлый урок дорожки: ' + last.parsed.score + '/10' : 'прошлых уроков дорожки нет';
+
+    return '<div class="lesson">' +
+      '<span class="why ' + whyClass + '">выбор: ' + U.esc(sel.reason.text) + '</span>' +
+      '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
+      '<h4>' + U.esc(lesson.title) + '</h4>' +
+      '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
+      '<div class="params">' + U.esc(STEPS.cardLine(p)) + '</div>' +
+      (b.deadline ? '<div class="meta">' + U.esc(pace ? PACE.line(pace, b.deadline) : 'до ' + U.fmtShort(b.deadline)) + '</div>' : '') +
+      (lesson.youtube ? '<div class="meta">▶ YouTube: «' + U.esc(lesson.youtube) + '»</div>' : '') +
+      buttons(lessonId, closedToday, todayIso) +
+      '<div class="foot">долгов по дорожке: ' + debts + ' · ' + U.esc(lastScore) + '</div>' +
+      swapLink() +
+      minimalRow() +
+      '</div>';
+  }
+
+  function emptyCard() {
+    return '<div class="lesson">' +
+      UI.empty('🎉', 'Уроки текущих фаз закрыты.<br>Следующий пакет контента добавит новые.') +
+      minimalRow() +
+      '</div>';
+  }
+
+  /** Умная primary-кнопка: всегда ровно одна (раздел 7.8). */
+  function buttons(lessonId, closed, todayIso) {
+    var copied = State.promptCopied(lessonId, todayIso);
+    var d = State.day(todayIso) || { level: 'none', lessons: [] };
+    var html = '<div class="btns">';
+
+    if (closed) {
+      var pts = State.points(todayIso);
+      var second = d.level === 'full' && d.lessons.length < 2 ? State.nextLesson() : null;
+      if (second && second !== lessonId) {
+        html += '<button class="btn pr" data-second="' + U.esc(second) + '">Второй урок: скопировать промпт</button>';
+      } else {
+        html += '<button class="btn pr" disabled>Урок закрыт ✓ · ' + pts + ' ' +
+          U.plural(pts, 'очко', 'очка', 'очков') + '</button>';
+      }
+      html += '<button class="btn sec" data-summary="' + U.esc(lessonId) + '">Итог ещё раз</button>';
+    } else if (copied) {
+      html += '<button class="btn pr" data-summary="' + U.esc(lessonId) + '">Вставить итог урока</button>';
+      html += '<button class="btn sec" data-copy="' + U.esc(lessonId) + '">Скопировать ещё раз</button>';
+      html += '<button class="btn sec" data-watch="' + U.esc(lessonId) + '">Что смотреть</button>';
+    } else {
+      html += '<button class="btn pr" data-copy="' + U.esc(lessonId) + '">Скопировать промпт</button>';
+      html += '<button class="btn sec" data-watch="' + U.esc(lessonId) + '">Что смотреть</button>';
+      html += '<button class="btn sec" data-summary="' + U.esc(lessonId) + '">Вставить итог урока</button>';
+    }
+    return html + '</div>';
+  }
+
+  function swapLink() {
+    return '<div class="center" style="margin-top:10px">' +
+      '<button class="linkbtn" data-swap>поменять урок</button></div>';
+  }
+
+  /** Строка минималки (раздел 6.1): карточки + промпт минималки. */
+  function minimalRow() {
+    var c = State.s.cards || {};
+    var n = (c.lastDay === State.today()) ? (c.viewedToday || 0) : 0;
+    return '<div class="minrow">' +
+      '<button class="linkbtn" data-cards>Карточки' + (n ? ' · сегодня ' + n : '') + '</button>' +
+      '<span class="dim">·</span>' +
+      '<button class="linkbtn" data-minprompt>Промпт минималки</button>' +
+      '</div>';
+  }
+
+  /* ---------- действия ---------- */
+
+  function mount(host) {
+    U.on(host, 'click', '[data-copy]', function (e, el) { copyPrompt(el.dataset.copy); });
+    U.on(host, 'click', '[data-second]', function (e, el) { startSecond(el.dataset.second); });
+    U.on(host, 'click', '[data-watch]', function (e, el) { watch(el.dataset.watch); });
+    U.on(host, 'click', '[data-summary]', function (e, el) { openSummary(el.dataset.summary); });
+    U.on(host, 'click', '[data-minprompt]', function () {
+      UI.copy(PROMPTS.minimal(), 'Промпт минималки скопирован');
+    });
+    U.on(host, 'click', '[data-cards]', function () {
+      if (window.Cards) Cards.open();
+    });
+    U.on(host, 'click', '[data-swap]', function () {
+      if (window.Waterfall && Waterfall.openSwap) Waterfall.openSwap();
+      else UI.toast('Ручной выбор урока появится вместе с водопадом');
+    });
+  }
+
+  function copyPrompt(lessonId) {
+    var text = PROMPTS.lesson(lessonId);
+    if (!text) { UI.toast('Не нашёл этот урок в контенте', 'bad'); return; }
+    UI.copy(text, 'Промпт урока скопирован — вставь его в чат с ИИ');
+    var sel = current();
+    remember(lessonId, sel && sel.lessonId === lessonId ? sel.reason : null);
+    State.markPromptCopied(lessonId);
+  }
+
+  function startSecond(lessonId) {
+    var date = State.today();
+    var d = State.day(date, true);
+    d.pick = lessonId;
+    d.pickReason = { kind: 'plan', text: 'второй урок полной' };
+    State.touch(true);
+    copyPrompt(lessonId);
+  }
+
+  function watch(lessonId) {
+    var l = CONTENT.lesson(lessonId);
+    if (!l) return;
+    State.markVideoWatched(lessonId);
+    var q = l.youtube;
+    if (!q) {
+      UI.toast('У этого урока видео нет — сразу к попытке');
+      return;
+    }
+    var url = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
+    UI.sheet({
+      title: 'Что смотреть',
+      sub: 'Задание на просмотр: 3 термина + 1 вопрос. Просмотр в длительность урока не входит.',
+      body:
+        '<div class="card2 mono small" style="word-break:break-word">' + U.esc(q) + '</div>' +
+        '<div class="btn-row" style="margin-top:12px">' +
+        '<button class="btn sec" data-q>Скопировать запрос</button>' +
+        '<a class="btn pr" href="' + U.esc(url) + '" target="_blank" rel="noopener">Открыть YouTube</a>' +
+        '</div>',
+      onMount: function (root) {
+        root.querySelector('[data-q]').onclick = function () { UI.copy(q, 'Запрос скопирован'); };
+      }
+    });
+  }
+
+  /* ---------- вставка итога ---------- */
+
+  function openSummary(lessonId, opts) {
+    opts = opts || {};
+    var date = opts.date || State.today();
+    UI.sheet({
+      title: 'Итог урока ' + lessonId,
+      sub: 'Вставь блок целиком — от «=== ИТОГ УРОКА» до «=== КОНЕЦ ===».' +
+        (opts.date ? ' Закроется вчерашним числом.' : ''),
+      body:
+        '<textarea class="txt" data-t placeholder="=== ИТОГ УРОКА ' + U.esc(lessonId) + ' ===&#10;Пройдено: …"></textarea>' +
+        '<div class="sum-err tiny r" style="margin-top:8px"></div>' +
+        '<div class="btn-row" style="margin-top:10px">' +
+        '<button class="btn sec" data-cancel>Отмена</button>' +
+        '<button class="btn pr" data-save>Закрыть урок</button></div>',
+      onMount: function (root, close) {
+        var ta = root.querySelector('[data-t]');
+        var err = root.querySelector('.sum-err');
+        setTimeout(function () { ta.focus(); }, 80);
+        root.querySelector('[data-cancel]').onclick = close;
+        root.querySelector('[data-save]').onclick = function () {
+          var parsed = PROMPTS.parse(ta.value);
+          if (!parsed.ok) {
+            err.textContent = parsed.error;
+            return;
+          }
+          if (parsed.lessonId && parsed.lessonId !== lessonId) {
+            err.innerHTML = 'В итоге стоит урок ' + U.esc(parsed.lessonId) + ', а закрываем ' +
+              U.esc(lessonId) + '. Проверь — или нажми «Закрыть урок» ещё раз, чтобы всё равно засчитать.';
+            if (!ta.dataset.warned) { ta.dataset.warned = '1'; return; }
+          }
+          var res = State.applySummary(lessonId, parsed, { date: date });
+          close();
+          if (!res.ok) { UI.toast(res.error || 'Не получилось закрыть урок', 'bad'); return; }
+          UI.toast('Урок ' + lessonId + ' закрыт · ' + res.score + '/10 · ' +
+            res.words + ' ' + U.plural(res.words, 'слово', 'слова', 'слов') +
+            (res.created ? ' · ' + res.created + ' ' + U.plural(res.created, 'долг', 'долга', 'долгов') : '') +
+            (res.closed ? ' · погашено ' + res.closed : ''), 'ok', 4200);
+        };
+      }
+    });
+  }
+
+  return {
+    pick: pick, current: current, remember: remember, card: card, mount: mount,
+    openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone
+  };
+})();

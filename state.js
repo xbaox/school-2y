@@ -451,6 +451,232 @@ window.State = (function () {
     return parseInt(p[1], 10) || 0;
   }
 
+  /* ---------- уроки: очередь, свежесть, отметки дня ---------- */
+
+  function lessonTrack(lessonId) {
+    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
+    if (!l) return null;
+    var b = s.blocks[l.blockId];
+    return b ? b.track : null;
+  }
+
+  /** Следующий непройденный урок дорожки (доктрина 5). Блоки — по порядку номеров. */
+  function nextLessonInTrack(trackId, phaseId) {
+    var ids = Object.keys(s.blocks).sort(function (a, b) { return blockNum(a) - blockNum(b); });
+    for (var i = 0; i < ids.length; i++) {
+      var b = s.blocks[ids[i]];
+      if (trackId && b.track !== trackId && b.track !== 'all') continue;
+      if (phaseId && b.phase !== phaseId) continue;
+      var list = blockLessons(ids[i]);
+      for (var j = 0; j < list.length; j++) {
+        var st = s.lessons[list[j].id];
+        if (!st || !st.done) return list[j].id;
+      }
+    }
+    return null;
+  }
+
+  /** Следующий непройденный урок вообще (по порядку блоков). */
+  function nextLesson() { return nextLessonInTrack(null, null); }
+
+  /** Свежесть дорожки в днях; null — если уроков ещё не было. */
+  function freshness(trackId, todayIso) {
+    var t = track(trackId);
+    if (!t || !t.lastLessonDate) return null;
+    return U.diffDays(t.lastLessonDate, todayIso || today());
+  }
+
+  /** Отметить дорожку пройденной сегодня. track:'all' обновляет все четыре (раздел 7.4). */
+  function touchTrack(trackId, dateIso) {
+    var date = dateIso || today();
+    var ids = trackId === 'all' ? ['math', 'write', 'cs', 'biz'] : [trackId];
+    ids.forEach(function (id) {
+      var t = track(id);
+      if (t && (!t.lastLessonDate || t.lastLessonDate < date)) t.lastLessonDate = date;
+    });
+  }
+
+  function markVideoWatched(lessonId, dateIso) {
+    var d = day(dateIso || today(), true);
+    d.videos = d.videos || [];
+    if (d.videos.indexOf(lessonId) < 0) d.videos.push(lessonId);
+    touch();
+  }
+
+  function videoWatched(lessonId, dateIso) {
+    var d = s.days[dateIso || today()];
+    return !!(d && d.videos && d.videos.indexOf(lessonId) >= 0);
+  }
+
+  /** Промпт скопирован — урок считается начатым (раздел 7.8, незавершённый урок). */
+  function markPromptCopied(lessonId, dateIso) {
+    var d = day(dateIso || today(), true);
+    d.copied = d.copied || [];
+    if (d.copied.indexOf(lessonId) < 0) d.copied.push(lessonId);
+    touch();
+  }
+
+  function promptCopied(lessonId, dateIso) {
+    var d = s.days[dateIso || today()];
+    return !!(d && d.copied && d.copied.indexOf(lessonId) >= 0);
+  }
+
+  /* ---------- итоги, слова, долги ---------- */
+
+  /** Последние n итогов дорожки, свежие первыми. */
+  function recentSummaries(trackId, n, excludeLessonId) {
+    var out = [];
+    for (var i = s.summaries.length - 1; i >= 0 && out.length < (n || 3); i--) {
+      var sum = s.summaries[i];
+      if (excludeLessonId && sum.lessonId === excludeLessonId) continue;
+      if (trackId && lessonTrack(sum.lessonId) !== trackId) continue;
+      out.push(sum);
+    }
+    return out;
+  }
+
+  /** Все слова из итогов, старые первыми, без повторов. */
+  function wordBank() {
+    var seen = {}, out = [];
+    s.summaries.slice().sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); })
+      .forEach(function (sum) {
+        ((sum.parsed && sum.parsed.words) || []).forEach(function (w) {
+          var key = String(w.en || '').toLowerCase().trim();
+          if (!key || seen[key]) return;
+          seen[key] = true;
+          out.push({ en: w.en, ru: w.ru, date: sum.date, lessonId: sum.lessonId, track: lessonTrack(sum.lessonId) });
+        });
+      });
+    return out;
+  }
+
+  /** 15 слов с самой давней датой появления (раздел 8.5). */
+  function oldestWords(n) { return wordBank().slice(0, n || 15); }
+
+  /** Слова двух последних уроков дорожки + 5 случайных старых, вперемешку (раздел 8.1). */
+  function recentWords(trackId, excludeLessonId) {
+    var sums = recentSummaries(trackId, 2, excludeLessonId);
+    var recent = [], keys = {};
+    sums.forEach(function (sum) {
+      ((sum.parsed && sum.parsed.words) || []).forEach(function (w) {
+        var k = String(w.en || '').toLowerCase().trim();
+        if (!k || keys[k]) return;
+        keys[k] = true;
+        recent.push({ en: w.en, ru: w.ru });
+      });
+    });
+    var old = wordBank().filter(function (w) { return !keys[String(w.en).toLowerCase().trim()]; });
+    var picked = U.shuffle(old).slice(0, 5).map(function (w) { return { en: w.en, ru: w.ru }; });
+    return U.shuffle(recent.concat(picked));
+  }
+
+  function openDebts(trackId) {
+    var list = s.debts.filter(function (d) { return d.status === 'open'; });
+    if (!trackId) return list;
+    return list.slice().sort(function (a, b) {
+      return (a.track === trackId ? 0 : 1) - (b.track === trackId ? 0 : 1);
+    });
+  }
+
+  function debtsCount(trackId) { return openDebts().filter(function (d) { return !trackId || d.track === trackId; }).length; }
+
+  function normText(t) {
+    return String(t || '').toLowerCase().replace(/[«»"'`.,;:!?()—–-]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  /** Ищет открытый долг, соответствующий строке «Погашено». */
+  function matchDebt(text, trackId) {
+    var want = normText(text);
+    if (!want) return null;
+    var open = s.debts.filter(function (d) { return d.status === 'open'; });
+    var exact = null, partial = null, best = 0;
+    open.forEach(function (d) {
+      var have = normText(d.text);
+      if (have === want) { if (!exact || d.track === trackId) exact = d; return; }
+      if (have.indexOf(want) >= 0 || want.indexOf(have) >= 0) { if (!partial) partial = d; return; }
+      var a = have.split(' '), b = want.split(' ');
+      var common = a.filter(function (w) { return w.length > 2 && b.indexOf(w) >= 0; }).length;
+      var score = common / Math.max(1, Math.min(a.length, b.length));
+      if (score >= 0.6 && score > best) { best = score; partial = d; }
+    });
+    return exact || partial;
+  }
+
+  function uniqueLessons(list) {
+    var seen = {}, out = [];
+    (list || []).forEach(function (x) { if (!seen[x]) { seen[x] = true; out.push(x); } });
+    return out;
+  }
+
+  /**
+   * Применяет разобранный «ИТОГ УРОКА» (раздел 8.4): закрывает урок,
+   * разносит слова, создаёт и гасит долги, обновляет свежесть дорожки.
+   * Долг закрывается только когда отметки пришли из двух разных уроков.
+   */
+  function applySummary(lessonId, parsed, opts) {
+    opts = opts || {};
+    var date = opts.date || today();
+    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
+    if (!l) return { ok: false, error: 'Урок не найден' };
+    var trackId = lessonTrack(lessonId);
+
+    var L = s.lessons[lessonId] || (s.lessons[lessonId] = { done: false, score: null, date: null });
+    var wasDone = L.done;
+    L.done = true;
+    L.score = parsed.score;
+    L.date = date;
+
+    var d = day(date, true);
+    if (d.lessons.indexOf(lessonId) < 0) d.lessons.push(lessonId);
+    recount(date);
+
+    s.summaries.push({
+      lessonId: lessonId, date: date, raw: parsed.raw || '',
+      parsed: {
+        score: parsed.score, level: parsed.level, topics: parsed.topics,
+        words: parsed.words || [], debts: parsed.debts || [],
+        warmup: parsed.warmup || [], writing: parsed.writing || ''
+      }
+    });
+
+    s.stats.wordsTotal = (s.stats.wordsTotal || 0) + (parsed.words || []).length;
+    if (!wasDone) s.stats.lessonsDone = (s.stats.lessonsDone || 0) + 1;
+
+    var created = [];
+    (parsed.debts || []).forEach(function (text) {
+      var debt = {
+        id: U.uid(), track: trackId, text: text,
+        createdIn: lessonId, clearedIn: [], status: 'open'
+      };
+      s.debts.push(debt);
+      created.push(debt);
+    });
+
+    var cleared = [], closed = [];
+    (parsed.cleared || []).forEach(function (text) {
+      var debt = matchDebt(text, trackId);
+      if (!debt) return;
+      if (debt.clearedIn.indexOf(lessonId) < 0) debt.clearedIn.push(lessonId);
+      cleared.push(debt);
+      if (uniqueLessons(debt.clearedIn).length >= 2) {
+        debt.status = 'closed';
+        debt.closedDate = date;
+        closed.push(debt);
+      }
+    });
+
+    touchTrack(trackId, date);
+    refreshBlockDone(l.blockId);
+    bumpBestStreak();
+    touch();
+
+    return {
+      ok: true, lessonId: lessonId, score: parsed.score,
+      words: (parsed.words || []).length,
+      created: created.length, cleared: cleared.length, closed: closed.length
+    };
+  }
+
   /* ---------- если-то правило дня (раздел 7.6) ---------- */
 
   function ifThenOfDay(iso) {
@@ -476,6 +702,13 @@ window.State = (function () {
     blockPace: blockPace, refreshBlockDone: refreshBlockDone,
     setDeadline: setDeadline, shiftPhase: shiftPhase, phaseBlocks: phaseBlocks,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
+    lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
+    freshness: freshness, touchTrack: touchTrack,
+    markVideoWatched: markVideoWatched, videoWatched: videoWatched,
+    markPromptCopied: markPromptCopied, promptCopied: promptCopied,
+    recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
+    recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
+    matchDebt: matchDebt, applySummary: applySummary,
     ifThenOfDay: ifThenOfDay
   };
 })();

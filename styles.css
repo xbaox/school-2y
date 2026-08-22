@@ -282,6 +282,37 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .lrow .lt{flex:1;min-width:0}
 .lrow .mono{color:var(--muted);flex-shrink:0}
 
+/* ---------- строка минималки на «Сегодня» ---------- */
+
+.minrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--line)}
+
+/* ---------- экран «Журнал» ---------- */
+
+.stats3{display:flex;justify-content:space-between;gap:10px;text-align:center}
+.stats3 .st{flex:1}
+.stats3 .st b{display:block;font-size:20px;color:var(--fire);font-weight:700}
+.stats3 .st span{display:block;font-size:11px;color:var(--dim);line-height:1.35;margin-top:2px}
+
+.chart{display:flex;align-items:flex-end;gap:6px;height:150px;padding:12px 10px}
+.chart .wk{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  gap:4px;height:100%;min-width:0}
+.chart .wk i{display:block;width:100%;max-width:26px;background:linear-gradient(180deg,var(--fire),#c97d0e);
+  border-radius:5px 5px 0 0;order:2}
+.chart .wk span{font-family:var(--mono);font-size:10.5px;color:var(--muted);order:1}
+.chart .wk em{font-style:normal;font-size:9.5px;color:var(--dim);order:3;white-space:nowrap}
+.chart .wk u{text-decoration:none;font-size:9px;color:var(--dim);order:4;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%}
+
+/* ---------- карточки ---------- */
+
+.cardbox{background:var(--card2);border:1px solid var(--line);border-radius:var(--r);
+  min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:20px 16px;text-align:center;cursor:pointer;user-select:none}
+.cardbox .cb-side{font-size:19px;line-height:1.4}
+.cardbox.flip{border-color:var(--fire);background:var(--fire-soft)}
+.cardbox.debt .cb-side{font-size:15px;color:var(--warn)}
+
 /* ---------- две колонки на десктопе ---------- */
 
 /* ≥900px: слева «Сегодня», справа «Программа» (раздел 4 ТЗ).

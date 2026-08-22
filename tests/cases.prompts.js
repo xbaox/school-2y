@@ -1,0 +1,124 @@
+/* Шкала нагрузки (7.2) и парсер «ИТОГА УРОКА» (8.4). */
+
+describe('шкала 7.2: цифры таблицы', function () {
+  function r(p) { return STEPS.row(p); }
+  eq([r(1).name, r(1).norm, r(1).full, r(1).lesson, r(1).minQ, r(1).start, r(1).transfer, r(1).ru],
+    ['S1', 45, 75, 30, 25, 'L1', '1', '≤40%'], 'строка S1');
+  eq([r(2).name, r(2).norm, r(2).full, r(2).lesson, r(2).minQ, r(2).start, r(2).transfer, r(2).ru],
+    ['S2', 55, 90, 40, 28, 'L1', '1–2', '≤30%'], 'строка S2');
+  eq([r(3).name, r(3).norm, r(3).full, r(3).lesson, r(3).minQ, r(3).start, r(3).transfer, r(3).ru],
+    ['S3', 65, 105, 50, 30, 'L2', '2', '≤25%'], 'строка S3');
+  eq([r(4).name, r(4).norm, r(4).full, r(4).lesson, r(4).minQ, r(4).start, r(4).transfer, r(4).ru],
+    ['S4', 75, 120, 50, 33, 'L2', '2–3', '≤20%'], 'строка S4');
+  eq([r(5).name, r(5).norm, r(5).full, r(5).lesson, r(5).minQ, r(5).start, r(5).transfer, r(5).ru],
+    ['Г1', 75, 120, 50, 35, 'L2', '3', '≤10%'], 'строка Г1 — время от S4');
+  eq([r(6).name, r(6).minQ, r(6).ru], ['Г2', 35, '0'], 'строка Г2 — русский 0');
+  eq([r(7).name, r(7).minQ, r(7).ru, r(7).finish], ['Г3', 35, '0', 'L3'], 'строка Г3 — финиш L3');
+  eq(STEPS.MAX, 7, 'после Г3 шкала заканчивается');
+  eq(STEPS.MIN, 1, 'пол шкалы — S1');
+  ok(r(5).cemc && r(6).cemc && r(7).cemc, 'CEMC ⭐ только на глубине');
+  ok(!r(4).cemc, 'на S4 CEMC ещё нет');
+  eq(STEPS.row(9).name, 'Г3', 'выше Г3 не поднимаемся');
+  eq(STEPS.row(0).name, 'S1', 'ниже S1 не опускаемся');
+});
+
+describe('шкала 7.2: разгрузка и цикл', function () {
+  var step = { position: 3, cycleStart: '2026-09-08', snoozeUntil: null, deloadUntil: '2026-09-20' };
+  eq(STEPS.effectivePos(step, '2026-09-15'), 2, 'разгрузка снимает одну позицию');
+  eq(STEPS.effectivePos(step, '2026-09-21'), 3, 'после разгрузки позиция возвращается');
+  eq(STEPS.effectivePos({ position: 1, deloadUntil: '2026-09-20' }, '2026-09-15'), 1, 'разгрузка на S1 оставляет S1');
+  eq(STEPS.cycle({ position: 1, cycleStart: '2026-09-08' }, '2026-09-08').day, 1, 'первый день цикла');
+  eq(STEPS.cycle({ position: 1, cycleStart: '2026-09-08' }, '2026-09-21').ended, true, '14-й день — цикл закончен');
+  eq(STEPS.cycle({ position: 1, cycleStart: '2026-09-08' }, '2026-09-20').ended, false, '13-й день — ещё нет');
+  eq(STEPS.cycle({ position: 1, cycleStart: '2026-09-08', snoozeUntil: '2026-10-01' }, '2026-09-25').paused,
+    true, 'отсрочка ставит цикл на паузу');
+  eq(STEPS.cycle({ position: 1, cycleStart: '2026-09-08', deloadUntil: '2026-09-25' }, '2026-09-24').paused,
+    true, 'разгрузка ставит цикл на паузу');
+});
+
+describe('шкала 7.2: параметры для промпта', function () {
+  var summer = STEPS.params({ position: 1 }, '2026-08-22', 'summer');
+  eq(summer.stepLabel, 'Лето (пресет S2)', 'летом подпись пресета');
+  eq([summer.lessonMin, summer.minQuestions, summer.startLevel, summer.transfer, summer.ru],
+    [40, 28, 'L1', '1–2', '≤30%'], 'летний пресет = строка S2');
+  eq(STEPS.cardLine(summer),
+    'Лето (пресет S2) · ~40 мин · ≥28 вопросов · старт L1 · перенос ×1–2 · RU ≤30%',
+    'строка параметров для карточки');
+
+  var g1 = STEPS.params({ position: 5 }, '2026-11-01', 'school');
+  eq(STEPS.cardLine(g1), 'Г1 · ~50 мин · ≥35 вопросов · старт L2 · перенос ×3 · RU ≤10%', 'строка Г1');
+});
+
+describe('парсер 8.4: валидный итог', function () {
+  var text = [
+    'Отлично поработали!',
+    '',
+    '=== ИТОГ УРОКА B2.1 ===',
+    'Пройдено: наклон, y=mx+b, чтение графика',
+    'Уровень: L2',
+    'Счёт: 8/10',
+    'Слова (8–12): slope — наклон; y-intercept — точка пересечения с осью Y; rate of change — скорость изменения',
+    'Долги: путает знак наклона',
+    'не переводит "per" в умножение',
+    'Погашено: нет',
+    'В разогрев: что такое slope?; как найти y-intercept?; чем rise отличается от run?',
+    'Письмо: чистовик хороший, две ошибки в артиклях',
+    '=== КОНЕЦ ===',
+    '',
+    '5 минут карточек — перед сном.'
+  ].join('\n');
+
+  var p = PROMPTS.parse(text);
+  eq(p.ok, true, 'итог принят');
+  eq(p.lessonId, 'B2.1', 'номер урока прочитан');
+  eq(p.score, 8, 'счёт 8');
+  eq(p.level, 'L2', 'уровень L2');
+  eq(p.topics, 'наклон, y=mx+b, чтение графика', 'темы одной строкой');
+  eq(p.words.length, 3, 'три слова');
+  eq(p.words[0], { en: 'slope', ru: 'наклон' }, 'слово и перевод разделены');
+  eq(p.debts.length, 2, 'два долга, второй с новой строки');
+  eq(p.cleared.length, 0, '«нет» в погашенных — пусто');
+  eq(p.warmup.length, 3, 'три вопроса в разогрев');
+  eq(p.writing, 'чистовик хороший, две ошибки в артиклях', 'строка письма');
+  ok(p.raw.indexOf('=== ИТОГ УРОКА') === 0, 'сырой блок сохранён с маркера');
+});
+
+describe('парсер 8.4: мягкие ошибки', function () {
+  var bad = PROMPTS.parse('просто текст без формата');
+  eq(bad.ok, false, 'мусор отклонён');
+  ok(/Не вижу формата/.test(bad.error), 'ошибка объясняет, что делать');
+
+  var noScore = PROMPTS.parse('=== ИТОГ УРОКА B1.1 ===\nУровень: L2\n=== КОНЕЦ ===');
+  eq(noScore.ok, false, 'без счёта не закрываем');
+  ok(/сч[ёе]та/.test(noScore.error), 'сказано, чего не хватает');
+
+  var noLevel = PROMPTS.parse('=== ИТОГ УРОКА B1.1 ===\nСчёт: 7/10\n=== КОНЕЦ ===');
+  eq(noLevel.ok, false, 'без уровня не закрываем');
+  ok(/уровня/.test(noLevel.error), 'сказано про уровень');
+
+  var minimal = PROMPTS.parse('=== ИТОГ УРОКА B1.1 ===\nСчёт: 7/10\nУровень: L1\n=== КОНЕЦ ===');
+  eq(minimal.ok, true, 'счёт + уровень — достаточно');
+});
+
+describe('парсер 8.4: терпимость к формату', function () {
+  var p = PROMPTS.parse([
+    '===ИТОГ УРОКА Б3.2===',
+    'пройдено:  структура заметки  ',
+    'уровень:   l3',
+    'счет: 9 / 10',
+    'слова: headline - заголовок; lead — вводка',
+    'долги: — ',
+    'погашено: путает знак наклона',
+    'в разогрев: 1) что такое lead? 2) назови 5W',
+    '===конец==='
+  ].join('\n'));
+  eq(p.ok, true, 'принят вариант без ё, в нижнем регистре и без пробелов у маркеров');
+  eq(p.lessonId, 'B3.2', 'кириллическая Б приводится к латинской B');
+  eq(p.score, 9, 'счёт с пробелами вокруг дроби');
+  eq(p.level, 'L3', 'уровень в нижнем регистре');
+  eq(p.words.length, 2, 'дефис и тире одинаково разделяют слово и перевод');
+  eq(p.words[0], { en: 'headline', ru: 'заголовок' }, 'дефис как разделитель');
+  eq(p.debts.length, 0, 'прочерк в долгах = пусто');
+  eq(p.cleared.length, 1, 'погашенный долг прочитан');
+  eq(p.warmup.length, 2, 'нумерация «1)» срезается');
+});

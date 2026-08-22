@@ -89,6 +89,8 @@ window.App = (function () {
       U.on(host, 'click', '[data-addon]', function (e, el) {
         State.toggleAddon(el.dataset.addon);
       });
+      if (window.Lesson) Lesson.mount(host);
+      if (window.Radar && Radar.mountToday) Radar.mountToday(host);
     }
   };
 
