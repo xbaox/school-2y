@@ -117,7 +117,7 @@ window.App = (function () {
     if (!State.isSchool()) {
       return '<button class="p-step" data-step>' +
         '<span class="s">Лето · пресет S2</span>' +
-        '<span class="s" style="color:var(--dim)">шкала с 08.09</span>' +
+        '<span class="s muted">шкала с 08.09</span>' +
         '</button>';
     }
     var s = State.s.step;
@@ -129,7 +129,7 @@ window.App = (function () {
       '<span class="s">Ступень ' + U.esc(STEPS.label(pos)) +
       (StepsFlow.onDeload() ? ' · разгрузка' : '') + '</span>' +
       '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
-      '<span class="s" style="color:var(--dim)">день ' + dayN + '/' + STEPS.CYCLE_DAYS +
+      '<span class="s muted">день ' + dayN + '/' + STEPS.CYCLE_DAYS +
       (paused ? ' ⏸' : '') + '</span>' +
       '</button>';
   }
@@ -137,13 +137,14 @@ window.App = (function () {
   function chips(d) {
     var html = '<div class="chips">';
     State.s.settings.levels.forEach(function (l) {
-      html += '<button class="chip' + (d.level === l.id ? ' on' : '') + '" data-level="' + U.esc(l.id) + '">' +
-        U.esc(l.name) + '</button>';
+      var on = d.level === l.id;
+      html += '<button class="chip' + (on ? ' on' : '') + '" data-level="' + U.esc(l.id) +
+        '" aria-pressed="' + on + '">' + U.esc(l.name) + '</button>';
     });
     State.s.settings.addons.forEach(function (a) {
       var on = (d.addons || []).indexOf(a.id) >= 0;
-      html += '<button class="chip addon' + (on ? ' on' : '') + '" data-addon="' + U.esc(a.id) + '">+ ' +
-        U.esc(a.name) + '</button>';
+      html += '<button class="chip addon' + (on ? ' on' : '') + '" data-addon="' + U.esc(a.id) +
+        '" aria-pressed="' + on + '">+ ' + U.esc(a.name) + '</button>';
     });
     return html + '</div>';
   }

@@ -47,7 +47,8 @@
     });
 
     var head =
-      '<div class="ph-head" data-phase-toggle="' + p.id + '">' +
+      '<div class="ph-head" role="button" tabindex="0" aria-expanded="' + !!isOpen +
+      '" data-phase-toggle="' + U.esc(p.id) + '">' +
       '<div>' +
       '<h2>' + U.esc(p.name) + (cur ? ' <span class="tag on">сейчас</span>' : '') + '</h2>' +
       '<div class="small dim">' +
@@ -63,7 +64,7 @@
     if (!isOpen) return '<section class="block phase">' + head + '</section>';
 
     var body = ids.map(blockRow).join('') +
-      '<button class="btn ghost" data-shift="' + p.id + '">сдвинуть фазу на N дней</button>';
+      '<button class="btn ghost" data-shift="' + U.esc(p.id) + '">сдвинуть фазу</button>';
 
     return '<section class="block phase">' + head + '<div class="list" style="margin-top:8px">' + body + '</div></section>';
   }
@@ -84,7 +85,8 @@
     }
 
     var head =
-      '<div class="bl-head" data-block-toggle="' + id + '">' +
+      '<div class="bl-head" role="button" tabindex="0" aria-expanded="' + !!isOpen +
+      '" data-block-toggle="' + U.esc(id) + '">' +
       '<div style="min-width:0">' +
       '<div class="bl-t">' + UI.trackDot(b.track) + ' ' + State.blockLabel(id) + ' · ' + U.esc(b.title) + '</div>' +
       '<div class="small muted bl-s">' + (b.deadline ? 'до ' + U.fmtShort(b.deadline) + ' · ' : '') + light + '</div>' +
@@ -97,7 +99,8 @@
 
     return '<div class="item bl open">' + head + lessonsList(id) +
       '<div class="btn-row" style="margin-top:10px">' +
-      '<button class="btn ghost" data-deadline="' + id + '">✏️ дедлайн</button>' +
+      '<button class="btn ghost" data-deadline="' + U.esc(id) +
+      '" aria-label="Изменить дедлайн блока">✏️ дедлайн</button>' +
       '</div></div>';
   }
 
@@ -122,6 +125,13 @@
   /* ---------- действия ---------- */
 
   function mount(host) {
+    // role="button" обязан слушаться клавиатуры так же, как настоящая кнопка
+    U.on(host, 'keydown', '[data-phase-toggle],[data-block-toggle]', function (e, el) {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      e.preventDefault();
+      el.click();
+    });
+
     U.on(host, 'click', '[data-phase-toggle]', function (e, el) {
       var id = el.dataset.phaseToggle;
       openPhases[id] = !openPhases[id];
@@ -150,7 +160,7 @@
     if (!b) return;
     UI.sheet({
       title: 'Дедлайн ' + State.blockLabel(id),
-      sub: U.esc(b.title),
+      sub: b.title,
       body:
         '<input class="txt" type="date" data-d value="' + U.esc(b.deadline || '') + '">' +
         '<div class="btn-row" style="margin-top:12px">' +

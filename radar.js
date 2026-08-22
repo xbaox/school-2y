@@ -209,7 +209,7 @@ window.Radar = (function () {
       (isSunday ? ' <span class="tag on">сегодня</span>' : '') + '</h2>' +
       '<p class="lead">Пять пунктов. Закрыл все — добавка +1 к дню.</p>' +
       '<div class="card">' + CHECKLIST.map(function (text, i) {
-        return '<label class="check"><input type="checkbox" data-check="' + i + '"' +
+        return '<label class="check"><input type="checkbox" data-check="' + U.esc(i) + '"' +
           (c[i] ? ' checked' : '') + '><span>' + U.esc(text) + '</span></label>';
       }).join('') +
       '<div class="tiny dim center" style="margin-top:8px">' + done + ' из ' + CHECKLIST.length +
@@ -242,7 +242,7 @@ window.Radar = (function () {
 
     var head = '<section class="block"><div class="rowline" style="margin-bottom:10px">' +
       '<h2 style="margin:0">События школы</h2>' +
-      '<button class="btn pr" style="width:auto;padding:8px 14px" data-add-event>+ событие</button></div>';
+      '<button class="btn pr" style="width:auto;min-height:44px;padding:0 14px" data-add-event>+ событие</button></div>';
 
     if (!upcoming.length && !past.length) {
       return head + UI.empty('📡', 'Радар пустой.<br>Course outline раздают в первую неделю — оттуда все даты.',
@@ -268,14 +268,17 @@ window.Radar = (function () {
     var track = CONTENT.trackForCourse(e.course);
     var type = (TYPES.filter(function (x) { return x.id === e.type; })[0] || { name: e.type }).name;
     return '<div class="item ' + (e.done ? 'off' : '') + '">' +
-      '<div class="rowline"><div style="min-width:0">' +
+      '<div class="rowline">' +
+      '<button class="rowbody" data-event-edit="' + U.esc(e.id) + '">' +
       '<div class="t">' + (track ? UI.trackDot(track) + ' ' : '<span class="dotmark dim"></span> ') +
       U.esc(e.course) + ' · ' + U.esc(type) + '</div>' +
-      '<div class="s ' + cls + '">' + U.fmtShort(e.date) + ' · ' +
+      '<div class="s mono ' + cls + '">' + U.fmtShort(e.date) + ' · ' +
       (left < 0 ? 'прошло' : (left === 0 ? 'сегодня' : (left === 1 ? 'завтра' : 'через ' + U.days(left)))) +
       (track ? '' : ' · водопад не назначает') +
-      (e.note ? ' · ' + U.esc(e.note) : '') + '</div></div>' +
-      '<button class="rmini" data-event-done="' + e.id + '">' + (e.done ? '↺' : '✓') + '</button>' +
+      (e.note ? ' · ' + U.esc(e.note) : '') + '</div></button>' +
+      '<button class="rmini" data-event-done="' + U.esc(e.id) + '" aria-label="' +
+      (e.done ? 'Вернуть событие в список' : 'Отметить событие пройденным') + '">' +
+      (e.done ? '↺' : '✓') + '</button>' +
       '</div></div>';
   }
 
@@ -290,7 +293,7 @@ window.Radar = (function () {
 
     var head = '<section class="block"><div class="rowline" style="margin-bottom:10px">' +
       '<h2 style="margin:0">Дела</h2>' +
-      '<button class="btn pr" style="width:auto;padding:8px 14px" data-add-todo>+ дело</button></div>' +
+      '<button class="btn pr" style="width:auto;min-height:44px;padding:0 14px" data-add-todo>+ дело</button></div>' +
       '<p class="lead">Важное, не на один день. Висит, пока не нажата галочка.</p>';
 
     if (!active.length && !archive.length) {
@@ -313,65 +316,91 @@ window.Radar = (function () {
   function todoRow(t) {
     var cls = t.done ? 'dim' : dueClass(t.due);
     return '<div class="item ' + (t.done ? 'off' : '') + '">' +
-      '<div class="rowline"><div style="min-width:0">' +
+      '<div class="rowline">' +
+      '<button class="rowbody" data-todo-edit="' + U.esc(t.id) + '">' +
       '<div class="t">' + U.esc(t.title) + '</div>' +
-      '<div class="s ' + cls + '">' + U.esc(t.done ? 'закрыто ' + (t.doneDate ? U.fmtShort(t.doneDate) : '') : dueText(t)) + '</div>' +
+      '<div class="s mono ' + cls + '">' +
+      U.esc(t.done ? 'закрыто ' + (t.doneDate ? U.fmtShort(t.doneDate) : '') : dueText(t)) + '</div>' +
       '<div class="s dim">' + U.esc(t.why || '') + '</div>' +
-      '</div>' +
-      '<button class="rmini" data-todo-done="' + t.id + '">' + (t.done ? '↺' : '✓') + '</button>' +
+      '</button>' +
+      '<button class="rmini" data-todo-done="' + U.esc(t.id) + '" aria-label="' +
+      (t.done ? 'Вернуть дело из архива' : 'Закрыть дело и убрать в архив') + '">' +
+      (t.done ? '↺' : '✓') + '</button>' +
       '</div></div>';
   }
 
   /* ---------- шторки добавления ---------- */
 
-  function addEvent() {
+  function addEvent(existing) {
     var courses = Object.keys(CONTENT.COURSE_TRACK).concat(CONTENT.COURSES_NO_TRACK);
-    var def = U.addDays(State.today(), 7);
+    var def = existing ? existing.date : U.addDays(State.today(), 7);
+    var known = existing ? courses.indexOf(existing.course) >= 0 : true;
+    var startCourse = existing ? (known ? existing.course : 'other') : courses[0];
+    var startType = existing ? existing.type : TYPES[0].id;
     UI.sheet({
-      title: 'Событие радара',
+      title: existing ? 'Событие радара' : 'Новое событие',
       sub: 'Курс, тип, дата. Заметка — по желанию.',
       body:
-        '<div class="chips" data-courses>' + courses.map(function (c, i) {
-          return '<button class="chip' + (i === 0 ? ' on' : '') + '" data-course="' + c + '">' + c + '</button>';
-        }).join('') + '<button class="chip" data-course="other">свой…</button></div>' +
-        '<input class="txt hidden" data-other placeholder="код курса">' +
-        '<div class="chips" data-types>' + TYPES.map(function (x, i) {
-          return '<button class="chip' + (i === 0 ? ' on' : '') + '" data-type="' + x.id + '">' + x.name + '</button>';
+        '<div class="chips" data-courses>' + courses.map(function (c) {
+          return '<button class="chip' + (c === startCourse ? ' on' : '') + '" data-course="' + U.esc(c) +
+            '" aria-pressed="' + (c === startCourse) + '">' + U.esc(c) + '</button>';
+        }).join('') + '<button class="chip' + (startCourse === 'other' ? ' on' : '') +
+        '" data-course="other" aria-pressed="' + (startCourse === 'other') + '">свой…</button></div>' +
+        '<input class="txt' + (startCourse === 'other' ? '' : ' hidden') + '" data-other placeholder="код курса" value="' +
+        (startCourse === 'other' ? U.esc(existing.course) : '') + '">' +
+        '<div class="chips" data-types>' + TYPES.map(function (x) {
+          return '<button class="chip' + (x.id === startType ? ' on' : '') + '" data-type="' + U.esc(x.id) +
+            '" aria-pressed="' + (x.id === startType) + '">' + U.esc(x.name) + '</button>';
         }).join('') + '</div>' +
-        '<input class="txt" type="date" data-date value="' + def + '">' +
-        '<input class="txt" style="margin-top:8px" data-note placeholder="заметка (не обязательно)">' +
+        '<input class="txt" type="date" data-date value="' + U.esc(def) + '">' +
+        '<input class="txt" style="margin-top:8px" data-note placeholder="заметка (не обязательно)" value="' +
+        U.esc((existing && existing.note) || '') + '">' +
+        '<div class="ev-err tiny r" style="margin-top:8px"></div>' +
         '<div class="btn-row" style="margin-top:12px">' +
         '<button class="btn sec" data-cancel>Отмена</button>' +
-        '<button class="btn pr" data-save>Добавить</button></div>',
+        '<button class="btn pr" data-save>' + (existing ? 'Сохранить' : 'Добавить') + '</button></div>',
       onMount: function (root, close) {
-        var course = Object.keys(CONTENT.COURSE_TRACK)[0];
-        var type = TYPES[0].id;
+        var course = startCourse;
+        var type = startType;
         var other = root.querySelector('[data-other]');
+        var err = root.querySelector('.ev-err');
         U.on(root, 'click', '[data-course]', function (e, el) {
-          U.els('[data-course]', root).forEach(function (x) { x.classList.remove('on'); });
+          U.els('[data-course]', root).forEach(function (x) {
+            x.classList.remove('on');
+            x.setAttribute('aria-pressed', 'false');
+          });
           el.classList.add('on');
+          el.setAttribute('aria-pressed', 'true');
           course = el.dataset.course;
           other.classList.toggle('hidden', course !== 'other');
           if (course === 'other') other.focus();
         });
         U.on(root, 'click', '[data-type]', function (e, el) {
-          U.els('[data-type]', root).forEach(function (x) { x.classList.remove('on'); });
+          U.els('[data-type]', root).forEach(function (x) {
+            x.classList.remove('on');
+            x.setAttribute('aria-pressed', 'false');
+          });
           el.classList.add('on');
+          el.setAttribute('aria-pressed', 'true');
           type = el.dataset.type;
         });
         root.querySelector('[data-cancel]').onclick = close;
         root.querySelector('[data-save]').onclick = function () {
           var code = course === 'other' ? (other.value || '').trim().toUpperCase() : course;
-          if (!code) { other.focus(); return; }
-          State.s.radar.push({
-            id: U.uid(), course: code, type: type,
-            date: root.querySelector('[data-date]').value || def,
-            note: (root.querySelector('[data-note]').value || '').trim(),
-            done: false
-          });
+          if (!code) {
+            err.textContent = 'Впиши код курса — по нему водопад находит дорожку.';
+            other.focus();
+            return;
+          }
+          var item = existing || { id: U.uid(), done: false };
+          item.course = code;
+          item.type = type;
+          item.date = root.querySelector('[data-date]').value || def;
+          item.note = (root.querySelector('[data-note]').value || '').trim();
+          if (!existing) State.s.radar.push(item);
           State.touch();
           close();
-          UI.toast('Событие ' + code + ' в радаре', 'ok');
+          UI.toast(existing ? 'Событие ' + code + ' обновлено' : 'Событие ' + code + ' в радаре', 'ok');
         };
       }
     });
@@ -390,11 +419,13 @@ window.Radar = (function () {
         '<button data-m="window" aria-pressed="' + (!!t.window) + '">окно</button></div>' +
         '<input class="txt' + (t.window ? ' hidden' : '') + '" style="margin-top:8px" type="date" data-due value="' + U.esc(t.due || '') + '">' +
         '<input class="txt' + (t.window ? '' : ' hidden') + '" style="margin-top:8px" data-window placeholder="например: конец апреля 2027" value="' + U.esc(t.window || '') + '">' +
+        '<div class="todo-err tiny r" style="margin-top:8px"></div>' +
         '<div class="btn-row" style="margin-top:12px">' +
         '<button class="btn sec" data-cancel>Отмена</button>' +
         '<button class="btn pr" data-save>Сохранить</button></div>',
       onMount: function (root, close) {
         var mode = t.window ? 'window' : 'date';
+        var err = root.querySelector('.todo-err');
         U.on(root, 'click', '[data-m]', function (e, el) {
           mode = el.dataset.m;
           U.els('[data-m]', root).forEach(function (x) { x.setAttribute('aria-pressed', String(x === el)); });
@@ -404,7 +435,11 @@ window.Radar = (function () {
         root.querySelector('[data-cancel]').onclick = close;
         root.querySelector('[data-save]').onclick = function () {
           var title = (root.querySelector('[data-title]').value || '').trim();
-          if (!title) { root.querySelector('[data-title]').focus(); return; }
+          if (!title) {
+            err.textContent = 'Впиши название — по нему дело видно в списке.';
+            root.querySelector('[data-title]').focus();
+            return;
+          }
           var item = existing || { id: U.uid(), source: 'user', done: false, doneDate: null };
           item.title = title;
           item.why = (root.querySelector('[data-why]').value || '').trim();
@@ -425,6 +460,15 @@ window.Radar = (function () {
     U.on(host, 'change', '[data-check]', function (e, el) { toggleCheck(+el.dataset.check); });
     U.on(host, 'click', '[data-add-event]', function () { addEvent(); });
     U.on(host, 'click', '[data-add-todo]', function () { addTodo(); });
+    // тап по телу строки открывает её на правку — искать карандаш не нужно
+    U.on(host, 'click', '[data-todo-edit]', function (e, el) {
+      var t = (State.s.todos || []).filter(function (x) { return x.id === el.dataset.todoEdit; })[0];
+      if (t) addTodo(t);
+    });
+    U.on(host, 'click', '[data-event-edit]', function (e, el) {
+      var ev = (State.s.radar || []).filter(function (x) { return x.id === el.dataset.eventEdit; })[0];
+      if (ev) addEvent(ev);
+    });
     U.on(host, 'click', '[data-seed-todos]', function () {
       var n = seedTodos();
       State.touch();

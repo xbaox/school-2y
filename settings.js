@@ -64,8 +64,10 @@
   function listSection(title, key, lead, items, numField) {
     var rows = items.map(function (it, i) {
       return '<div class="srow">' +
-        '<input class="txt" style="flex:1" data-list="' + key + '" data-i="' + i + '" data-field="name" value="' + U.esc(it.name) + '">' +
-        '<input class="num" type="number" inputmode="numeric" data-list="' + key + '" data-i="' + i + '" data-field="' + numField + '" value="' + U.esc(it[numField]) + '">' +
+        '<input class="txt" style="flex:1" data-list="' + U.esc(key) + '" data-i="' + U.esc(i) +
+        '" data-field="name" aria-label="Название" value="' + U.esc(it.name) + '">' +
+        '<input class="num" type="number" inputmode="numeric" data-list="' + U.esc(key) + '" data-i="' + U.esc(i) +
+        '" data-field="' + U.esc(numField) + '" aria-label="Очки" value="' + U.esc(it[numField]) + '">' +
         '</div>';
     }).join('');
     return '<section class="block"><h2>' + U.esc(title) + '</h2>' +
@@ -103,8 +105,10 @@
     var rules = State.s.settings.ifThen || [];
     var rows = rules.map(function (r, i) {
       return '<div class="srow">' +
-        '<input class="txt" style="flex:1" data-ifthen="' + i + '" value="' + U.esc(r.text) + '">' +
-        '<button class="btn ghost" style="width:auto;padding:6px 10px" data-ifthen-del="' + i + '">✕</button>' +
+        '<input class="txt" style="flex:1" data-ifthen="' + U.esc(i) +
+        '" aria-label="Правило если — то" value="' + U.esc(r.text) + '">' +
+        '<button class="btn ghost" style="width:auto;padding:6px 14px" data-ifthen-del="' + U.esc(i) +
+        '" aria-label="Удалить правило">✕</button>' +
         '</div>';
     }).join('');
     return '<section class="block"><h2>Если — то</h2>' +
@@ -315,7 +319,7 @@
       var stamp = data.meta && data.meta.updatedAt ? fmtStamp(data.meta.updatedAt) : 'без даты';
       UI.confirm({
         title: 'Заменить всё содержимое?',
-        sub: 'Файл от ' + U.esc(stamp) + ' · дней ' + Object.keys(data.days || {}).length +
+        sub: 'Файл от ' + stamp + ' · дней ' + Object.keys(data.days || {}).length +
           ' · итогов ' + ((data.summaries || []).length) +
           '. Текущие локальные данные будут перезаписаны.',
         yes: 'Заменить', danger: true,

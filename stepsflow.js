@@ -330,7 +330,7 @@ window.StepsFlow = (function () {
         '<div class="sheet-sub" style="margin-top:14px">Вернуться к вопросу через:</div>' +
         '<div class="btn-row">' +
         [1, 2, 3, 4].map(function (w) {
-          return '<button class="btn sec' + (w === 2 ? ' pick' : '') + '" data-w="' + w + '">' + w + ' нед.</button>';
+          return '<button class="btn sec' + (w === 2 ? ' pick' : '') + '" data-w="' + U.esc(w) + '">' + w + ' нед.</button>';
         }).join('') +
         '</div><button class="btn pr" style="margin-top:10px" data-snooze>Отложить</button></div>',
       dismissible: false,
@@ -456,7 +456,8 @@ window.StepsFlow = (function () {
       title: 'Ступень вручную',
       sub: 'Ручной override доступен всегда. Новая ступень применяется со следующего скопированного промпта.',
       body: '<div class="steplist">' + STEPS.TABLE.map(function (r) {
-        return '<button class="step-opt' + (r.pos === s.position ? ' on' : '') + '" data-pos="' + r.pos + '">' +
+        return '<button class="step-opt' + (r.pos === s.position ? ' on' : '') + '" data-pos="' + U.esc(r.pos) +
+          '" aria-pressed="' + (r.pos === s.position) + '">' +
           '<b class="mono">' + r.name + '</b>' +
           '<span class="mono tiny">~' + r.lesson + '\' · ≥' + r.minQ + ' вопр. · старт ' + r.start +
           ' · перенос ×' + r.transfer + ' · RU ' + r.ru + '</span>' +

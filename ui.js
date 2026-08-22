@@ -61,9 +61,13 @@ window.UI = (function () {
   /* ---------- нижняя шторка ---------- */
 
   var openSheet = null;
+  var openDismissible = true;
+  var scrollLocked = null;
 
   /**
-   * sheet({ title, sub, body:htmlString, onMount(root, close), dismissible })
+   * sheet({ title, sub, subHtml, body:htmlString, onMount(root, close), dismissible })
+   * sub — обычный текст, он экранируется. Разметку передавать через subHtml
+   * и только из своего кода: туда нельзя подставлять названия и заметки.
    */
   function sheet(opts) {
     close();
@@ -73,13 +77,21 @@ window.UI = (function () {
       '<div class="sheet" role="dialog" aria-modal="true">' +
       '<div class="sheet-grab"></div>' +
       (opts.title ? '<h3>' + U.esc(opts.title) + '</h3>' : '') +
-      (opts.sub ? '<div class="sheet-sub">' + opts.sub + '</div>' : '') +
+      (opts.subHtml ? '<div class="sheet-sub">' + opts.subHtml + '</div>'
+        : (opts.sub ? '<div class="sheet-sub">' + U.esc(opts.sub) + '</div>' : '')) +
       '<div class="sheet-body">' + (opts.body || '') + '</div>' +
       '</div>';
     document.getElementById('sheet-root').appendChild(back);
     openSheet = back;
+    openDismissible = opts.dismissible !== false;
 
-    if (opts.dismissible !== false) {
+    // фон под шторкой не должен уезжать вместе с ней (C-08)
+    if (scrollLocked === null) {
+      scrollLocked = document.body.style.overflow || '';
+      document.body.style.overflow = 'hidden';
+    }
+
+    if (openDismissible) {
       back.addEventListener('click', function (e) { if (e.target === back) close(); });
     }
     document.addEventListener('keydown', escClose);
@@ -87,11 +99,19 @@ window.UI = (function () {
     return back;
   }
 
-  function escClose(e) { if (e.key === 'Escape') close(); }
+  /** Escape уважает dismissible:false так же, как тап по фону. */
+  function escClose(e) {
+    if (e.key === 'Escape' && openDismissible) close();
+  }
 
   function close() {
     if (openSheet) { openSheet.remove(); openSheet = null; }
+    openDismissible = true;
     document.removeEventListener('keydown', escClose);
+    if (scrollLocked !== null) {
+      document.body.style.overflow = scrollLocked;
+      scrollLocked = null;
+    }
   }
 
   /** Да/нет. onYes вызывается при подтверждении. */

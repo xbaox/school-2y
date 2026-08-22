@@ -80,7 +80,7 @@
       list.map(function (s, i) {
         var p = s.parsed || {};
         var open = openSummaries[i];
-        return '<div class="item" data-sum="' + i + '">' +
+        return '<div class="item" data-sum="' + U.esc(i) + '">' +
           '<div class="rowline"><div style="min-width:0">' +
           '<div class="t">' + U.esc(s.lessonId) + ' · ' + U.esc(p.topics || '—') + '</div>' +
           '<div class="s">' + U.fmtShort(s.date) + ' · ' + (p.level || '—') + ' · ' +

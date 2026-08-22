@@ -46,6 +46,14 @@ window.Lesson = (function () {
     State.touch(true);
   }
 
+  /**
+   * Бейдж уже начинается со слова «выбор:», поэтому второе двоеточие
+   * внутри причины читается как обрыв: «выбор: радар: тест…».
+   */
+  function whyText(text) {
+    return String(text == null ? '' : text).replace(': ', ' · ');
+  }
+
   function isDone(lessonId) {
     var st = State.s.lessons[lessonId];
     return !!(st && st.done);
@@ -86,8 +94,9 @@ window.Lesson = (function () {
 
     return pending +
       '<div class="lesson">' +
-      '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) + '">выбор: ' +
-      U.esc(sel.reason.text) + ' ⓘ</button>' +
+      '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) +
+      '" aria-label="Почему выбран этот урок">выбор: ' +
+      U.esc(whyText(sel.reason.text)) + ' ⓘ</button>' +
       '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
@@ -114,7 +123,7 @@ window.Lesson = (function () {
   /** Воскресенье — радар-день: урока нет, только минималка и чек-лист (7.8). */
   function sundayCard(sel) {
     return '<div class="lesson">' +
-      '<span class="why w-plan">выбор: ' + U.esc(sel.reason.text) + '</span>' +
+      '<span class="why w-plan">выбор: ' + U.esc(whyText(sel.reason.text)) + '</span>' +
       '<h4>Радар-день</h4>' +
       '<div class="meta">Урок не назначается. Пройдись по чек-листу недели — он даёт добавку +1.</div>' +
       '<div class="btns">' +
@@ -258,16 +267,37 @@ window.Lesson = (function () {
     });
   }
 
+  var COPY_GUARD_MS = 700;   // палец на телефоне легко срабатывает дважды
+  var lastCopyAt = 0;
+
+  function tooSoon() {
+    var now = Date.now();
+    if (now - lastCopyAt < COPY_GUARD_MS) return true;
+    lastCopyAt = now;
+    return false;
+  }
+
+  /**
+   * Урок считается начатым только после того, как промпт реально лёг в буфер:
+   * если браузер буфер не отдал, открывается шторка ручного копирования,
+   * а отметка «скопировано» не ставится — иначе на «Сегодня» появлялась
+   * кнопка «Вставить итог» для урока, промпта которого нет.
+   */
   function copyPrompt(lessonId) {
+    if (tooSoon()) return;
     var text = PROMPTS.lesson(lessonId);
     if (!text) { UI.toast('Не нашёл этот урок в контенте', 'bad'); return; }
-    UI.copy(text, 'Промпт урока скопирован — вставь его в чат с ИИ');
     var sel = current();
-    remember(lessonId, sel && sel.lessonId === lessonId ? sel.reason : null);
-    State.markPromptCopied(lessonId);
+    Promise.resolve(UI.copy(text, 'Промпт урока скопирован — вставь его в чат с ИИ'))
+      .then(function (ok) {
+        if (!ok) return;
+        remember(lessonId, sel && sel.lessonId === lessonId ? sel.reason : null);
+        State.markPromptCopied(lessonId);
+      });
   }
 
   function startSecond(lessonId) {
+    if (Date.now() - lastCopyAt < COPY_GUARD_MS) return;
     var date = State.today();
     var d = State.day(date, true);
     d.pick = lessonId;
@@ -352,6 +382,6 @@ window.Lesson = (function () {
   return {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
     openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
-    findPending: findPending, PENDING_WINDOW: PENDING_WINDOW
+    findPending: findPending, PENDING_WINDOW: PENDING_WINDOW, whyText: whyText
   };
 })();

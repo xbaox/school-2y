@@ -229,7 +229,7 @@ window.Waterfall = (function () {
     if (days == null) return 'уроков не было';
     // дорожка без единого урока считается от онбординга — число честное,
     // но подписать его надо так, чтобы не выглядело пропущенным уроком
-    if (!State.hasTrackHistory(trackId)) return 'ни разу · ' + U.days(days);
+    if (!State.hasTrackHistory(trackId)) return days ? 'ни разу · ' + U.days(days) : 'ни разу';
     if (days === 0) return 'сегодня ✓';
     return U.days(days);
   }
@@ -254,7 +254,7 @@ window.Waterfall = (function () {
       var pct = tr.embedded ? 100 : (f == null ? 100 : U.clamp(Math.round(f / 7 * 100), 6, 100));
       var bg = c === 'r' ? 'bg-r' : (c === 'y' ? 'bg-y' : (c === 'g' ? 'bg-g' : ''));
       var dim = tr.embedded || f == null ? 'opacity:.35' : '';
-      return '<div class="trow' + (activeTrack === tr.id ? ' on' : '') + '" data-track="' + tr.id + '">' +
+      return '<div class="trow' + (activeTrack === tr.id ? ' on' : '') + '" data-track="' + U.esc(tr.id) + '">' +
         '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
         '<div class="tbar"><i class="' + bg + '" style="width:' + pct + '%;' + dim +
         (bg ? '' : 'background:var(--line)') + '"></i></div>' +

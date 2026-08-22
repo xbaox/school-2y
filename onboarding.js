@@ -77,7 +77,7 @@ window.Onboarding = (function () {
         return '<div class="onb-block"><div class="onb-bt">' + State.blockLabel(id) + ' · ' +
           U.esc((State.block(id) || {}).title || '') + '</div>' +
           lessons.map(function (l) {
-            return '<label class="check"><input type="checkbox" data-done="' + l.id + '"' +
+            return '<label class="check"><input type="checkbox" data-done="' + U.esc(l.id) + '"' +
               (data.done[l.id] ? ' checked' : '') + '><span>' + State.lessonNum(l.id) + '. ' +
               U.esc(l.title) + '</span></label>';
           }).join('') + '</div>';
