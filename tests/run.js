@@ -94,7 +94,8 @@ const MODULES = [
   'prompts.js',
   'waterfall.js',
   'stepsflow.js',
-  'sync.js'
+  'sync.js',
+  'lesson.js'
 ];
 
 for (const f of MODULES) {

@@ -127,29 +127,41 @@ window.Lesson = (function () {
       '</div>';
   }
 
+  var PENDING_WINDOW = 7;   // сколько дней назад ищем незакрытый урок
+
   /**
    * Незавершённый урок (7.8): промпт скопирован, итог не вставлен
-   * до 04:00 следующего дня.
+   * до 04:00 следующего дня. Ищем не только вчера: после пары дней
+   * без приложения незакрытый урок иначе тихо пропадал.
    */
+  function findPending(todayIso) {
+    for (var back = 1; back <= PENDING_WINDOW; back++) {
+      var date = U.addDays(todayIso, -back);
+      var d = State.s.days[date];
+      if (!d || !d.copied || !d.copied.length) continue;
+      var open = d.copied.filter(function (id) {
+        var st = State.s.lessons[id];
+        return (!st || !st.done) &&
+          (d.lessons || []).indexOf(id) < 0 &&
+          (d.dropped || []).indexOf(id) < 0;
+      });
+      if (open.length) return { date: date, lessonId: open[0] };
+    }
+    return null;
+  }
+
   function unfinished(todayIso) {
-    var prev = U.addDays(todayIso, -1);
-    var d = State.s.days[prev];
-    if (!d || !d.copied || !d.copied.length) return '';
-    var open = d.copied.filter(function (id) {
-      var st = State.s.lessons[id];
-      return (!st || !st.done) &&
-        (d.lessons || []).indexOf(id) < 0 &&
-        (d.dropped || []).indexOf(id) < 0;
-    });
-    if (!open.length) return '';
-    var lessonId = open[0];
-    var l = CONTENT.lesson(lessonId);
+    var p = findPending(todayIso);
+    if (!p) return '';
+    var l = CONTENT.lesson(p.lessonId);
+    var back = U.diffDays(p.date, todayIso);
     return '<div class="card2 pending">' +
-      '<div class="t">Вчерашний урок не закрыт</div>' +
-      '<div class="s">' + U.esc(lessonId + (l ? ' · ' + l.title : '')) + '</div>' +
+      '<div class="t">' + (back === 1 ? 'Вчерашний урок не закрыт' :
+        'Урок от ' + U.esc(U.fmtShort(p.date)) + ' не закрыт') + '</div>' +
+      '<div class="s">' + U.esc(p.lessonId + (l ? ' · ' + l.title : '')) + '</div>' +
       '<div class="btn-row" style="margin-top:10px">' +
-      '<button class="btn sec" data-drop="' + U.esc(lessonId) + '">Урок не состоялся</button>' +
-      '<button class="btn pr" data-late="' + U.esc(lessonId) + '">Вставить итог</button>' +
+      '<button class="btn sec" data-drop="' + U.esc(p.lessonId) + '" data-date="' + U.esc(p.date) + '">Урок не состоялся</button>' +
+      '<button class="btn pr" data-late="' + U.esc(p.lessonId) + '" data-date="' + U.esc(p.date) + '">Вставить итог</button>' +
       '</div></div>';
   }
 
@@ -230,10 +242,10 @@ window.Lesson = (function () {
       else UI.toast('Чек-лист появится вместе с радаром');
     });
     U.on(host, 'click', '[data-late]', function (e, el) {
-      openSummary(el.dataset.late, { date: U.addDays(State.today(), -1) });
+      openSummary(el.dataset.late, { date: el.dataset.date });
     });
     U.on(host, 'click', '[data-drop]', function (e, el) {
-      var prev = U.addDays(State.today(), -1);
+      var prev = el.dataset.date;
       var d = State.day(prev, true);
       d.dropped = d.dropped || [];
       if (d.dropped.indexOf(el.dataset.drop) < 0) d.dropped.push(el.dataset.drop);
@@ -294,7 +306,7 @@ window.Lesson = (function () {
     UI.sheet({
       title: 'Итог урока ' + lessonId,
       sub: 'Вставь блок целиком — от «=== ИТОГ УРОКА» до «=== КОНЕЦ ===».' +
-        (opts.date ? ' Закроется вчерашним числом.' : ''),
+        (opts.date && opts.date !== State.today() ? ' Закроется числом ' + U.fmtShort(date) + '.' : ''),
       body:
         '<textarea class="txt" data-t placeholder="=== ИТОГ УРОКА ' + U.esc(lessonId) + ' ===&#10;Пройдено: …"></textarea>' +
         '<div class="sum-err tiny r" style="margin-top:8px"></div>' +
@@ -317,9 +329,14 @@ window.Lesson = (function () {
               U.esc(lessonId) + '. Проверь — или нажми «Закрыть урок» ещё раз, чтобы всё равно засчитать.';
             if (!ta.dataset.warned) { ta.dataset.warned = '1'; return; }
           }
+          // шторку закрываем только после успеха: иначе вставленный текст
+          // пропадал вместе с ней, а урок оставался незакрытым
           var res = State.applySummary(lessonId, parsed, { date: date });
+          if (!res.ok) {
+            err.textContent = res.error || 'Не получилось закрыть урок — текст на месте, попробуй ещё раз';
+            return;
+          }
           close();
-          if (!res.ok) { UI.toast(res.error || 'Не получилось закрыть урок', 'bad'); return; }
           UI.toast('Урок ' + lessonId + ' закрыт · ' + res.score + '/10 · ' +
             res.words + ' ' + U.plural(res.words, 'слово', 'слова', 'слов') +
             (res.created ? ' · ' + res.created + ' ' + U.plural(res.created, 'долг', 'долга', 'долгов') : '') +
@@ -331,6 +348,7 @@ window.Lesson = (function () {
 
   return {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
-    openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone
+    openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
+    findPending: findPending, PENDING_WINDOW: PENDING_WINDOW
   };
 })();

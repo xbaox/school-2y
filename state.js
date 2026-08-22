@@ -101,7 +101,7 @@ window.State = (function () {
 
   function blank() {
     return {
-      meta: { updatedAt: new Date().toISOString(), version: SCHEMA },
+      meta: { updatedAt: new Date().toISOString(), version: SCHEMA, onboardedAt: U.today() },
       settings: {
         mode: 'summer',
         autoSchoolDone: false,
@@ -155,25 +155,99 @@ window.State = (function () {
     return s;
   }
 
-  /** Дополняет загруженное состояние недостающими полями (совместимость версий). */
+  /**
+   * Дополняет загруженное состояние недостающими полями (совместимость версий).
+   * Всё, что рендер и доктрина считают массивом или объектом, приводится к нему
+   * с дефолтами: битый или урезанный файл не должен ронять экран.
+   */
   function migrate(o) {
     var base = blank();
-    var out = Object.assign({}, base, o);
-    out.meta = Object.assign({}, base.meta, o.meta || {});
-    out.settings = Object.assign({}, base.settings, o.settings || {});
-    out.settings.phaseDates = Object.assign({}, base.settings.phaseDates, (o.settings || {}).phaseDates || {});
-    out.step = Object.assign({}, base.step, o.step || {});
-    out.cards = Object.assign({}, base.cards, o.cards || {});
-    out.stats = Object.assign({}, base.stats, o.stats || {});
+    var out = Object.assign({}, base, o || {});
+    out.meta = Object.assign({}, base.meta, (o && o.meta) || {});
+    out.settings = Object.assign({}, base.settings, (o && o.settings) || {});
+    out.step = Object.assign({}, base.step, (o && o.step) || {});
+    out.cards = Object.assign({}, base.cards, (o && o.cards) || {});
+    out.stats = Object.assign({}, base.stats, (o && o.stats) || {});
+
+    // списки доктрины: пустой или не-массив — берём дефолт целиком
+    ['levels', 'addons', 'ranks'].forEach(function (k) {
+      if (!Array.isArray(out.settings[k]) || !out.settings[k].length) {
+        out.settings[k] = clone(base.settings[k]);
+      }
+    });
+    // правила «если — то» можно вычистить в ноль, но массивом они быть обязаны
+    if (!Array.isArray(out.settings.ifThen)) out.settings.ifThen = clone(base.settings.ifThen);
+    if (!out.settings.phaseDates || typeof out.settings.phaseDates !== 'object') out.settings.phaseDates = {};
+    out.settings.phaseDates = Object.assign({}, base.settings.phaseDates, out.settings.phaseDates);
+
     ['blocks', 'lessons', 'days'].forEach(function (k) { if (!out[k] || typeof out[k] !== 'object') out[k] = {}; });
     ['debts', 'radar', 'todos', 'summaries', 'tracks'].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = clone(base[k]); });
+    if (!out.tracks.length) out.tracks = clone(base.tracks);
+    if (!Array.isArray(out.step.history)) out.step.history = [];
+
+    // A-14: свежесть дорожки без единого урока считается от даты онбординга;
+    // у состояний, живших до этого поля, точкой отсчёта становится сегодня
+    if (!out.meta.onboardedAt) out.meta.onboardedAt = today();
+
     out.meta.version = SCHEMA;
     return out;
   }
 
+  /**
+   * Проверка файла ДО замены состояния (импорт JSON).
+   * → { ok:true } | { ok:false, error:'по-русски, что делать' }
+   */
+  function validateImport(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { ok: false, error: 'Это не файл состояния. Выбери study-v2-*.json из «Скачать JSON».' };
+    }
+    if (!data.settings || typeof data.settings !== 'object') {
+      return { ok: false, error: 'В файле нет настроек — похоже, это не состояние приложения.' };
+    }
+    if (!data.days || typeof data.days !== 'object' || Array.isArray(data.days)) {
+      return { ok: false, error: 'В файле нет дней — похоже, это не состояние приложения.' };
+    }
+    var listy = ['debts', 'radar', 'todos', 'summaries'];
+    for (var i = 0; i < listy.length; i++) {
+      var k = listy[i];
+      if (data[k] != null && !Array.isArray(data[k])) {
+        return { ok: false, error: 'Поле «' + k + '» в файле испорчено. Возьми другую копию.' };
+      }
+    }
+    if (data.lessons != null && (typeof data.lessons !== 'object' || Array.isArray(data.lessons))) {
+      return { ok: false, error: 'Список уроков в файле испорчен. Возьми другую копию.' };
+    }
+    return { ok: true };
+  }
+
+  var quotaHit = false;
+
+  function isQuotaError(e) {
+    if (!e) return false;
+    return e.name === 'QuotaExceededError' ||
+      e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      e.code === 22 || e.code === 1014;
+  }
+
   function writeNow() {
-    try { localStorage.setItem(KEY, JSON.stringify(s)); }
-    catch (e) { console.error('Не удалось сохранить состояние:', e); }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+      quotaHit = false;
+    } catch (e) {
+      console.error('Не удалось сохранить состояние:', e);
+      // память браузера кончилась: молча терять прогресс нельзя —
+      // предупреждение висит, пока владелец не скачает копию
+      if (isQuotaError(e) && !quotaHit) {
+        quotaHit = true;
+        if (window.UI && UI.banner) {
+          UI.banner('quota', {
+            kind: 'bad',
+            text: 'Память браузера переполнена — скачай JSON в Настройках.',
+            action: { label: 'В Настройки', onClick: function () { if (window.App) App.go('settings'); } }
+          });
+        }
+      }
+    }
   }
 
   /** Пометить изменение: обновить updatedAt, сохранить, уведомить подписчиков. */
@@ -586,7 +660,14 @@ window.State = (function () {
     return String(t || '').toLowerCase().replace(/[«»"'`.,;:!?()—–-]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  /** Ищет открытый долг, соответствующий строке «Погашено». */
+  var PARTIAL_MIN_LEN = 4;      // короче — совпадение случайное
+  var PARTIAL_MIN_RATIO = 0.5;  // вхождение засчитываем только при близких длинах
+
+  /**
+   * Ищет открытый долг, соответствующий строке «Погашено».
+   * Точное совпадение сильнее любого частичного; частичное требует и длины,
+   * и доли совпадения — иначе «знак» гасил бы «путает знак наклона».
+   */
   function matchDebt(text, trackId) {
     var want = normText(text);
     if (!want) return null;
@@ -594,12 +675,24 @@ window.State = (function () {
     var exact = null, partial = null, best = 0;
     open.forEach(function (d) {
       var have = normText(d.text);
+      if (!have) return;
       if (have === want) { if (!exact || d.track === trackId) exact = d; return; }
-      if (have.indexOf(want) >= 0 || want.indexOf(have) >= 0) { if (!partial) partial = d; return; }
-      var a = have.split(' '), b = want.split(' ');
-      var common = a.filter(function (w) { return w.length > 2 && b.indexOf(w) >= 0; }).length;
-      var score = common / Math.max(1, Math.min(a.length, b.length));
-      if (score >= 0.6 && score > best) { best = score; partial = d; }
+
+      var score = 0;
+      if (want.length >= PARTIAL_MIN_LEN && have.length >= PARTIAL_MIN_LEN &&
+        (have.indexOf(want) >= 0 || want.indexOf(have) >= 0)) {
+        var ratio = Math.min(have.length, want.length) / Math.max(have.length, want.length);
+        if (ratio >= PARTIAL_MIN_RATIO) score = ratio;
+      }
+      if (!score) {
+        var a = have.split(' '), b = want.split(' ');
+        var common = a.filter(function (w) { return w.length > 2 && b.indexOf(w) >= 0; }).length;
+        // делим на длинную сторону: одно общее слово против короткой строки
+        // не должно давать «полное совпадение»
+        var byWords = common / Math.max(1, a.length, b.length);
+        if (byWords >= 0.6) score = byWords;
+      }
+      if (score > best) { best = score; partial = d; }
     });
     return exact || partial;
   }
@@ -614,6 +707,10 @@ window.State = (function () {
    * Применяет разобранный «ИТОГ УРОКА» (раздел 8.4): закрывает урок,
    * разносит слова, создаёт и гасит долги, обновляет свежесть дорожки.
    * Долг закрывается только когда отметки пришли из двух разных уроков.
+   *
+   * Идемпотентна: тот же урок за ту же дату заменяет свою запись,
+   * а не плодит вторую. Повторная вставка одного итога ничего не удваивает
+   * и не выглядит для механики ступеней как два разных урока.
    */
   function applySummary(lessonId, parsed, opts) {
     opts = opts || {};
@@ -632,20 +729,32 @@ window.State = (function () {
     if (d.lessons.indexOf(lessonId) < 0) d.lessons.push(lessonId);
     recount(date);
 
-    s.summaries.push({
+    var record = {
       lessonId: lessonId, date: date, raw: parsed.raw || '',
       parsed: {
         score: parsed.score, level: parsed.level, topics: parsed.topics,
         words: parsed.words || [], debts: parsed.debts || [],
         warmup: parsed.warmup || [], writing: parsed.writing || ''
       }
-    });
+    };
+    var at = -1;
+    for (var i = s.summaries.length - 1; i >= 0; i--) {
+      if (s.summaries[i].lessonId === lessonId && s.summaries[i].date === date) { at = i; break; }
+    }
+    var replaced = at >= 0;
+    if (replaced) s.summaries[at] = record;
+    else s.summaries.push(record);
 
-    s.stats.wordsTotal = (s.stats.wordsTotal || 0) + (parsed.words || []).length;
     if (!wasDone) s.stats.lessonsDone = (s.stats.lessonsDone || 0) + 1;
 
+    // долг заводим только новый: тот же текст из того же урока — уже в банке
     var created = [];
     (parsed.debts || []).forEach(function (text) {
+      var key = normText(text);
+      var dup = s.debts.some(function (x) {
+        return x.createdIn === lessonId && normText(x.text) === key;
+      });
+      if (dup) return;
       var debt = {
         id: U.uid(), track: trackId, text: text,
         createdIn: lessonId, clearedIn: [], status: 'open'
@@ -667,13 +776,17 @@ window.State = (function () {
       }
     });
 
+    // A-21: счётчик слов — это размер банка уникальных en, а не сумма приходов;
+    // пересчёт здесь держит его честным при повторной вставке и правках
+    s.stats.wordsTotal = wordBank().length;
+
     touchTrack(trackId, date);
     refreshBlockDone(l.blockId);
     bumpBestStreak();
     touch();
 
     return {
-      ok: true, lessonId: lessonId, score: parsed.score,
+      ok: true, lessonId: lessonId, score: parsed.score, replaced: replaced,
       words: (parsed.words || []).length,
       created: created.length, cleared: cleared.length, closed: closed.length
     };
@@ -692,6 +805,7 @@ window.State = (function () {
     PHASE_DATES: PHASE_DATES, PHASES: PHASES,
     get s() { return s; },
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
+    migrate: migrate, validateImport: validateImport,
     subscribe: subscribe, emit: emit,
     applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
     today: today, day: day, points: points, recount: recount,

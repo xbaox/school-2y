@@ -200,6 +200,20 @@ window.PROMPTS = (function () {
     { key: 'writing', re: /^\s*Письмо\s*:?\s*/i }
   ];
 
+  /**
+   * Снимает markdown-обвес строки: ведущие «#» и цитату, обрамляющие
+   * «*», «_», «`» — в том числе вокруг названия поля («**Счёт:** 7/10»).
+   * Содержимое не трогаем: дефисы и подчёркивания внутри слов остаются.
+   */
+  function unmark(line) {
+    return String(line)
+      .replace(/^\s*>?\s*#{1,6}\s*/, '')
+      .replace(/^\s*[*_`]{1,3}\s*/, '')
+      .replace(/\s*[*_`]{1,3}\s*$/, '')
+      .replace(/^([^:]{1,32}?)[*_`]{1,3}\s*:/, '$1:')
+      .replace(/^([^:]{1,32}?:)[*_`]{1,3}/, '$1');
+  }
+
   function isEmptyWord(s) {
     var t = String(s).trim().toLowerCase().replace(/[.;,]+$/, '');
     return !t || t === 'нет' || t === '-' || t === '—' || t === '–' || t === 'none';
@@ -244,7 +258,8 @@ window.PROMPTS = (function () {
     // построчный разбор с поддержкой многострочных полей
     var buf = {};
     var cur = null;
-    body.split(/\r?\n/).forEach(function (line) {
+    body.split(/\r?\n/).forEach(function (raw) {
+      var line = unmark(raw);
       var matched = false;
       for (var i = 0; i < FIELDS.length; i++) {
         if (FIELDS[i].re.test(line)) {
@@ -260,10 +275,13 @@ window.PROMPTS = (function () {
     out.topics = (buf.topics || '').trim().replace(/\s+/g, ' ');
     out.writing = (buf.writing || '').trim().replace(/\s+/g, ' ');
 
-    var lv = /L\s*([123])/i.exec(buf.level || '');
+    // уровень — только литеральный L1|L2|L3: незаполненный шаблон
+    // «Уровень: L1|L2|L3» не должен читаться как L1
+    var lv = /^\s*L\s*([123])\s*$/i.exec(buf.level || '');
     if (lv) out.level = 'L' + lv[1];
 
-    var sc = /(\d+(?:[.,]\d+)?)\s*(?:\/\s*10)?/.exec((buf.score || '').trim());
+    // счёт — строго формат N/10; «N/10» из шаблона отклоняется
+    var sc = /^\s*(\d{1,2}(?:[.,]\d+)?)\s*\/\s*10\b/.exec(buf.score || '');
     if (sc) {
       var n = parseFloat(sc[1].replace(',', '.'));
       if (!isNaN(n) && n >= 0 && n <= 10) out.score = Math.round(n * 10) / 10;

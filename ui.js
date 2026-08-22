@@ -24,6 +24,40 @@ window.UI = (function () {
     }, ms || 2600);
   }
 
+  /* ---------- стойкие плашки ---------- */
+
+  /**
+   * banner(id, { text, kind, action:{label,onClick}, dismissible })
+   * Не уезжает сама, в отличие от тоста: для того, что нельзя пропустить —
+   * переполненная память, готовое обновление. Повторный вызов с тем же id
+   * обновляет плашку, а не плодит вторую.
+   */
+  function banner(id, opts) {
+    var root = document.getElementById('banner-root');
+    if (!root) return;
+    var el = root.querySelector('[data-banner="' + id + '"]');
+    if (!el) {
+      el = document.createElement('div');
+      el.setAttribute('data-banner', id);
+      root.appendChild(el);
+    }
+    el.className = 'banner' + (opts.kind ? ' ' + opts.kind : '');
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="bt">' + U.esc(opts.text) + '</span>' +
+      (opts.action ? '<button class="ba" data-act>' + U.esc(opts.action.label) + '</button>' : '') +
+      (opts.dismissible === false ? '' : '<button class="bx" data-x aria-label="Скрыть сообщение">✕</button>');
+    var act = el.querySelector('[data-act]');
+    if (act) act.onclick = function () { opts.action.onClick(); };
+    var x = el.querySelector('[data-x]');
+    if (x) x.onclick = function () { dismissBanner(id); };
+  }
+
+  function dismissBanner(id) {
+    var root = document.getElementById('banner-root');
+    var el = root && root.querySelector('[data-banner="' + id + '"]');
+    if (el) el.remove();
+  }
+
   /* ---------- нижняя шторка ---------- */
 
   var openSheet = null;
@@ -163,7 +197,8 @@ window.UI = (function () {
   }
 
   return {
-    toast: toast, sheet: sheet, close: close, confirm: confirm, prompt: prompt,
+    toast: toast, banner: banner, dismissBanner: dismissBanner,
+    sheet: sheet, close: close, confirm: confirm, prompt: prompt,
     trackBadge: trackBadge, trackDot: trackDot, empty: empty,
     lightClass: lightClass, lightDot: lightDot, copy: copy
   };

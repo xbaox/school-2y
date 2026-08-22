@@ -204,9 +204,11 @@ window.StepsFlow = (function () {
       }
     }
 
-    // 2) два урока подряд <6/10
+    // 2) два урока подряд <6/10 — обязательно два РАЗНЫХ урока,
+    //    повторная вставка одного итога откат не запускает
     var last2 = State.s.summaries.slice(-2);
-    if (last2.length === 2 && last2.every(function (x) { return x.parsed && x.parsed.score != null && x.parsed.score < 6; })) {
+    var twoDistinct = last2.length === 2 && last2[0].lessonId !== last2[1].lessonId;
+    if (twoDistinct && last2.every(function (x) { return x.parsed && x.parsed.score != null && x.parsed.score < 6; })) {
       var note = 'score:' + last2[1].lessonId;
       var done = (s.history || []).some(function (h) { return h.reason === 'auto-down' && h.note === note; });
       if (!done) {
@@ -432,6 +434,7 @@ window.StepsFlow = (function () {
     check: check, criteria: criteria, cycleDay: cycleDay, isPaused: isPaused,
     cycleEnded: cycleEnded, completedCycles: completedCycles, pausedDays: pausedDays,
     promote: promote, snooze: snooze, startDeload: startDeload, setPosition: setPosition,
+    checkDemotion: checkDemotion,
     onDeload: onDeload, offerPromotion: offerPromotion, openDetails: openDetails, openManual: openManual
   };
 })();

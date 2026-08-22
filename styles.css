@@ -245,6 +245,26 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .sheet .sheet-sub{color:var(--muted);font-size:13px;margin-bottom:14px}
 .sheet-grab{width:36px;height:4px;border-radius:99px;background:var(--line);margin:0 auto 14px}
 
+/* ---------- стойкая плашка ---------- */
+
+#banner-root{position:sticky;top:0;z-index:50}
+#banner-root:empty{display:none}
+.banner{
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border-bottom:1px solid var(--line);
+  padding:10px 16px calc(10px) 16px;font-size:12.5px;line-height:1.4;
+  padding-top:calc(10px + env(safe-area-inset-top));
+}
+.banner + .banner{border-top:1px solid var(--line)}
+.banner.ok{border-bottom-color:rgba(74,222,128,.45)}
+.banner.bad{border-bottom-color:rgba(248,113,113,.45);color:var(--bad)}
+.banner .bt{flex:1;min-width:0}
+.banner .ba{
+  flex-shrink:0;background:var(--fire);color:#12151c;font-weight:600;font-size:12.5px;
+  border-radius:9px;padding:0 14px;min-height:44px;
+}
+.banner .bx{flex-shrink:0;color:var(--dim);width:44px;min-height:44px;font-size:14px}
+
 /* ---------- тост ---------- */
 
 #toast-root{position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + 14px + env(safe-area-inset-bottom));

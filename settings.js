@@ -274,10 +274,9 @@
       var data;
       try { data = JSON.parse(reader.result); }
       catch (e) { UI.toast('Это не JSON состояния. Выбери файл study-v2-*.json', 'bad', 4200); return; }
-      if (!data || !data.settings || !data.days) {
-        UI.toast('В файле нет состояния приложения. Выбери другой файл.', 'bad', 4200);
-        return;
-      }
+      // проверяем ДО замены: битый файл не должен доехать до State.replace
+      var check = State.validateImport(data);
+      if (!check.ok) { UI.toast(check.error, 'bad', 4600); return; }
       var stamp = data.meta && data.meta.updatedAt ? fmtStamp(data.meta.updatedAt) : 'без даты';
       UI.confirm({
         title: 'Заменить всё содержимое?',
