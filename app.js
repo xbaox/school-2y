@@ -80,7 +80,7 @@ window.App = (function () {
     render: function () {
       var t = State.today();
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
-      return topRow(t) + stepCard() + chips(d) + dayLine(t, d) + lessonCard() + ifThenLine(t);
+      return topRow(t) + badges() + stepCard() + chips(d) + dayLine(t, d) + lessonCard() + ifThenLine(t);
     },
     mount: function (host) {
       U.on(host, 'click', '[data-level]', function (e, el) {
@@ -105,6 +105,11 @@ window.App = (function () {
       '<span class="streak">🔥 ' + st + '</span>' +
       '<span class="rank">нед: ' + wp + ' pts · ' + U.esc(rankText) + '</span>' +
       '</div>';
+  }
+
+  /** Компактные бейджи: горящие дела (раздел 6.3). */
+  function badges() {
+    return window.Radar ? Radar.todayBadge() : '';
   }
 
   /** Плашка ступени (раздел 7.2). Тап открывает детали цикла и историю. */
@@ -212,6 +217,7 @@ window.App = (function () {
     booted = true;
     go('today');
     if (window.StepsFlow) StepsFlow.check();
+    if (window.Onboarding && Onboarding.needed()) Onboarding.start();
     State.subscribe(function () { render(); });
     window.addEventListener('resize', function () {
       var was = document.body.classList.contains('split');
