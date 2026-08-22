@@ -1,0 +1,60 @@
+/* ============================================================
+   content/registry.js — загрузчик пакетов контента (раздел 9 ТЗ).
+
+   Папку на GitHub Pages листать нельзя, поэтому в index.html заранее
+   подключены шесть файлов content/phase0.js … content/phase5.js.
+   Невыпущенные фазы лежат пустыми заглушками; каждый файл регистрирует
+   свой пакет через CONTENT.register({ phase, blocks:[...] }),
+   поэтому порядок и состав подключений не важны.
+
+   Формат блока в пакете:
+   { id:'B1', title:'…', track:'write', deadline:'2026-08-23',
+     lessons:[ { id:'B1.1', n:1, title, goal, youtube, focus, writing } ] }
+   ============================================================ */
+
+window.CONTENT = (function () {
+  'use strict';
+
+  var packs = {};          // phase → pack
+  var blocks = {};         // blockId → block
+  var lessons = {};        // lessonId → lesson
+
+  function register(pack) {
+    if (!pack || !pack.phase) return;
+    pack.blocks = pack.blocks || [];
+    packs[pack.phase] = pack;
+    pack.blocks.forEach(function (b) {
+      b.phase = pack.phase;
+      b.lessons = b.lessons || [];
+      blocks[b.id] = b;
+      b.lessons.forEach(function (l, i) {
+        l.blockId = b.id;
+        if (!l.id) l.id = b.id + '.' + (i + 1);
+        if (!l.n) l.n = i + 1;
+        lessons[l.id] = l;
+      });
+    });
+  }
+
+  function pack(phase) { return packs[phase] || null; }
+  function block(id) { return blocks[id] || null; }
+  function lesson(id) { return lessons[id] || null; }
+  function blockLessons(blockId) { return (blocks[blockId] && blocks[blockId].lessons) || []; }
+  function hasLessons(blockId) { return blockLessons(blockId).length > 0; }
+  function allBlocks() { return Object.keys(blocks).map(function (k) { return blocks[k]; }); }
+
+  /** Все блоки фазы в порядке номеров. */
+  function phaseBlocks(phase) {
+    return allBlocks()
+      .filter(function (b) { return b.phase === phase; })
+      .sort(function (a, b) { return num(a.id) - num(b.id); });
+  }
+
+  function num(blockId) { return parseInt(String(blockId).replace(/\D/g, ''), 10) || 0; }
+
+  return {
+    register: register, pack: pack, block: block, lesson: lesson,
+    lessons: blockLessons, hasLessons: hasLessons,
+    allBlocks: allBlocks, phaseBlocks: phaseBlocks, num: num
+  };
+})();

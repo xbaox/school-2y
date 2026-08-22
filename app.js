@@ -199,6 +199,7 @@ window.App = (function () {
   function boot() {
     State.load();
     State.applyAutoMode();
+    State.syncContent();
     register('today', Today);
     buildShell();
     booted = true;

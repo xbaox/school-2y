@@ -41,6 +41,55 @@ window.State = (function () {
     { id: 'p4', name: 'Ф4 «Год 2, семестр 2»' }
   ];
 
+  /**
+   * Карта блоков Ф2–Ф4 (раздел 9.4 ТЗ) — названия и дорожки для экрана «Программа».
+   * Уроки этих фаз придут пакетами content/phase2.js … phase5.js; пока пакет пуст,
+   * блок виден в программе, но уроков не содержит.
+   * Дедлайны раскладываются равномерно по датам фазы (блок ≈ 2 недели)
+   * и дальше редактируются вручную.
+   */
+  var LATER_BLOCKS = [
+    { id: 'B17', phase: 'p2', track: 'math', title: 'Функции и f(x)' },
+    { id: 'B18', phase: 'p2', track: 'cs', title: 'Python-1' },
+    { id: 'B19', phase: 'p2', track: 'math', title: 'Преобразования графиков' },
+    { id: 'B20', phase: 'p2', track: 'write', title: 'OSSLT-весна' },
+    { id: 'B21', phase: 'p2', track: 'math', title: 'Показательные' },
+    { id: 'B22', phase: 'p2', track: 'cs', title: 'Python-2' },
+    { id: 'B23', phase: 'p2', track: 'math', title: 'Последовательности и процент' },
+    { id: 'B24', phase: 'p2', track: 'write', title: 'Эссе из 5 абзацев' },
+    { id: 'B25', phase: 'p2', track: 'math', title: 'Триг. функции и тождества' },
+    { id: 'B26', phase: 'p2', track: 'all', title: 'Финалы года' },
+
+    { id: 'B27', phase: 'bridge', track: 'write', title: 'IELTS-диагностика' },
+    { id: 'B28', phase: 'bridge', track: 'math', title: 'Многочлены (MHF4U)' },
+    { id: 'B29', phase: 'bridge', track: 'write', title: 'Роман + дневник (NBE3U)' },
+    { id: 'B30', phase: 'bridge', track: 'math', title: 'Комбинаторика (MDM4U)' },
+    { id: 'B31', phase: 'bridge', track: 'math', title: 'Логарифмы' },
+    { id: 'B32', phase: 'bridge', track: 'biz', title: 'Заявочный фундамент' },
+
+    { id: 'B33', phase: 'p3', track: 'write', title: 'Эссе-анализ' },
+    { id: 'B34', phase: 'p3', track: 'math', title: 'Полиномы и рациональные' },
+    { id: 'B35', phase: 'p3', track: 'write', title: 'IELTS-интенсив' },
+    { id: 'B36', phase: 'p3', track: 'math', title: 'Статистика' },
+    { id: 'B37', phase: 'p3', track: 'math', title: 'Логарифмы и показательные' },
+    { id: 'B38', phase: 'p3', track: 'biz', title: 'Заявки-1 (OUAC)' },
+    { id: 'B39', phase: 'p3', track: 'math', title: 'Радианы и тождества' },
+    { id: 'B40', phase: 'p3', track: 'math', title: 'Вероятность' },
+    { id: 'B41', phase: 'p3', track: 'write', title: 'Заявки-2 (Kira/эссе)' },
+    { id: 'B42', phase: 'p3', track: 'all', title: 'Финалы полугодия' },
+
+    { id: 'B43', phase: 'p4', track: 'write', title: 'Анализ литературы' },
+    { id: 'B44', phase: 'p4', track: 'math', title: 'Пределы и производная' },
+    { id: 'B45', phase: 'p4', track: 'write', title: 'Шекспир' },
+    { id: 'B46', phase: 'p4', track: 'math', title: 'Производные: оптимум' },
+    { id: 'B47', phase: 'p4', track: 'biz', title: 'Менеджмент (BOH4M)' },
+    { id: 'B48', phase: 'p4', track: 'math', title: 'Векторы' },
+    { id: 'B49', phase: 'p4', track: 'cs', title: 'Исследовательская работа' },
+    { id: 'B50', phase: 'p4', track: 'math', title: 'Прямые и плоскости' },
+    { id: 'B51', phase: 'p4', track: 'math', title: 'Генеральный мат-повтор' },
+    { id: 'B52', phase: 'p4', track: 'all', title: 'Финалы года' }
+  ];
+
   /** Если-то правила (раздел 7.6), дефолт. */
   var IF_THEN = [
     { id: 'it1', text: 'пришёл из школы и поел → открываю ДЗ' },
@@ -259,6 +308,149 @@ window.State = (function () {
     return last;
   }
 
+  /* ---------- блоки и уроки ---------- */
+
+  /**
+   * Сводит контент с состоянием: блоки из пакетов + карта поздних фаз → state.blocks,
+   * уроки пакетов → state.lessons. Пользовательские данные (дедлайн, done, счёт)
+   * никогда не затираются; названия и дорожки приходят из контента.
+   * Вызывается при каждом старте — новый пакет контента подхватывается сам.
+   */
+  function syncContent() {
+    var changed = false;
+
+    function upsert(id, meta) {
+      var b = s.blocks[id];
+      if (!b) {
+        s.blocks[id] = {
+          phase: meta.phase, track: meta.track, title: meta.title,
+          deadline: meta.deadline || null, done: false
+        };
+        if (meta.note) s.blocks[id].note = meta.note;
+        changed = true;
+        return;
+      }
+      if (meta.title && b.title !== meta.title) { b.title = meta.title; changed = true; }
+      if (meta.track && b.track !== meta.track) { b.track = meta.track; changed = true; }
+      if (meta.phase && b.phase !== meta.phase) { b.phase = meta.phase; changed = true; }
+      if (meta.note && b.note !== meta.note) { b.note = meta.note; changed = true; }
+      if (!b.deadline && meta.deadline) { b.deadline = meta.deadline; changed = true; }
+    }
+
+    // 1) блоки из пакетов контента
+    if (window.CONTENT) {
+      CONTENT.allBlocks().forEach(function (b) {
+        upsert(b.id, { phase: b.phase, track: b.track, title: b.title, deadline: b.deadline, note: b.note });
+      });
+    }
+
+    // 2) карта поздних фаз с равномерными дедлайнами
+    var byPhase = {};
+    LATER_BLOCKS.forEach(function (b) { (byPhase[b.phase] = byPhase[b.phase] || []).push(b); });
+    Object.keys(byPhase).forEach(function (ph) {
+      var list = byPhase[ph];
+      var dates = spreadDeadlines(ph, list.length);
+      list.forEach(function (b, i) {
+        upsert(b.id, { phase: b.phase, track: b.track, title: b.title, deadline: dates[i] });
+      });
+    });
+
+    // 3) уроки пакетов
+    if (window.CONTENT) {
+      CONTENT.allBlocks().forEach(function (b) {
+        b.lessons.forEach(function (l) {
+          if (!s.lessons[l.id]) {
+            s.lessons[l.id] = { done: false, score: null, date: null };
+            changed = true;
+          }
+        });
+      });
+    }
+
+    if (changed) touch(true);
+    return changed;
+  }
+
+  /** Равномерные дедлайны внутри фазы: последний совпадает с концом фазы. */
+  function spreadDeadlines(phaseId, count) {
+    var pd = s.settings.phaseDates[phaseId];
+    var out = [];
+    if (!pd || !count) return out;
+    var len = U.diffDays(pd.start, pd.end);
+    for (var i = 0; i < count; i++) {
+      out.push(U.addDays(pd.start, Math.round((i + 1) * len / count)));
+    }
+    return out;
+  }
+
+  function block(id) { return s.blocks[id] || null; }
+
+  /** Уроки блока из контента, по порядку. */
+  function blockLessons(blockId) {
+    return window.CONTENT ? CONTENT.lessons(blockId) : [];
+  }
+
+  /** { total, done, remaining } по урокам блока. */
+  function blockProgress(blockId) {
+    var list = blockLessons(blockId), done = 0;
+    list.forEach(function (l) { if (s.lessons[l.id] && s.lessons[l.id].done) done++; });
+    return { total: list.length, done: done, remaining: list.length - done };
+  }
+
+  /** Светофор темпа блока. null — если уроков ещё нет (контент не выпущен). */
+  function blockPace(blockId) {
+    var b = s.blocks[blockId];
+    if (!b) return null;
+    var p = blockProgress(blockId);
+    if (!p.total) return null;
+    return PACE.status({ remaining: p.remaining, deadline: b.deadline, today: today(), mode: mode() });
+  }
+
+  /** Пересчитать флаг done блока (все уроки закрыты). */
+  function refreshBlockDone(blockId) {
+    var b = s.blocks[blockId];
+    if (!b) return;
+    var p = blockProgress(blockId);
+    b.done = p.total > 0 && p.remaining === 0;
+  }
+
+  function setDeadline(blockId, isoDate) {
+    var b = s.blocks[blockId];
+    if (!b) return;
+    b.deadline = isoDate || null;
+    touch();
+  }
+
+  /** Сдвинуть все дедлайны фазы на N дней (раздел 6.2). */
+  function shiftPhase(phaseId, days) {
+    if (!days) return 0;
+    var n = 0;
+    Object.keys(s.blocks).forEach(function (id) {
+      var b = s.blocks[id];
+      if (b.phase === phaseId && b.deadline) { b.deadline = U.addDays(b.deadline, days); n++; }
+    });
+    if (n) touch();
+    return n;
+  }
+
+  /** Блоки фазы по порядку номеров. */
+  function phaseBlocks(phaseId) {
+    return Object.keys(s.blocks)
+      .filter(function (id) { return s.blocks[id].phase === phaseId; })
+      .sort(function (a, b) { return blockNum(a) - blockNum(b); });
+  }
+
+  function blockNum(id) { return parseInt(String(id).replace(/\D/g, ''), 10) || 0; }
+
+  /** Отображаемый номер блока: B12 → Б12. */
+  function blockLabel(id) { return 'Б' + blockNum(id); }
+
+  /** Отображаемый номер урока: B12.3 → урок 3. */
+  function lessonNum(lessonId) {
+    var p = String(lessonId).split('.');
+    return parseInt(p[1], 10) || 0;
+  }
+
   /* ---------- если-то правило дня (раздел 7.6) ---------- */
 
   function ifThenOfDay(iso) {
@@ -279,6 +471,11 @@ window.State = (function () {
     streak: streak, emptyInRow: emptyInRow, weekPoints: weekPoints, rank: rank, nextRank: nextRank,
     track: track, trackName: trackName,
     phases: phases, phaseName: phaseName, currentPhase: currentPhase,
+    syncContent: syncContent, spreadDeadlines: spreadDeadlines,
+    block: block, blockLessons: blockLessons, blockProgress: blockProgress,
+    blockPace: blockPace, refreshBlockDone: refreshBlockDone,
+    setDeadline: setDeadline, shiftPhase: shiftPhase, phaseBlocks: phaseBlocks,
+    blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     ifThenOfDay: ifThenOfDay
   };
 })();
