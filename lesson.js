@@ -59,6 +59,27 @@ window.Lesson = (function () {
     return !!(st && st.done);
   }
 
+  /**
+   * Какой это урок дня: индекс в списке закрытых сегодня, а для ещё не
+   * закрытого — следующий по счёту.
+   */
+  function dayIndex(lessonId, d) {
+    var list = (d && d.lessons) || [];
+    var i = list.indexOf(lessonId);
+    return (i >= 0 ? i : list.length) + 1;
+  }
+
+  /**
+   * Строка «урок N из 2» — только у полной: там два урока и порядок важен
+   * (между ними обязательный перерыв, второй — другой дорожки).
+   * У нормы урок один, и писать «1 из 1» — шум.
+   */
+  function ofDayLine(lessonId, d) {
+    if (!d || d.level !== 'full') return '';
+    var n = Math.min(dayIndex(lessonId, d), 2);
+    return '<div class="ofday">урок ' + n + ' из 2' + (n === 1 ? ' на сегодня' : '') + '</div>';
+  }
+
   /* ---------- карточка ---------- */
 
   function card() {
@@ -98,6 +119,7 @@ window.Lesson = (function () {
       '" aria-label="Почему выбран этот урок">выбор: ' +
       U.esc(whyText(sel.reason.text)) + ' ⓘ</button>' +
       '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
+      ofDayLine(lessonId, d) +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
       '<div class="params">' + U.esc(STEPS.cardLine(p)) + '</div>' +
@@ -389,6 +411,7 @@ window.Lesson = (function () {
   return {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
     openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
-    findPending: findPending, PENDING_WINDOW: PENDING_WINDOW, whyText: whyText
+    findPending: findPending, PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
+    ofDayLine: ofDayLine, dayIndex: dayIndex
   };
 })();

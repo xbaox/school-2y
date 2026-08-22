@@ -138,6 +138,15 @@ section.block:first-of-type{margin-top:0}
 }
 .chip.on{background:var(--fire);color:#12151c;font-weight:600;border-color:var(--fire)}
 .chip.addon.on{background:var(--fire-soft);color:var(--fire);border-color:var(--fire)}
+
+/* подтверждение выбора: чип коротко вспыхивает заливкой fire.
+   Пустой кадр 100% — возврат к собственным цветам чипа, каким бы он ни стал. */
+@keyframes chip-pop{0%{transform:scale(1)}45%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes chip-flash{
+  0%,45%{background-color:var(--fire);border-color:var(--fire);color:#12151c}
+  100%{}
+}
+.chip.pop{animation:chip-pop 150ms ease-out,chip-flash 150ms ease-out}
 .chips-label{font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin:2px 0 6px}
 
 /* ---------- карточка урока ---------- */
@@ -152,6 +161,12 @@ section.block:first-of-type{margin-top:0}
 .lesson .why.w-plan{color:var(--muted);background:rgba(139,147,167,.12)}
 .lesson .why.w-swap{color:var(--fire);background:var(--fire-soft)}
 .lesson .place{font-size:12px;color:var(--muted);margin-bottom:3px}
+/* «урок 1 из 2» — только у полной: показывает, что впереди ещё один */
+.lesson .ofday{
+  display:inline-block;font-family:var(--mono);font-size:10.5px;
+  color:var(--fire);background:var(--fire-soft);
+  padding:2px 8px;border-radius:99px;margin-bottom:5px;
+}
 .lesson h4{font-size:15.5px;line-height:1.35;margin-bottom:6px}
 .lesson .params{font-family:var(--mono);font-size:11.5px;color:var(--fire);background:var(--fire-soft);
   padding:6px 9px;border-radius:9px;margin:8px 0;line-height:1.5}
@@ -195,6 +210,14 @@ section.block:first-of-type{margin-top:0}
 .fresh .tbar{flex:1;min-width:64px;height:8px;background:var(--card2);border-radius:99px;overflow:hidden}
 .fresh .tbar i{display:block;height:100%;border-radius:99px}
 .fresh .tdays{width:auto;min-width:72px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0}
+
+/* ---------- статусная строка дня ---------- */
+
+.dayline{
+  font-size:12.5px;color:var(--muted);font-weight:500;
+  line-height:1.5;margin:-4px 0 12px;
+}
+.dayline b{font-weight:700;font-size:13.5px}
 
 /* ---------- если-то ---------- */
 
@@ -488,4 +511,8 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
+  /* подтверждение выбора остаётся — но без движения, одним цветом.
+     Специфичность .chip.pop перебивает !important у «*». */
+  .chip.pop{animation:chip-flash 150ms ease-out !important}
+  .ring.done .ring-arc{animation:none !important}
 }

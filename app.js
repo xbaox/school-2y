@@ -98,9 +98,11 @@ window.App = (function () {
     },
     mount: function (host) {
       U.on(host, 'click', '[data-level]', function (e, el) {
+        flash(el.dataset.level);
         State.setLevel(el.dataset.level);
       });
       U.on(host, 'click', '[data-addon]', function (e, el) {
+        flash(el.dataset.addon);
         State.toggleAddon(el.dataset.addon);
       });
       U.on(host, 'click', '[data-step]', function () { StepsFlow.openDetails(); });
@@ -150,36 +152,77 @@ window.App = (function () {
       '</button>';
   }
 
+  /**
+   * Подтверждение выбора. Смена уровня немедленно перерисовывает экран,
+   * то есть сам нажатый узел исчезает — поэтому класс анимации ставится
+   * не на элемент, а помечается id и выдаётся уже при отрисовке нового чипа.
+   * Анимация одноразовая, снимать её потом не нужно.
+   */
+  var FLASH_MS = 400;
+  var flashed = { id: null, at: 0 };
+
+  function flash(id) { flashed = { id: id, at: Date.now() }; }
+  function flashing(id) { return flashed.id === id && Date.now() - flashed.at < FLASH_MS; }
+
   function chips(d) {
     var html = '<div class="chips">';
     State.s.settings.levels.forEach(function (l) {
       var on = d.level === l.id;
-      html += '<button class="chip' + (on ? ' on' : '') + '" data-level="' + U.esc(l.id) +
-        '" aria-pressed="' + on + '">' + U.esc(l.name) + '</button>';
+      html += '<button class="chip' + (on ? ' on' : '') + (flashing(l.id) ? ' pop' : '') +
+        '" data-level="' + U.esc(l.id) + '" aria-pressed="' + on + '">' + U.esc(l.name) + '</button>';
     });
     State.s.settings.addons.forEach(function (a) {
       var on = (d.addons || []).indexOf(a.id) >= 0;
-      html += '<button class="chip addon' + (on ? ' on' : '') + '" data-addon="' + U.esc(a.id) +
-        '" aria-pressed="' + on + '">+ ' + U.esc(a.name) + '</button>';
+      html += '<button class="chip addon' + (on ? ' on' : '') + (flashing(a.id) ? ' pop' : '') +
+        '" data-addon="' + U.esc(a.id) + '" aria-pressed="' + on + '">+ ' + U.esc(a.name) + '</button>';
     });
     return html + '</div>';
   }
 
+  /**
+   * Что уровень значит на деле (раздел 7.1 ТЗ). Ключи — id уровней доктрины;
+   * названия уровней владелец правит в Настройках, смысл — нет.
+   */
+  var LEVEL_HINT = {
+    none: 'пустой день рвёт серию',
+    min: 'база дня: карточки + аудио',
+    norm: 'минималка + 1 урок',
+    full: 'минималка + 2 урока (второй — другая дорожка)'
+  };
+
   function dayLine(t, d) {
-    var p = State.points(t);
-    var lvl = DOCTRINE.byId(State.s.settings.levels, d.level || 'none');
-    var parts = [];
-    parts.push('сегодня: ' + p + ' ' + U.plural(p, 'очко', 'очка', 'очков'));
-    if (lvl && lvl.id !== 'none') parts.push(lvl.name.toLowerCase());
-    var warn = '';
+    var levelId = d.level || 'none';
+    var lvl = DOCTRINE.byId(State.s.settings.levels, levelId);
+    var lvlPoints = lvl ? (lvl.points || 0) : 0;
+    var total = State.points(t);
+
+    var addons = (d.addons || []).map(function (id) {
+      return DOCTRINE.byId(State.s.settings.addons, id);
+    }).filter(Boolean);
+
+    // «грозит стать пустым» — только у того, у кого серия есть: у новичка
+    // первый день без очков ничего не рвёт
     var hasHistory = Object.keys(State.s.days).some(function (k) { return State.points(k) > 0; });
-    if (p === 0 && hasHistory) {
-      var er = State.emptyInRow();
-      if (er >= DOCTRINE.MAX_EMPTY_IN_ROW) warn = ' <span class="r">· серия на грани, хватит минималки</span>';
-      else if (er === 1) warn = ' <span class="y">· вчера было пусто</span>';
+    var risky = total === 0 && hasHistory;
+
+    var num = '<b class="mono ' + (risky ? 'r' : 'fire') + '">' + lvlPoints + '</b>';
+    var head = 'сегодня: ' + num + ' ' + U.plural(lvlPoints, 'очко', 'очка', 'очков');
+
+    var desc = LEVEL_HINT[levelId] || '';
+    if (levelId === 'none' && addons.length) desc = 'уровень дня не выбран';
+    else if (levelId === 'none' && risky && State.emptyInRow() >= DOCTRINE.MAX_EMPTY_IN_ROW) {
+      desc = 'серия на грани — хватит минималки';
     }
-    return '<div class="small muted" style="margin:-4px 0 12px">' +
-      U.esc(parts.join(' · ')) + warn + '</div>';
+
+    var tail = '';
+    if (addons.length) {
+      tail = ' · ' + addons.map(function (a) {
+        return '+ ' + U.esc(a.name) + ' (+' + a.points + ')';
+      }).join(' ') + ' = <b class="mono fire">' + total + '</b> ' +
+        U.plural(total, 'очко', 'очка', 'очков');
+    }
+
+    return '<div class="dayline">' + head + ' · ' + U.esc(desc) + tail + '</div>';
   }
 
   /** Карточка урока дня. Водопад и содержимое — этапы 2 и 4. */
@@ -297,6 +340,7 @@ window.App = (function () {
   return {
     TABS: TABS, register: register, go: go, render: render, renderScreen: renderScreen,
     boot: boot, version: version,
+    dayLine: dayLine, LEVEL_HINT: LEVEL_HINT,
     get active() { return active; }
   };
 })();
