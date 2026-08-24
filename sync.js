@@ -27,6 +27,10 @@ window.Sync = (function () {
   /** Метка последнего успешного push. Переживает закрытие вкладки — по ней
       при следующем запуске видно, что локальные правки ещё не уехали. */
   var PUSHED_KEY = 'study-system-v2-pushed';
+  /** Метка «вход отвалился». Переживает перезагрузку: сессия при этом стёрта,
+      и без метки протухший вход выглядел бы как «просто не подключено» —
+      человек продолжал бы работать, думая что синхронизация идёт. */
+  var LOST_KEY = 'study-system-v2-authlost';
   var PUSH_DEBOUNCE = 2000;
 
   var session = null;      // { access_token, refresh_token, expires_at, user_id, email }
@@ -34,6 +38,7 @@ window.Sync = (function () {
   var pending = false;     // очередь: есть несохранённые изменения
   var busy = false;
   var status = 'off';      // off | idle | syncing | queued | error
+  var lost = false;        // вход недействителен — это не отсутствие сети
   var lastSync = null;
   var lastError = null;
   var listeners = [];
@@ -70,7 +75,12 @@ window.Sync = (function () {
     return !!(s.onboarded || (s.summaries && s.summaries.length) ||
       Object.keys(s.days || {}).length);
   }
-  function state() { return { status: status, lastSync: lastSync, error: lastError, email: session && session.email }; }
+  function state() {
+    return {
+      status: status, lastSync: lastSync, error: lastError,
+      email: session && session.email, authLost: lost
+    };
+  }
 
   function onChange(fn) { listeners.push(fn); }
   function emit() {
@@ -104,6 +114,37 @@ window.Sync = (function () {
     } catch (e) { /* приватный режим — переживём */ }
   }
 
+  /**
+   * Вход недействителен: облако перестало принимать refresh-токен.
+   * Отдельный признак, а не «нет сессии»: у никогда не входившего его нет,
+   * а у отвалившегося он есть — и по нему «Сегодня» рисует плашку.
+   */
+  function authLost() { return lost; }
+
+  function setAuthLost(v) {
+    lost = !!v;
+    try {
+      if (lost) localStorage.setItem(LOST_KEY, '1');
+      else localStorage.removeItem(LOST_KEY);
+    } catch (e) { /* приватный режим — переживём */ }
+  }
+
+  function loadAuthLost() {
+    try { lost = localStorage.getItem(LOST_KEY) === '1'; } catch (e) { lost = false; }
+    return lost;
+  }
+
+  /**
+   * Отказ именно авторизации. Сетевая беда и 5xx сюда не попадают: по ним
+   * вход гасить нельзя, иначе выпадение связи выглядело бы как выход
+   * из облака, а очередь и так догоняет сама.
+   */
+  function authError() {
+    var e = new Error(AUTH_LOST);
+    e.auth = true;
+    return e;
+  }
+
   function fromAuth(json) {
     return {
       access_token: json.access_token,
@@ -131,12 +172,15 @@ window.Sync = (function () {
   }
 
   function refreshToken() {
-    if (!session || !session.refresh_token) return Promise.reject(new Error('нет сессии'));
+    if (!session || !session.refresh_token) return Promise.reject(authError());
     return req('/auth/v1/token?grant_type=refresh_token', {
       method: 'POST', noAuth: true, body: { refresh_token: session.refresh_token }
     }).then(function (r) {
-      if (!r.ok) throw new Error('сессия истекла');
-      return r.json();
+      if (r.ok) return r.json();
+      // 400/401/403 — токен отозван или протух насовсем: вход больше не действует.
+      // Всё остальное (5xx, шлюз) временно, входа не касается.
+      if (r.status === 400 || r.status === 401 || r.status === 403) throw authError();
+      throw new Error('Облако не ответило (ошибка ' + r.status + ')');
     }).then(function (j) { saveSession(fromAuth(j)); });
   }
 
@@ -144,7 +188,11 @@ window.Sync = (function () {
   function ensureToken() {
     if (!signedIn()) return Promise.reject(new Error('нет сессии'));
     if (session.expires_at && Date.now() < session.expires_at - 60000) return Promise.resolve();
-    return refreshToken();
+    return refreshToken().catch(function (e) {
+      // протухший refresh на старте — тот же отвалившийся вход, что и 401:
+      // раньше он молча оседал строкой статуса в Настройках и наружу не выходил
+      throw (e && e.auth) ? sessionLost() : e;
+    });
   }
 
   /** Облако перестало узнавать вход: сессию гасим, дальше решает пользователь. */
@@ -152,6 +200,7 @@ window.Sync = (function () {
     saveSession(null);
     setLastPushedAt(null);
     pending = false;
+    setAuthLost(true);          // до setStatus: слушатели уже спрашивают признак
     setStatus('error', AUTH_LOST);
     // emit() рисует «Настройки» только для вошедшего — тут дорисовываем сами
     if (window.App && App.active === 'settings') App.renderScreen('settings');
@@ -171,7 +220,8 @@ window.Sync = (function () {
         if (r.status !== 401) return r;
         return refreshToken().then(
           function () { return req(path, opts); },
-          function () { throw sessionLost(); }
+          // связь могла отвалиться ровно между 401 и refresh — это не выход
+          function (e) { throw (e && e.auth) ? sessionLost() : e; }
         ).then(function (r2) {
           if (r2.status === 401) throw sessionLost();
           return r2;
@@ -203,6 +253,7 @@ window.Sync = (function () {
       });
     }).then(function (j) {
       saveSession(fromAuth(j));
+      setAuthLost(false);
       setStatus('idle');
       return pull();
     }).catch(function (e) {
@@ -215,6 +266,7 @@ window.Sync = (function () {
     if (signedIn()) req('/auth/v1/logout', { method: 'POST' }).catch(function () { });
     saveSession(null);
     setLastPushedAt(null);
+    setAuthLost(false);
     pending = false;
     lastSync = null;
     setStatus('off');
@@ -326,10 +378,14 @@ window.Sync = (function () {
    */
   function init() {
     loadSession();
+    loadAuthLost();
     // слушатели ставим всегда: вход может случиться позже, из Настроек или
     // онбординга, и очередь должна догоняться без перезапуска приложения
     bindNetworkListeners();
-    if (!signedIn()) { setStatus('off'); return; }
+    // метка живёт до нового входа: перезапуск приложения протухший вход
+    // не чинит, и плашка на «Сегодня» обязана вернуться вместе с ним
+    if (!signedIn()) { setStatus(lost ? 'error' : 'off', lost ? AUTH_LOST : null); return; }
+    setAuthLost(false);
     setStatus('idle');
     if (navigator.onLine && lastPushedAt() && hasUnpushed()) push();
     else pull();
@@ -402,7 +458,8 @@ window.Sync = (function () {
   }
 
   return {
-    available: available, signedIn: signedIn, state: state, status: statusText,
+    available: available, signedIn: signedIn, authLost: authLost,
+    state: state, status: statusText,
     init: init, signIn: signIn, signOut: signOut, pull: pull, push: push,
     onLocalChange: onLocalChange, flush: flush, onChange: onChange,
     lastPushedAt: lastPushedAt, hasUnpushed: hasUnpushed,

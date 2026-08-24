@@ -1,5 +1,7 @@
 /* Облачная синхронизация (раздел 3 ТЗ): очередь переживает закрытие вкладки,
-   сравнение времён через Date.parse, вход по 401. Находки A-01, A-23, A-04. */
+   сравнение времён через Date.parse, вход по 401. Находки A-01, A-23, A-04.
+   Отдельно — отвалившийся вход: он обязан отличаться от отсутствия сети
+   и быть виден на «Сегодня», а не только строкой в Настройках. */
 
 (function () {
   'use strict';
@@ -13,7 +15,8 @@
     Sync.signOut();                       // гасим очередь предыдущего стенда
     window.__store[SESSION_KEY] = JSON.stringify({
       access_token: 'tok', refresh_token: 'ref',
-      expires_at: Date.now() + 3600000, user_id: 'u1', email: 'a@b.c'
+      expires_at: opts.expired ? Date.now() - 1000 : Date.now() + 3600000,
+      user_id: 'u1', email: 'a@b.c'
     });
     if (opts.pushedAt) window.__store[PUSHED_KEY] = opts.pushedAt;
     else delete window.__store[PUSHED_KEY];
@@ -134,6 +137,102 @@
         eq(Sync.state().error, 'Облако не узнало вход — зайди заново', 'человеческий статус, а не тело ответа');
         eq(Sync.state().status, 'error', 'статус — ошибка');
         eq(window.__store['study-system-v2-session'], undefined, 'сессия убрана из хранилища');
+        eq(Sync.authLost(), true, 'признак отвалившегося входа поднят');
+        ok(App.cloudAlert().indexOf('Облако отключено — войти') > 0, 'на «Сегодня» появилась плашка');
+      });
+    });
+  });
+
+  describe('синк: протухший вход виден на «Сегодня», а не только в Настройках', function () {
+    /** Текст плашки без разметки — пусто, когда плашки нет. */
+    function banner() { return App.cloudAlert().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+    defer('refresh отбит — вход погашен и плашка висит', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z', expired: true });
+      window.__fetch = function (url) {
+        // так Supabase отвечает на отозванный или протухший refresh-токен
+        if (url.indexOf('grant_type=refresh_token') >= 0) {
+          return Promise.resolve(window.__res(400, { error: 'invalid_grant' }));
+        }
+        return Promise.resolve(window.__res(200, []));
+      };
+
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        eq(Sync.signedIn(), false, 'сессия погашена');
+        eq(Sync.authLost(), true, 'это отказ авторизации, а не сбой связи');
+        eq(Sync.state().status, 'error', 'статус — ошибка');
+        ok(banner().indexOf('Облако отключено — войти') >= 0, 'плашка на «Сегодня» появилась');
+
+        // перезапуск приложения протухший вход не чинит: плашка обязана вернуться
+        Sync.init();
+        eq(Sync.authLost(), true, 'метка пережила перезапуск');
+        eq(Sync.state().status, 'error', 'и причина вернулась в статус');
+        ok(banner().indexOf('Облако отключено — войти') >= 0, 'после перезапуска плашка на месте');
+      });
+    });
+
+    defer('нет сети — очередь, но не плашка', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z',
+        expired: true, onLine: false });
+      window.__fetch = function () { return Promise.reject(new Error('Failed to fetch')); };
+
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        ok(Sync.signedIn(), 'вход цел');
+        eq(Sync.authLost(), false, 'отсутствие сети входом не считается');
+        eq(Sync.state().status, 'queued', 'изменения ждут в очереди');
+        eq(banner(), '', 'плашки нет');
+      });
+    });
+
+    defer('5xx от облака — временная беда, вход не трогаем', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z', expired: true });
+      window.__fetch = function () { return Promise.resolve(window.__res(503, { msg: 'gateway' })); };
+
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        ok(Sync.signedIn(), 'вход цел');
+        eq(Sync.authLost(), false, 'по 503 из облака не выкидываем');
+        eq(Sync.state().status, 'error', 'но ошибка видна');
+        eq(banner(), '', 'плашки нет — входить некуда, надо ждать');
+      });
+    });
+
+    defer('без входа плашки не бывает', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z' });
+      Sync.signOut();
+      eq(Sync.authLost(), false, 'никогда не входивший ничего не терял');
+      eq(banner(), '', 'плашки нет');
+    });
+
+    defer('вход снимает плашку', function () {
+      stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T09:00:00.000Z', expired: true });
+      window.__fetch = function (url) {
+        if (url.indexOf('grant_type=refresh_token') >= 0) {
+          return Promise.resolve(window.__res(400, { error: 'invalid_grant' }));
+        }
+        return Promise.resolve(window.__res(200, []));
+      };
+
+      Sync.init();
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        eq(Sync.authLost(), true, 'сперва вход потерян');
+        window.__fetch = function (url, o) {
+          if (url.indexOf('grant_type=password') >= 0) {
+            return Promise.resolve(window.__res(200, {
+              access_token: 'tok3', refresh_token: 'ref3', expires_in: 3600,
+              user: { id: 'u1', email: 'a@b.c' }
+            }));
+          }
+          if ((o && o.method) === 'POST') return Promise.resolve(window.__res(201, {}));
+          return Promise.resolve(window.__res(200, []));
+        };
+        return Sync.signIn('a@b.c', 'pass');
+      }).then(function () {
+        eq(Sync.authLost(), false, 'после входа метка снята');
+        eq(window.__store['study-system-v2-authlost'], undefined, 'и убрана из хранилища');
+        eq(banner(), '', 'плашка ушла');
       });
     });
   });

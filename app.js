@@ -94,7 +94,7 @@ window.App = (function () {
     render: function () {
       var t = State.today();
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
-      return topRow(t) + weekStrip(t) + badges() + stepCard() +
+      return cloudAlert() + topRow(t) + weekStrip(t) + badges() + stepCard() +
         levelSeg(d) + planBlock(t, d) + addonChips(d) +
         freshBars() + ifThenLine(t);
     },
@@ -112,6 +112,7 @@ window.App = (function () {
         State.toggleAddon(el.dataset.addon);
       });
       U.on(host, 'click', '[data-step]', function () { StepsFlow.openDetails(); });
+      U.on(host, 'click', '[data-goto-cloud]', function () { gotoCloud(); });
 
       // аккордеон плана: раскрыт один пункт за раз
       U.on(host, 'click', '[data-open]', function (e, el) {
@@ -133,6 +134,34 @@ window.App = (function () {
       if (window.Radar && Radar.mountToday) Radar.mountToday(host);
     }
   };
+
+  /**
+   * Вход в облако отвалился (протух refresh-токен). Красная строка в
+   * Настройках этого не спасает: человек её не открывает, правки копятся
+   * только здесь, а второе устройство честно пишет «синхронизировано».
+   * Оффлайн сюда не попадает — там очередь, и она догоняет сама.
+   */
+  function cloudAlert() {
+    if (!window.Sync || !Sync.available() || !Sync.authLost()) return '';
+    return '<button class="cloud-off" data-goto-cloud' +
+      ' aria-label="Облако отключено. Открыть вход в Настройках">' +
+      '<span class="co-ic" aria-hidden="true">⛅</span>' +
+      '<span class="co-txt"><b>Облако отключено — войти</b>' +
+      '<span>Правки остаются в этом браузере и в облако не уходят.</span></span>' +
+      '<span class="co-go" aria-hidden="true">→</span>' +
+      '</button>';
+  }
+
+  /**
+   * Плашка ведёт не «в Настройки вообще», а прямо к карточке «Облако»:
+   * она внизу длинного экрана. Прыжок без анимации — плавная прокрутка
+   * на четыре с лишним тысячи пикселей только запутывает.
+   */
+  function gotoCloud() {
+    go('settings');
+    var el = U.el('[data-cloud]');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+  }
 
   function topRow(t) {
     var st = State.streak();
@@ -726,7 +755,17 @@ window.App = (function () {
     });
     scheduleDayRollover();
     registerSW();
-    if (window.Sync && Sync.available()) Sync.init();
+    if (window.Sync && Sync.available()) {
+      // «Сегодня» перерисовываем только когда плашка реально появляется или
+      // уходит: статус синка дёргается на каждом push, экран тут ни при чём
+      var wasLost = Sync.authLost();
+      Sync.onChange(function (st) {
+        if (!!st.authLost === wasLost) return;
+        wasLost = !!st.authLost;
+        render();
+      });
+      Sync.init();
+    }
   }
 
   /* ---------- PWA ---------- */
@@ -779,6 +818,7 @@ window.App = (function () {
     boot: boot, version: version,
     dayLine: dayLine, LEVEL_HINT: LEVEL_HINT,
     weekStrip: weekStrip, weekDays: weekDays, dayRing: dayRing, dayPlan: dayPlan,
+    cloudAlert: cloudAlert,
     planBlock: planBlock, planItems: planItems, levelSeg: levelSeg, addonChips: addonChips,
     minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
     resetOpen: function () { openItem = null; },

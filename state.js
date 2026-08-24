@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 1;
-  var APP_VERSION = '2.4.1';
+  var APP_VERSION = '2.5.0';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';
@@ -33,7 +33,7 @@ window.State = (function () {
   };
 
   var PHASES = [
-    { id: 'p0', name: 'Ф0 «Фундамент»', milestone: 'веха: placement-тест 28.08' },
+    { id: 'p0', name: 'Ф0 «Фундамент»', milestone: 'веха: placement-тест 25.08' },
     { id: 'p1', name: 'Ф1 «Семестр 1»' },
     { id: 'p2', name: 'Ф2 «Семестр 2»' },
     { id: 'bridge', name: 'Мост «Лето-2027»' },

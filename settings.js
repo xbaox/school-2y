@@ -126,10 +126,14 @@
       '</section>';
   }
 
-  /** Облако: вход, статус, ручная синхронизация (раздел 3 ТЗ). */
+  /**
+   * Облако: вход, статус, ручная синхронизация (раздел 3 ТЗ).
+   * data-cloud — якорь: плашка «Облако отключено» с «Сегодня» ведёт сюда,
+   * а не просто в начало Настроек.
+   */
   function cloudSection() {
     if (!window.Sync || !Sync.available()) {
-      return '<section class="block"><h2>Облако</h2>' +
+      return '<section class="block" data-cloud><h2>Облако</h2>' +
         '<div class="fnote">Синхронизация не настроена — всё живёт локально.</div></section>';
     }
     var st = Sync.state();
@@ -141,7 +145,7 @@
         ? '<div class="fnote r" style="border-color:rgba(248,113,113,.4);margin-bottom:10px">' +
         U.esc(st.error) + '. Данные целы и лежат в этом браузере.</div>'
         : '';
-      return '<section class="block"><h2>Облако</h2>' +
+      return '<section class="block" data-cloud><h2>Облако</h2>' +
         '<p class="lead">Вход по почте и паролю. Пока не вошёл — всё работает локально, ничего не теряется.</p>' +
         lost + '<div class="card">' + Sync.loginFormHtml() + '</div></section>';
     }
@@ -154,7 +158,7 @@
       'нажми «Отправить сейчас», когда связь вернётся.</div>'
       : '';
 
-    return '<section class="block"><h2>Облако</h2>' +
+    return '<section class="block" data-cloud><h2>Облако</h2>' +
       '<p class="lead">Изменения уходят через 2 секунды после правки. Без сети копятся в очереди.</p>' +
       '<div class="card">' +
       '<div class="srow"><div class="k">Аккаунт<span>' + U.esc(Sync.email || '') + '</span></div>' +
