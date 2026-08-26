@@ -131,11 +131,13 @@
     }
 
     return head + '<div class="list">' + list.map(function (d) {
-      var done = uniq(d.clearedIn).length;
+      var done = State.debtProgress(d);
       var where = U.esc((d.clearedIn || []).join(', ') || 'пока нигде');
       return '<div class="item">' +
-        '<div class="t">' + UI.trackDot(d.track || 'eng') + ' ' + U.esc(d.text) + '</div>' +
-        '<div class="s">создан в ' + U.esc(d.createdIn) + ' · отработан в ' + done + ' из 2 уроков: ' + where +
+        '<div class="t">' + UI.trackDot(d.track || 'eng') +
+        (d.did ? ' <span class="mono dim">' + U.esc(d.did) + '</span>' : '') +
+        ' ' + U.esc(d.text) + '</div>' +
+        '<div class="s">создан в ' + U.esc(d.createdIn) + ' · погашено ' + done + '/2: ' + where +
         (d.status !== 'open' ? ' · закрыт ' + (d.closedDate ? U.fmtShort(d.closedDate) : '') : '') + '</div>' +
         '</div>';
     }).join('') + '</div></section>';
@@ -180,9 +182,9 @@ window.Cards = (function () {
     });
     var debts = State.openDebts().map(function (d) {
       return {
-        type: 'debt', front: d.text,
-        back: 'долг из ' + d.createdIn + ' · отработан в ' + ((d.clearedIn || []).join(', ') || '—') +
-          ' · нужно 2 разных урока',
+        type: 'debt', front: (d.did ? d.did + ' · ' : '') + d.text,
+        back: 'долг из ' + d.createdIn + ' · погашено ' + State.debtProgress(d) + '/2' +
+          ' · отработан в ' + ((d.clearedIn || []).join(', ') || '—'),
         meta: State.trackName(d.track || 'eng')
       };
     });

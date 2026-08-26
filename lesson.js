@@ -433,10 +433,18 @@ window.Lesson = (function () {
             return;
           }
           close();
+          var miss = (res.unmatched || []).length;
           UI.toast('Урок ' + lessonId + ' закрыт · ' + res.score + '/10 · ' +
             res.words + ' ' + U.plural(res.words, 'слово', 'слова', 'слов') +
             (res.created ? ' · ' + res.created + ' ' + U.plural(res.created, 'долг', 'долга', 'долгов') : '') +
-            (res.closed ? ' · погашено ' + res.closed : ''), 'ok', 4200);
+            (res.cleared ? ' · погашено ' + res.cleared : '') +
+            (res.closed ? ' · закрыто ' + res.closed : ''), 'ok', 4200);
+          // строки «Погашено», не легшие ни на один долг, показываем отдельно —
+          // иначе они пропадают, а студент думает, что долг отработан
+          if (miss) {
+            UI.toast('Не сопоставлено: ' + miss + ' ' +
+              U.plural(miss, 'строка', 'строки', 'строк') + ' «Погашено» — проверь id', '', 6000);
+          }
         };
       }
     });

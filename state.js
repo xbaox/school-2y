@@ -199,6 +199,17 @@ window.State = (function () {
       }
     }
 
+    // 2.6.0: короткий id долга. Существующие долги получают D-1, D-2… по
+    // порядку создания — массив s.debts и есть этот порядок.
+    var seq = 0;
+    out.debts.forEach(function (d) {
+      var m = /^D-(\d+)$/.exec(String((d && d.did) || ''));
+      if (m) seq = Math.max(seq, parseInt(m[1], 10));
+    });
+    out.debts.forEach(function (d) {
+      if (d && !d.did) d.did = 'D-' + (++seq);
+    });
+
     // A-14: свежесть дорожки без единого урока считается от даты онбординга;
     // у состояний, живших до этого поля, точкой отсчёта становится сегодня
     if (!out.meta.onboardedAt) out.meta.onboardedAt = today();
@@ -699,40 +710,91 @@ window.State = (function () {
   }
 
   var PARTIAL_MIN_LEN = 4;      // короче — совпадение случайное
-  var PARTIAL_MIN_RATIO = 0.5;  // вхождение засчитываем только при близких длинах
+  var SIM_MIN = 0.85;           // порог похожести для текстового фолбэка
+  var DEBT_ID_RE = /\bD-(\d+)\b/i;
+
+  /** Биграммы строки — сырьё для коэффициента Дайса. */
+  function bigrams(str) {
+    var out = [];
+    for (var i = 0; i < str.length - 1; i++) out.push(str.slice(i, i + 2));
+    return out;
+  }
 
   /**
-   * Ищет открытый долг, соответствующий строке «Погашено».
-   * Точное совпадение сильнее любого частичного; частичное требует и длины,
-   * и доли совпадения — иначе «знак» гасил бы «путает знак наклона».
+   * Похожесть двух нормализованных строк, 0..1 (коэффициент Дайса по
+   * биграммам символов). Устойчив к опечаткам и окончаниям, при этом
+   * «знак наклона» и «путает знак наклона при отрицательном k» получают
+   * низкий балл — короткий огрызок чужой долг не закрывает.
+   */
+  function similarity(a, b) {
+    if (a === b) return 1;
+    if (a.length < 2 || b.length < 2) return 0;
+    var A = bigrams(a), B = bigrams(b), map = {}, hit = 0;
+    A.forEach(function (g) { map[g] = (map[g] || 0) + 1; });
+    B.forEach(function (g) { if (map[g] > 0) { map[g]--; hit++; } });
+    return 2 * hit / (A.length + B.length);
+  }
+
+  /** Следующий короткий id долга: D-1, D-2… Номера не переиспользуются. */
+  function nextDebtId() {
+    var max = 0;
+    s.debts.forEach(function (d) {
+      var m = /^D-(\d+)$/.exec(String(d.did || ''));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    });
+    return 'D-' + (max + 1);
+  }
+
+  /**
+   * Ищет открытый долг, соответствующий строке «Погашено» (раздел 8.4).
+   * Два яруса, в этом порядке:
+   *  1) короткий id «D-7» из строки — самый надёжный якорь, текст рядом
+   *     с ним уже не важен: ИИ перефразирует формулировки, id — нет;
+   *  2) нормализованный текст — формулировка долга целиком внутри строки
+   *     (дословная копия) либо похожесть ≥0.85.
+   * Старые ярусы «вхождение при ratio ≥0.5» и «пословно ≥0.6» убраны:
+   * реальные перефразы они всё равно не ловили, а чужой долг закрыть могли.
    */
   function matchDebt(text, trackId) {
-    var want = normText(text);
-    if (!want) return null;
+    var raw = String(text || '');
     var open = s.debts.filter(function (d) { return d.status === 'open'; });
-    var exact = null, partial = null, best = 0;
+
+    var m = DEBT_ID_RE.exec(raw);
+    if (m) {
+      var wantId = 'D-' + m[1];
+      var byId = null;
+      open.forEach(function (d) { if (d.did === wantId) byId = d; });
+      if (byId) return byId;
+      // id не нашёлся (опечатка или уже закрытый долг) — пробуем текст
+    }
+
+    var want = normText(raw.replace(DEBT_ID_RE, ' '));
+    if (want.length < PARTIAL_MIN_LEN) return null;
+
+    var best = null, bestScore = 0;
     open.forEach(function (d) {
       var have = normText(d.text);
-      if (!have) return;
-      if (have === want) { if (!exact || d.track === trackId) exact = d; return; }
-
+      if (have.length < PARTIAL_MIN_LEN) return;
       var score = 0;
-      if (want.length >= PARTIAL_MIN_LEN && have.length >= PARTIAL_MIN_LEN &&
-        (have.indexOf(want) >= 0 || want.indexOf(have) >= 0)) {
-        var ratio = Math.min(have.length, want.length) / Math.max(have.length, want.length);
-        if (ratio >= PARTIAL_MIN_RATIO) score = ratio;
+      if (have === want) score = 1;
+      // формулировка долга целиком внутри строки — ИИ скопировал её дословно
+      // и дописал «— отработано»; обратное направление безопасным не бывает,
+      // его судит только похожесть
+      else if (want.indexOf(have) >= 0) score = have.length / want.length;
+      else {
+        var sim = similarity(have, want);
+        if (sim >= SIM_MIN) score = sim;
       }
-      if (!score) {
-        var a = have.split(' '), b = want.split(' ');
-        var common = a.filter(function (w) { return w.length > 2 && b.indexOf(w) >= 0; }).length;
-        // делим на длинную сторону: одно общее слово против короткой строки
-        // не должно давать «полное совпадение»
-        var byWords = common / Math.max(1, a.length, b.length);
-        if (byWords >= 0.6) score = byWords;
-      }
-      if (score > best) { best = score; partial = d; }
+      if (!score) return;
+      var beatsOnTrack = score === bestScore && best && best.track !== trackId && d.track === trackId;
+      if (score > bestScore || beatsOnTrack) { bestScore = score; best = d; }
     });
-    return exact || partial;
+    return best;
+  }
+
+  /** Прогресс погашения долга: сколько разных уроков из нужных двух. */
+  function debtProgress(d) {
+    return Math.min(2, uniqueLessons((d && d.clearedIn) || []).length);
   }
 
   function uniqueLessons(list) {
@@ -794,20 +856,23 @@ window.State = (function () {
       });
       if (dup) return;
       var debt = {
-        id: U.uid(), track: trackId, text: text,
+        id: U.uid(), did: nextDebtId(), track: trackId, text: text,
         createdIn: lessonId, clearedIn: [], status: 'open'
       };
       s.debts.push(debt);
       created.push(debt);
     });
 
-    var cleared = [], closed = [];
+    var cleared = [], closed = [], unmatched = [];
     (parsed.cleared || []).forEach(function (text) {
       var debt = matchDebt(text, trackId);
-      if (!debt) return;
+      // молча глотать нечитаемое «Погашено» нельзя: студент должен увидеть,
+      // что строка не легла ни на один долг, и поправить id
+      if (!debt) { unmatched.push(text); return; }
       if (debt.clearedIn.indexOf(lessonId) < 0) debt.clearedIn.push(lessonId);
-      cleared.push(debt);
-      if (uniqueLessons(debt.clearedIn).length >= 2) {
+      // две строки итога могли смэтчиться в один долг — считаем его один раз
+      if (cleared.indexOf(debt) < 0) cleared.push(debt);
+      if (uniqueLessons(debt.clearedIn).length >= 2 && debt.status === 'open') {
         debt.status = 'closed';
         debt.closedDate = date;
         closed.push(debt);
@@ -826,7 +891,8 @@ window.State = (function () {
     return {
       ok: true, lessonId: lessonId, score: parsed.score, replaced: replaced,
       words: (parsed.words || []).length,
-      created: created.length, cleared: cleared.length, closed: closed.length
+      created: created.length, cleared: cleared.length, closed: closed.length,
+      unmatched: unmatched
     };
   }
 
@@ -862,7 +928,8 @@ window.State = (function () {
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
     recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
-    matchDebt: matchDebt, applySummary: applySummary,
+    matchDebt: matchDebt, debtProgress: debtProgress, similarity: similarity,
+    nextDebtId: nextDebtId, applySummary: applySummary,
     ifThenOfDay: ifThenOfDay
   };
 })();
