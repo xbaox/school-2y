@@ -327,14 +327,24 @@ window.Lesson = (function () {
       openSummary(el.dataset.late, { date: el.dataset.date });
     });
     U.on(host, 'click', '[data-drop]', function (e, el) {
-      var prev = el.dataset.date;
-      var d = State.day(prev, true);
-      d.dropped = d.dropped || [];
-      if (d.dropped.indexOf(el.dataset.drop) < 0) d.dropped.push(el.dataset.drop);
-      if (d.pick === el.dataset.drop) { d.pick = null; d.pickReason = null; }
-      State.touch();
+      dropLesson(el.dataset.drop, el.dataset.date);
       UI.toast('Урок вернулся в очередь. Без штрафа.', 'ok');
     });
+  }
+
+  /**
+   * «Урок не состоялся» (7.8): промпт скопировали, но урок не провели.
+   * Урок возвращается в очередь без штрафа — done не ставится, очки дня
+   * не трогаются, напоминание гаснет. Отметка живёт на дне, а не на уроке:
+   * бросить его сегодня и провести завтра — нормальный сценарий.
+   */
+  function dropLesson(lessonId, dateIso) {
+    var d = State.day(dateIso || State.today(), true);
+    d.dropped = d.dropped || [];
+    if (d.dropped.indexOf(lessonId) < 0) d.dropped.push(lessonId);
+    if (d.pick === lessonId) { d.pick = null; d.pickReason = null; }
+    State.touch();
+    return d;
   }
 
   var COPY_GUARD_MS = 700;   // палец на телефоне легко срабатывает дважды
@@ -460,7 +470,8 @@ window.Lesson = (function () {
   return {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
     openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
-    findPending: findPending, PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
+    findPending: findPending, dropLesson: dropLesson,
+    PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
     ofDayLine: ofDayLine, dayIndex: dayIndex, pendingCard: unfinished, dayLesson: dayLesson
   };
 })();
