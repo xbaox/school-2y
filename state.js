@@ -136,6 +136,9 @@ window.State = (function () {
       todos: [],
       summaries: [],
       cards: { lastDay: null, viewedToday: 0 },
+      // SRS-накладка на банк слов: ключ — слово в нижнем регистре.
+      // Сами слова живут в итогах уроков, здесь только их судьба.
+      srs: {},
       stats: { wordsTotal: 0, lessonsDone: 0, bestStreak: 0 },
       onboarded: false
     };
@@ -174,6 +177,7 @@ window.State = (function () {
     out.settings = Object.assign({}, base.settings, (o && o.settings) || {});
     out.step = Object.assign({}, base.step, (o && o.step) || {});
     out.cards = Object.assign({}, base.cards, (o && o.cards) || {});
+    if (!out.srs || typeof out.srs !== 'object' || Array.isArray(out.srs)) out.srs = {};
     out.stats = Object.assign({}, base.stats, (o && o.stats) || {});
 
     // списки доктрины: пустой или не-массив — берём дефолт целиком
@@ -704,6 +708,118 @@ window.State = (function () {
     return out;
   }
 
+  /* ---------- карточки: SRS-lite (релиз 2.6.0) ---------- */
+
+  /**
+   * Слово живёт тремя статусами: new → learning → known.
+   * Три верных подряд делают слово выученным, ошибка на выученном
+   * возвращает его в learning. Выученное всплывает через 4, затем 10,
+   * затем 21 день — и после третьего повтора засыпает совсем.
+   * Это и есть «пенсия» для слов: колода перестаёт расти бесконечно.
+   */
+  var SRS_INTERVALS = [4, 10, 21];
+  var SRS_TO_KNOWN = 3;          // верных подряд до статуса «выучено»
+
+  function wordKey(en) { return String(en || '').toLowerCase().trim(); }
+
+  /** Запись SRS слова; создаётся лениво, чтобы не плодить мусор. */
+  function srsRec(en, create) {
+    var k = wordKey(en);
+    if (!k) return null;
+    if (!s.srs[k] && create) s.srs[k] = { status: 'new', streak: 0, step: 0, due: null };
+    return s.srs[k] || null;
+  }
+
+  function wordStatus(en) {
+    var r = srsRec(en);
+    return (r && r.status) || 'new';
+  }
+
+  /** Выученное слово, у которого срок повтора ещё не подошёл (или спит). */
+  function wordResting(en, todayIso) {
+    var r = srsRec(en);
+    if (!r || r.status !== 'known') return false;
+    if (!r.due) return true;                       // отработало все интервалы — спит
+    return r.due > (todayIso || today());
+  }
+
+  /**
+   * Оценка карточки: ok = «знал», иначе «не знал».
+   * → запись SRS слова после оценки.
+   */
+  function gradeWord(en, ok, todayIso) {
+    var r = srsRec(en, true);
+    if (!r) return null;
+    var t = todayIso || today();
+
+    if (!ok) {
+      // ошибка на выученном возвращает слово в работу с чистого листа
+      r.status = 'learning';
+      r.streak = 0;
+      r.step = 0;
+      r.due = null;
+      touch();
+      return r;
+    }
+
+    r.streak = (r.streak || 0) + 1;
+
+    if (r.status === 'known') {
+      // очередной успешный повтор двигает слово по интервалам к пенсии
+      r.step = (r.step || 0) + 1;
+      r.due = r.step < SRS_INTERVALS.length ? U.addDays(t, SRS_INTERVALS[r.step]) : null;
+    } else if (r.streak >= SRS_TO_KNOWN) {
+      r.status = 'known';
+      r.step = 0;
+      r.due = U.addDays(t, SRS_INTERVALS[0]);
+    } else {
+      r.status = 'learning';
+    }
+
+    touch();
+    return r;
+  }
+
+  /** Слова, которые сегодня нужно повторять: новые, в работе и подошедшие. */
+  function activeWords(todayIso) {
+    var t = todayIso || today();
+    return wordBank().filter(function (w) { return !wordResting(w.en, t); });
+  }
+
+  /** Счётчик колоды: «активных X · выучено Y». */
+  function wordCounts(todayIso) {
+    var bank = wordBank();
+    var t = todayIso || today();
+    var known = 0;
+    bank.forEach(function (w) { if (wordStatus(w.en) === 'known') known++; });
+    return {
+      active: bank.filter(function (w) { return !wordResting(w.en, t); }).length,
+      known: known,
+      total: bank.length
+    };
+  }
+
+  /** Слова конкретного урока из его итога, со статусами. */
+  function lessonWords(lessonId) {
+    var out = [], seen = {};
+    s.summaries.forEach(function (sum) {
+      if (sum.lessonId !== lessonId) return;
+      ((sum.parsed && sum.parsed.words) || []).forEach(function (w) {
+        var k = wordKey(w.en);
+        if (!k || seen[k]) return;
+        seen[k] = true;
+        var r = srsRec(w.en);
+        out.push({
+          en: w.en, ru: w.ru,
+          status: (r && r.status) || 'new',
+          streak: (r && r.streak) || 0,
+          due: (r && r.due) || null
+        });
+      });
+    });
+    return out;
+  }
+
   /** Все слова из итогов, старые первыми, без повторов. */
   function wordBank() {
     var seen = {}, out = [];
@@ -728,13 +844,16 @@ window.State = (function () {
     var recent = [], keys = {};
     sums.forEach(function (sum) {
       ((sum.parsed && sum.parsed.words) || []).forEach(function (w) {
-        var k = String(w.en || '').toLowerCase().trim();
-        if (!k || keys[k]) return;
+        var k = wordKey(w.en);
+        // выученное слово в промпт не идёт: разминать его заново — трата урока
+        if (!k || keys[k] || wordStatus(w.en) === 'known') return;
         keys[k] = true;
         recent.push({ en: w.en, ru: w.ru });
       });
     });
-    var old = wordBank().filter(function (w) { return !keys[String(w.en).toLowerCase().trim()]; });
+    var old = wordBank().filter(function (w) {
+      return !keys[wordKey(w.en)] && wordStatus(w.en) !== 'known';
+    });
     var picked = U.shuffle(old).slice(0, 5).map(function (w) { return { en: w.en, ru: w.ru }; });
     return U.shuffle(recent.concat(picked));
   }
@@ -977,6 +1096,9 @@ window.State = (function () {
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
     recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
+    SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
+    wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,
+    activeWords: activeWords, wordCounts: wordCounts, lessonWords: lessonWords,
     matchDebt: matchDebt, debtProgress: debtProgress, similarity: similarity,
     nextDebtId: nextDebtId, applySummary: applySummary,
     ifThenOfDay: ifThenOfDay

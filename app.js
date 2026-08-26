@@ -455,14 +455,17 @@ window.App = (function () {
   /* ---------- пункты плана ---------- */
 
   function deckCounts() {
-    return { words: State.wordBank().length, debts: State.openDebts().length };
+    // в колоде столько, сколько сегодня реально надо повторить
+    return { words: State.activeWords().length, debts: State.openDebts().length };
   }
 
   function cardsSub() {
     var c = deckCounts();
     if (!c.words && !c.debts) return 'колода пуста — видео ~5 мин';
+    var w = State.wordCounts();
     return c.words + ' ' + U.plural(c.words, 'слово', 'слова', 'слов') +
-      (c.debts ? ' + ' + c.debts + ' ' + U.plural(c.debts, 'долг', 'долга', 'долгов') : '');
+      (c.debts ? ' + ' + c.debts + ' ' + U.plural(c.debts, 'долг', 'долга', 'долгов') : '') +
+      (w.known ? ' · выучено ' + w.known : '');
   }
 
   function cardsItem(d) {
@@ -471,8 +474,9 @@ window.App = (function () {
     return {
       id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(), done: !!ms[0],
       body: (c.words || c.debts)
-        ? '<p class="pnote">Старые вперёд, тап переворачивает. Без оценок «знаю / не знаю» — ' +
-        'минималке хватает просмотра.</p>' +
+        ? '<p class="pnote">Старые вперёд, тап переворачивает, дальше «знал / не знал». ' +
+        'Три верных подряд — слово выучено и вернётся через 4, 10 и 21 день, потом заснёт. ' +
+        'Колода от этого не растёт, а сокращается.</p>' +
         '<button class="btn sec pact" data-cards>Открыть карточки</button>'
         : '<p class="pnote">Колода наполнится из «ИТОГА УРОКА»: слова и долги приходят оттуда. ' +
         'Пока её нет — одно видео или аудио на английском, минут на пять.</p>'

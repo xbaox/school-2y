@@ -63,11 +63,13 @@
     var c = State.s.cards || {};
     var n = (c.lastDay === State.today()) ? (c.viewedToday || 0) : 0;
     var deck = Cards.deck().length;
+    var w = State.wordCounts();
     return '<section class="block"><h2>Карточки</h2>' +
-      '<p class="lead">Слова из итогов и открытые долги, старые вперёд. Тап переворачивает.</p>' +
+      '<p class="lead">Слова из итогов и открытые долги, старые вперёд. Тап переворачивает, ' +
+      'дальше «знал / не знал». Три верных подряд — слово уходит на повтор через 4, 10 и 21 день, потом спит.</p>' +
       '<div class="card rowline">' +
       '<div class="k">В колоде ' + deck + ' ' + U.plural(deck, 'карточка', 'карточки', 'карточек') +
-      '<span>сегодня просмотрено: ' + n + '</span></div>' +
+      '<span>активных ' + w.active + ' · выучено ' + w.known + ' · сегодня просмотрено: ' + n + '</span></div>' +
       '<button class="btn pr" style="width:auto;min-height:44px;padding:0 16px" data-open-cards>Листать</button>' +
       '</div></section>';
   }
@@ -91,6 +93,10 @@
             U.plural(p.debts.length, 'долг', 'долга', 'долгов') : '') + '</div>' +
           '</div><div class="mono ' + scoreClass(p.score) + '">' + (p.score != null ? p.score + '/10' : '—') + '</div></div>' +
           (open ? detail(p) : '') +
+          ((open && (p.words || []).length)
+            ? '<div class="btn-row" style="margin-top:10px">' +
+            '<button class="btn ghost" data-words="' + U.esc(s.lessonId) + '">Слова урока</button></div>'
+            : '') +
           '</div>';
       }).join('') + '</div></section>';
   }
@@ -160,15 +166,23 @@
       App.renderScreen('journal');
     });
     U.on(host, 'click', '[data-open-cards]', function () { Cards.open(); });
+    U.on(host, 'click', '[data-words]', function (e, el) {
+      e.stopPropagation();
+      Cards.openLessonWords(el.dataset.words);
+    });
   }
 
   App.register('journal', { render: render, mount: mount });
 })();
 
 /* ============================================================
-   Карточки — листалка минималки (раздел 6.4).
-   Старые вперёд, тап переворачивает, счётчик «сегодня: N».
-   Без оценок «знаю/не знаю» — минималке хватает просмотра.
+   Карточки — листалка минималки (раздел 6.4) с SRS-lite (2.6.0).
+   Старые вперёд, тап переворачивает, затем «знал / не знал».
+   Три верных подряд — слово выучено и уходит на интервалы
+   4 → 10 → 21 день, потом спит. Ошибка на выученном возвращает
+   его в работу. Время минималки от этого не растёт: колода,
+   наоборот, со временем становится короче.
+   Долги оценок не имеют — они закрываются уроками, не карточками.
    ============================================================ */
 
 window.Cards = (function () {
@@ -177,8 +191,12 @@ window.Cards = (function () {
   var idx = 0, flipped = false;
 
   function deck() {
-    var words = State.oldestWords(999).map(function (w) {
-      return { type: 'word', front: w.en, back: w.ru, meta: U.fmtShort(w.date) + ' · ' + w.lessonId };
+    // выученные слова, у которых срок повтора не подошёл, в колоду не берём
+    var words = State.activeWords().map(function (w) {
+      return {
+        type: 'word', en: w.en, front: w.en, back: w.ru,
+        meta: U.fmtShort(w.date) + ' · ' + w.lessonId + ' · ' + statusName(State.wordStatus(w.en))
+      };
     });
     var debts = State.openDebts().map(function (d) {
       return {
@@ -190,6 +208,9 @@ window.Cards = (function () {
     });
     return words.concat(debts);
   }
+
+  var STATUS_NAME = { 'new': 'новое', learning: 'в работе', known: 'выучено' };
+  function statusName(st) { return STATUS_NAME[st] || 'новое'; }
 
   function open() {
     idx = 0; flipped = false;
@@ -204,15 +225,20 @@ window.Cards = (function () {
     }
     UI.sheet({
       title: 'Карточки',
-      sub: 'Тап по карточке — перевернуть. Старые вперёд.',
+      sub: 'Тап по карточке — перевернуть, потом честно отметь себя.',
       body: '<div class="cardbox" data-box></div>' +
-        '<div class="btn-row" style="margin-top:12px">' +
+        '<div class="btn-row" style="margin-top:12px" data-grade hidden>' +
+        '<button class="btn sec" data-know="0">не знал</button>' +
+        '<button class="btn pr" data-know="1">знал</button></div>' +
+        '<div class="btn-row" style="margin-top:12px" data-move>' +
         '<button class="btn sec" data-prev' + (list.length < 2 ? ' disabled' : '') + '>← назад</button>' +
         '<button class="btn pr" data-next' + (list.length < 2 ? ' disabled' : '') + '>дальше →</button></div>' +
         '<div class="center tiny dim" style="margin-top:10px" data-counter></div>',
       onMount: function (root) {
         var box = root.querySelector('[data-box]');
         var counter = root.querySelector('[data-counter]');
+        var grade = root.querySelector('[data-grade]');
+        var move = root.querySelector('[data-move]');
         var list2 = list;
 
         function paint() {
@@ -220,7 +246,15 @@ window.Cards = (function () {
           box.className = 'cardbox' + (flipped ? ' flip' : '') + (c.type === 'debt' ? ' debt' : '');
           box.innerHTML = '<div class="cb-side">' + U.esc(flipped ? c.back : c.front) + '</div>' +
             '<div class="cb-meta tiny dim">' + U.esc(c.meta || '') + (c.type === 'debt' ? ' · долг' : '') + '</div>';
-          counter.textContent = (idx + 1) + ' из ' + list2.length + ' · сегодня просмотрено: ' + count();
+          // оценка только у слов и только после переворота: оценивать
+          // закрытую карточку нечестно, а долг карточкой не закрывается
+          var canGrade = flipped && c.type === 'word';
+          grade.hidden = !canGrade;
+          move.hidden = canGrade;
+          var n = State.wordCounts();
+          counter.textContent = (idx + 1) + ' из ' + list2.length +
+            ' · активных ' + n.active + ' · выучено ' + n.known +
+            ' · сегодня просмотрено: ' + count();
         }
         function step(n) {
           // одна карточка — листать некуда: счётчик просмотров не должен расти
@@ -233,6 +267,19 @@ window.Cards = (function () {
         box.onclick = function () { flipped = !flipped; paint(); };
         root.querySelector('[data-prev]').onclick = function () { step(-1); };
         root.querySelector('[data-next]').onclick = function () { step(1); };
+        U.on(root, 'click', '[data-know]', function (e, el) {
+          var c = list2[idx];
+          if (!c || c.type !== 'word') return;
+          var was = State.wordStatus(c.en);
+          var rec = State.gradeWord(c.en, el.dataset.know === '1');
+          if (rec && rec.status === 'known' && was !== 'known') {
+            UI.toast('«' + c.en + '» выучено — вернётся через ' + U.days(State.SRS_INTERVALS[0]), 'ok');
+          } else if (rec && was === 'known' && rec.status !== 'known') {
+            UI.toast('«' + c.en + '» вернулось в работу', '');
+          }
+          if (list2.length < 2) { flipped = false; paint(); return; }
+          step(1);
+        });
         bump();
         paint();
       }
@@ -253,5 +300,40 @@ window.Cards = (function () {
     return c.lastDay === State.today() ? (c.viewedToday || 0) : 0;
   }
 
-  return { open: open, deck: deck, count: count };
+  /**
+   * «Слова урока» — все слова закрытого урока со статусами.
+   * Открывается из Журнала и с карточки урока на «Сегодня».
+   */
+  function openLessonWords(lessonId) {
+    var words = State.lessonWords(lessonId);
+    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
+    if (!words.length) {
+      UI.sheet({
+        title: 'Слова урока ' + lessonId,
+        sub: l ? l.title : '',
+        body: UI.empty('🈳', 'В итоге этого урока слов нет.')
+      });
+      return;
+    }
+    var known = words.filter(function (w) { return w.status === 'known'; }).length;
+    UI.sheet({
+      title: 'Слова урока ' + lessonId,
+      sub: (l ? l.title + ' · ' : '') + 'активных ' + (words.length - known) + ' · выучено ' + known,
+      body: '<div class="list">' + words.map(function (w) {
+        var tail = w.status === 'known'
+          ? (w.due ? 'повтор ' + U.fmtShort(w.due) : 'спит')
+          : (w.streak ? 'верных подряд: ' + w.streak + ' из ' + State.SRS_TO_KNOWN : 'ещё не отвечалось');
+        return '<div class="item"><div class="rowline"><div style="min-width:0">' +
+          '<div class="t">' + U.esc(w.en) + ' — ' + U.esc(w.ru) + '</div>' +
+          '<div class="s">' + U.esc(tail) + '</div></div>' +
+          '<div class="mono ' + (w.status === 'known' ? 'g' : 'dim') + '">' +
+          U.esc(statusName(w.status)) + '</div></div></div>';
+      }).join('') + '</div>'
+    });
+  }
+
+  return {
+    open: open, deck: deck, count: count,
+    openLessonWords: openLessonWords, statusName: statusName
+  };
 })();

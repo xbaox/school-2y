@@ -248,6 +248,7 @@ window.Lesson = (function () {
 
     if (closed) {
       var pts = State.points(todayIso);
+      var hasWords = State.lessonWords(lessonId).length > 0;
       var second = null;
       if (d.level === 'full' && d.lessons.length < 2) {
         var res = window.Waterfall ? Waterfall.second(todayIso, lessonId) : null;
@@ -258,6 +259,9 @@ window.Lesson = (function () {
       } else {
         html += '<button class="btn pr" disabled>Урок закрыт ✓ · ' + pts + ' ' +
           U.plural(pts, 'очко', 'очка', 'очков') + '</button>';
+      }
+      if (hasWords) {
+        html += '<button class="btn sec" data-lesson-words="' + U.esc(lessonId) + '">Слова урока</button>';
       }
       html += '<button class="btn sec" data-summary="' + U.esc(lessonId) + '">Итог ещё раз</button>';
     } else if (copied) {
@@ -315,6 +319,9 @@ window.Lesson = (function () {
     U.on(host, 'click', '[data-checklist]', function () {
       if (window.Radar && Radar.openChecklist) Radar.openChecklist();
       else UI.toast('Чек-лист появится вместе с радаром');
+    });
+    U.on(host, 'click', '[data-lesson-words]', function (e, el) {
+      if (window.Cards) Cards.openLessonWords(el.dataset.lessonWords);
     });
     U.on(host, 'click', '[data-late]', function (e, el) {
       openSummary(el.dataset.late, { date: el.dataset.date });

@@ -127,7 +127,9 @@ const MODULES = [
   'sync.js',
   'lesson.js',
   'app.js',
-  'radar.js'
+  'radar.js',
+  // journal.js тянем ради window.Cards: колода и «Слова урока» — часть SRS
+  'journal.js'
 ];
 
 for (const f of MODULES) {
