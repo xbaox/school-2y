@@ -37,16 +37,39 @@ describe('шкала 7.2: разгрузка и цикл', function () {
 });
 
 describe('шкала 7.2: параметры для промпта', function () {
-  var summer = STEPS.params({ position: 1 }, '2026-08-22', 'summer');
+  // дата после разгона Ф0 — видно чистую строку пресета
+  var summer = STEPS.params({ position: 1 }, '2026-09-10', 'summer');
   eq(summer.stepLabel, 'Лето (пресет S2)', 'летом подпись пресета');
-  eq([summer.lessonMin, summer.minQuestions, summer.startLevel, summer.transfer, summer.ru],
-    [40, 28, 'L1', '1–2', '≤30%'], 'летний пресет = строка S2');
+  eq([summer.lessonMin, summer.qRange, summer.startLevel, summer.transfer, summer.ru],
+    [40, '14–16', 'L1', '1–2', '≤30%'], 'летний пресет = строка S2');
   eq(STEPS.cardLine(summer),
-    'Лето (пресет S2) · ~40 мин · ≥28 вопросов · старт L1 · перенос ×1–2 · RU ≤30%',
+    'Лето (пресет S2) · ~40′ · 14–16 заданий · старт L1 · перенос ×1–2 · RU ≤30%',
     'строка параметров для карточки');
 
   var g1 = STEPS.params({ position: 5 }, '2026-11-01', 'school');
-  eq(STEPS.cardLine(g1), 'Г1 · ~50 мин · ≥35 вопросов · старт L2 · перенос ×3 · RU ≤10%', 'строка Г1');
+  eq(STEPS.cardLine(g1), 'Г1 · ~50′ · 18–20 заданий · старт L2 · перенос ×3 · RU ≤10%', 'строка Г1');
+});
+
+describe('разгон Ф0: до 07.09 урок короткий независимо от позиции', function () {
+  eq(STEPS.RAMP_UNTIL, '2026-09-07', 'граница разгона — день перед стартом школы');
+  ok(STEPS.onRamp('2026-08-26'), 'сегодня Ф0 — разгон включён');
+  ok(STEPS.onRamp('2026-09-07'), '07.09 включительно — ещё разгон');
+  ok(!STEPS.onRamp('2026-09-08'), '08.09 — шкала стартует, разгон выключен');
+
+  var ramp = STEPS.params({ position: 1 }, '2026-08-26', 'summer');
+  eq([ramp.ramp, ramp.lessonLabel, ramp.qRange, ramp.lessonMin],
+    [true, '30–35', '10–12', 35], 'разгон держит 30–35′ и 10–12 заданий');
+
+  // разгон не смотрит на позицию: даже Г3 в Ф0 короткий
+  var rampTop = STEPS.params({ position: 7 }, '2026-09-07', 'school');
+  eq([rampTop.lessonLabel, rampTop.qRange], ['30–35', '10–12'], 'позиция разгону не помеха');
+  eq(rampTop.startLevel, 'L2', 'а лестницу и перенос разгон не трогает');
+
+  var after = STEPS.params({ position: 7 }, '2026-09-08', 'school');
+  eq([after.ramp, after.lessonLabel, after.qRange], [false, '50', '18–20'], 'после 08.09 — цифры ступени');
+
+  eq(STEPS.lessonLine(ramp), '~30–35′ · 10–12 заданий · по одному · фото-режим',
+    'строка карточки урока синхронна промпту');
 });
 
 describe('парсер 8.4: валидный итог', function () {

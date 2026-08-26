@@ -12,35 +12,35 @@ window.STEPS = (function () {
   /** Таблица 7.2. Позиции 5–7 берут время от S4. */
   var TABLE = [
     {
-      pos: 1, name: 'S1', norm: 45, full: 75, lesson: 30, minQ: 25,
+      pos: 1, name: 'S1', norm: 45, full: 75, lesson: 30, minQ: 25, qRange: '12–14',
       start: 'L1', transfer: '1', ru: '≤40%', note: 'старт школы', special: ''
     },
     {
-      pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, minQ: 28,
+      pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, minQ: 28, qRange: '14–16',
       start: 'L1', transfer: '1–2', ru: '≤30%', note: 'больше вопросов', special: ''
     },
     {
-      pos: 3, name: 'S3', norm: 65, full: 105, lesson: 50, minQ: 30,
+      pos: 3, name: 'S3', norm: 65, full: 105, lesson: 50, minQ: 30, qRange: '16–18',
       start: 'L2', transfer: '2', ru: '≤25%', note: 'старт с L2', special: ''
     },
     {
-      pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, minQ: 33,
+      pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, minQ: 33, qRange: '18–20',
       start: 'L2', transfer: '2–3', ru: '≤20%', note: 'потолок времени', special: ''
     },
     {
-      pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, minQ: 35,
+      pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, minQ: 35, qRange: '18–20',
       start: 'L2', transfer: '3', ru: '≤10%', note: 'время стоит, растёт глубина',
       cemc: true,
       special: 'в математических уроках добавь 1 задачу уровня CEMC ⭐; «перевёртыш» («а что если…») обязателен в каждом уроке'
     },
     {
-      pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, minQ: 35,
+      pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, minQ: 35, qRange: '18–20',
       start: 'L2', transfer: '3', ru: '0', note: 'без русского',
       cemc: true,
       special: 'русский → 0 (только по моей явной просьбе); задачи CEMC ⭐ и в блок-тестах; письменная работа 8–10 предложений'
     },
     {
-      pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, minQ: 35,
+      pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, minQ: 35, qRange: '18–20',
       start: 'L2', finish: 'L3', transfer: '3', ru: '0', note: 'экзаменационный темп',
       cemc: true,
       // «финиш на L3» печатает сама строка старта практики — здесь его нет,
@@ -53,6 +53,17 @@ window.STEPS = (function () {
   var MIN = 1;                 // пол шкалы — S1
   var CYCLE_DAYS = 14;
   var SUMMER_PRESET = 2;       // летом генератор использует строку S2
+
+  /* Разгон Фазы 0: до этой даты включительно урок держится коротким
+     независимо от позиции шкалы — школа ещё не началась, а двухчасовые
+     уроки приводили к брошенным урокам. Дата совпадает с AUTO_SCHOOL_DATE
+     минус день: 08.09 шкала стартует с S1 и разгон выключается сам. */
+  var RAMP_UNTIL = '2026-09-07';
+  var RAMP_LESSON = 35;          // числовое значение для сравнений
+  var RAMP_LESSON_LABEL = '30–35';
+  var RAMP_Q_RANGE = '10–12';
+
+  function onRamp(todayIso) { return String(todayIso || '') <= RAMP_UNTIL; }
 
   function row(pos) { return TABLE[U.clamp(pos || 1, MIN, MAX) - 1]; }
   function label(pos) { return row(pos).name; }
@@ -78,6 +89,7 @@ window.STEPS = (function () {
     var summer = mode !== 'school';
     var pos = summer ? SUMMER_PRESET : effectivePos(step, todayIso);
     var r = row(pos);
+    var ramp = onRamp(todayIso);
     return {
       pos: pos,
       name: r.name,
@@ -86,7 +98,10 @@ window.STEPS = (function () {
       deload: !summer && onDeload(step, todayIso),
       normMin: r.norm,
       fullMin: r.full,
-      lessonMin: r.lesson,
+      lessonMin: ramp ? RAMP_LESSON : r.lesson,
+      lessonLabel: ramp ? RAMP_LESSON_LABEL : String(r.lesson),
+      qRange: ramp ? RAMP_Q_RANGE : r.qRange,
+      ramp: ramp,
       minQuestions: r.minQ,
       startLevel: r.start,
       finishLevel: r.finish || null,
@@ -97,10 +112,18 @@ window.STEPS = (function () {
     };
   }
 
-  /** Строка параметров ступени для карточки урока (раздел 6.1 «г»). */
+  /** Строка параметров ступени для Настроек и деталей ступени. */
   function cardLine(p) {
-    return p.stepLabel + ' · ~' + p.lessonMin + ' мин · ≥' + p.minQuestions +
-      ' вопросов · старт ' + p.startLevel + ' · перенос ×' + p.transfer + ' · RU ' + p.ru;
+    return p.stepLabel + ' · ~' + p.lessonLabel + '′ · ' + p.qRange +
+      ' заданий · старт ' + p.startLevel + ' · перенос ×' + p.transfer + ' · RU ' + p.ru;
+  }
+
+  /**
+   * Строка карточки урока на «Сегодня». Держится синхронной с промптом:
+   * те же минуты и то же число заданий, что видит преподаватель в контракте.
+   */
+  function lessonLine(p) {
+    return '~' + p.lessonLabel + '′ · ' + p.qRange + ' заданий · по одному · фото-режим';
   }
 
   /* ---------- цикл: подъём, отсрочка, откат, разгрузка ---------- */
@@ -120,8 +143,9 @@ window.STEPS = (function () {
 
   return {
     TABLE: TABLE, MAX: MAX, MIN: MIN, CYCLE_DAYS: CYCLE_DAYS, SUMMER_PRESET: SUMMER_PRESET,
+    RAMP_UNTIL: RAMP_UNTIL, onRamp: onRamp,
     row: row, label: label, isTop: isTop,
     onDeload: onDeload, effectivePos: effectivePos,
-    params: params, cardLine: cardLine, cycle: cycle
+    params: params, cardLine: cardLine, lessonLine: lessonLine, cycle: cycle
   };
 })();

@@ -158,7 +158,7 @@ window.Lesson = (function () {
       (withOfDay ? ofDayLine(lessonId, d) : '') +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +
-      '<div class="params">' + U.esc(STEPS.cardLine(p)) + '</div>' +
+      '<div class="params">' + U.esc(STEPS.lessonLine(p)) + '</div>' +
       (b.deadline ? '<div class="meta mono">' +
         U.esc(pace ? PACE.line(pace, b.deadline) : 'до ' + U.fmtShort(b.deadline)) + '</div>' : '') +
       (PROMPTS.video(lesson) ? '<div class="meta">▶ YouTube: «' + U.esc(PROMPTS.video(lesson)) + '»</div>' : '') +
