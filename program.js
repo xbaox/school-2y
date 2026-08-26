@@ -18,16 +18,34 @@
     State.phases().forEach(function (p) { openPhases[p.id] = (p.id === cur); });
   }
 
+  /**
+   * Счётчик шапки считает по контенту, а не по ключам state.lessons:
+   * в состоянии, пережившем сжатие Ф0, ещё лежат записи пропущенных уроков,
+   * и шапка обещала 24 урока против «5/15» в прогрессе блоков ниже.
+   */
+  function contentCounts() {
+    var total = 0, skipped = 0, done = 0;
+    Object.keys(State.s.blocks).forEach(function (id) {
+      State.blockLessons(id).forEach(function (l) {
+        if (l.skipped) { skipped++; return; }
+        total++;
+        var st = State.s.lessons[l.id];
+        if (st && st.done) done++;
+      });
+    });
+    return { total: total, skipped: skipped, done: done };
+  }
+
   function render() {
     ensurePhaseState();
     var totalBlocks = Object.keys(State.s.blocks).length;
-    var lessons = Object.keys(State.s.lessons);
-    var done = lessons.filter(function (id) { return State.s.lessons[id].done; }).length;
+    var c = contentCounts();
 
     return '<h1>Программа</h1>' +
       '<p class="lead">' + totalBlocks + ' ' + U.plural(totalBlocks, 'блок', 'блока', 'блоков') +
-      ' · в контенте ' + lessons.length + ' ' + U.plural(lessons.length, 'урок', 'урока', 'уроков') +
-      ', закрыто ' + done +
+      ' · в контенте ' + c.total + ' ' + U.plural(c.total, 'урок', 'урока', 'уроков') +
+      (c.skipped ? ' · ' + c.skipped + ' ' + U.plural(c.skipped, 'пропущен', 'пропущено', 'пропущено') : '') +
+      ' · закрыто ' + c.done +
       '. Дедлайны редактируются, фазу можно сдвинуть целиком.</p>' +
       '<section class="block"><h2>Свежесть дорожек</h2>' +
       '<p class="lead">Свежесть гасит только полноценный урок. 0–3 зелёный · 4–5 жёлтый · 6+ красный.</p>' +
@@ -225,5 +243,5 @@
     });
   }
 
-  App.register('program', { render: render, mount: mount });
+  App.register('program', { render: render, mount: mount, counts: contentCounts });
 })();

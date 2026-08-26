@@ -223,9 +223,20 @@ window.Waterfall = (function () {
     return 'r';
   }
 
+  /**
+   * Есть ли у дорожки хоть один доступный урок прямо сейчас.
+   * У информатики уроки появятся только в Ф2 — до тех пор жёлтая
+   * «ни разу · 5 дней» звала к действию, которого нет: водопад эту
+   * дорожку всё равно пропускает.
+   */
+  function hasLessonsNow(trackId) {
+    return State.nextLessonInTrack(trackId) != null;
+  }
+
   function freshText(trackId, days) {
     var tr = State.track(trackId);
     if (tr && tr.embedded) return 'в каждом уроке';
+    if (!hasLessonsNow(trackId)) return 'нет уроков в этой фазе';
     if (days == null) return 'уроков не было';
     // дорожка без единого урока считается от онбординга — число честное,
     // но подписать его надо так, чтобы не выглядело пропущенным уроком
@@ -239,7 +250,7 @@ window.Waterfall = (function () {
     return '<div class="mini">' + State.s.tracks.map(function (tr) {
       if (tr.embedded) return '<i class="bg-g" style="opacity:.35" title="' + U.esc(tr.name) + ' — в каждом уроке"></i>';
       var f = State.freshness(tr.id);
-      var c = freshColor(f);
+      var c = hasLessonsNow(tr.id) ? freshColor(f) : 'dim';
       var bg = c === 'r' ? 'bg-r' : (c === 'y' ? 'bg-y' : (c === 'g' ? 'bg-g' : ''));
       return '<i class="' + bg + '" style="' + (bg ? '' : 'background:var(--line)') + '" title="' +
         U.esc(tr.name + ' — ' + freshText(tr.id, f)) + '"></i>';
@@ -250,10 +261,12 @@ window.Waterfall = (function () {
   function fullBars(activeTrack) {
     return '<div class="card fresh">' + State.s.tracks.map(function (tr) {
       var f = State.freshness(tr.id);
-      var c = tr.embedded ? 'g' : freshColor(f);
-      var pct = tr.embedded ? 100 : (f == null ? 100 : U.clamp(Math.round(f / 7 * 100), 6, 100));
+      // дорожка без доступных уроков — серая, без цвета срочности
+      var idle = !tr.embedded && !hasLessonsNow(tr.id);
+      var c = tr.embedded ? 'g' : (idle ? 'none' : freshColor(f));
+      var pct = tr.embedded ? 100 : (idle || f == null ? 100 : U.clamp(Math.round(f / 7 * 100), 6, 100));
       var bg = c === 'r' ? 'bg-r' : (c === 'y' ? 'bg-y' : (c === 'g' ? 'bg-g' : ''));
-      var dim = tr.embedded || f == null ? 'opacity:.35' : '';
+      var dim = tr.embedded || idle || f == null ? 'opacity:.35' : '';
       return '<div class="trow' + (activeTrack === tr.id ? ' on' : '') + '" data-track="' + U.esc(tr.id) + '">' +
         '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
         '<div class="tbar"><i class="' + bg + '" style="width:' + pct + '%;' + dim +
@@ -274,7 +287,8 @@ window.Waterfall = (function () {
       return '<button class="swap-row" ' + (next ? 'data-pick="' + U.esc(next) + '"' : 'disabled') + '>' +
         '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
         '<div class="s">' + (l ? U.esc(State.blockLabel(l.blockId) + ' · ' + l.title) : 'уроков в контенте нет') + '</div>' +
-        '<div class="tdays ' + freshColor(f) + '">' + U.esc(freshText(tr.id, f)) + '</div>' +
+        '<div class="tdays ' + (next ? freshColor(f) : 'none') + '">' +
+        U.esc(freshText(tr.id, f)) + '</div>' +
         '</button>';
     }).join('');
 
@@ -335,6 +349,7 @@ window.Waterfall = (function () {
   return {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
+    hasLessonsNow: hasLessonsNow,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };
 })();

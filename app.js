@@ -818,7 +818,8 @@ window.App = (function () {
   function version() { return swVersion; }
 
   return {
-    TABS: TABS, register: register, go: go, render: render, renderScreen: renderScreen,
+    TABS: TABS, register: register, screen: function (id) { return screens[id] || null; },
+    go: go, render: render, renderScreen: renderScreen,
     boot: boot, version: version,
     dayLine: dayLine, LEVEL_HINT: LEVEL_HINT,
     weekStrip: weekStrip, weekDays: weekDays, dayRing: dayRing, dayPlan: dayPlan,

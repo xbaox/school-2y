@@ -128,8 +128,10 @@ const MODULES = [
   'lesson.js',
   'app.js',
   'radar.js',
-  // journal.js тянем ради window.Cards: колода и «Слова урока» — часть SRS
-  'journal.js'
+  // journal.js тянем ради window.Cards: колода и «Слова урока» — часть SRS,
+  // program.js — ради счётчика шапки
+  'journal.js',
+  'program.js'
 ];
 
 for (const f of MODULES) {

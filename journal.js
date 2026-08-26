@@ -69,7 +69,7 @@
       'дальше «знал / не знал». Три верных подряд — слово уходит на повтор через 4, 10 и 21 день, потом спит.</p>' +
       '<div class="card rowline">' +
       '<div class="k">В колоде ' + deck + ' ' + U.plural(deck, 'карточка', 'карточки', 'карточек') +
-      '<span>активных ' + w.active + ' · выучено ' + w.known + ' · сегодня просмотрено: ' + n + '</span></div>' +
+      '<span>активных ' + w.active + ' · выучено ' + w.known + ' · сегодня ' + n + '</span></div>' +
       '<button class="btn pr" style="width:auto;min-height:44px;padding:0 16px" data-open-cards>Листать</button>' +
       '</div></section>';
   }
@@ -254,7 +254,7 @@ window.Cards = (function () {
           var n = State.wordCounts();
           counter.textContent = (idx + 1) + ' из ' + list2.length +
             ' · активных ' + n.active + ' · выучено ' + n.known +
-            ' · сегодня просмотрено: ' + count();
+            ' · сегодня ' + count();
         }
         function step(n) {
           // одна карточка — листать некуда: счётчик просмотров не должен расти
