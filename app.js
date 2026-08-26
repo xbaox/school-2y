@@ -96,7 +96,7 @@ window.App = (function () {
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
       return cloudAlert() + topRow(t) + weekStrip(t) + badges() + stepCard() +
         levelSeg(d) + planBlock(t, d) + addonChips(d) +
-        freshBars() + ifThenLine(t);
+        freshBars() + ifThenLine(t) + nextUpBlock(t);
     },
     mount: function (host) {
       // сегмент-контрол: повторный тап по активному уровню его не снимает
@@ -705,6 +705,56 @@ window.App = (function () {
     return window.Waterfall ? Waterfall.miniBars() : '';
   }
 
+  /**
+   * Хвост «Сегодня»: что будет дальше.
+   *
+   * Короткий день (закрытая минималка) заканчивался пустой полосой до
+   * таб-бара — экран выглядел обрезанным. Полосу занимает превью, а не
+   * украшение: следующий непройденный урок по тому же правилу выбора,
+   * которым приложение назначает урок дня.
+   *
+   * Ничего не назначает и не пишет в состояние: Waterfall.pick только
+   * читает, отметка выбранного урока живёт отдельно в Lesson.remember.
+   */
+  function nextUp(todayIso) {
+    var t = todayIso || State.today();
+
+    // завтра воскресенье — урока не будет, и это важнее любого превью
+    if (U.weekday(U.addDays(t, 1)) === 7) {
+      return 'Завтра — радар-день: урока нет, чек-лист даёт +1';
+    }
+
+    var res = window.Waterfall ? Waterfall.pick(t, { force: true }) : null;
+    var id = res && res.lessonId;
+    var l = id && window.CONTENT ? CONTENT.lesson(id) : null;
+    if (!l) return phaseClosedLine();
+
+    var b = State.block(l.blockId) || {};
+    var code = State.blockLabel(l.blockId) + '.' + State.lessonNum(id);
+    return 'Дальше: ' + State.trackName(b.track) + ' · ' + code + ' „' + l.title + '“';
+  }
+
+  /** Непройденных уроков не осталось — говорим, когда и что начнётся. */
+  function phaseClosedLine() {
+    var phases = State.phases();
+    var cur = State.currentPhase();
+    var pd = State.s.settings.phaseDates || {};
+    for (var i = 0; i < phases.length; i++) {
+      if (phases[i].id !== cur) continue;
+      var next = phases[i + 1];
+      var start = next && pd[next.id] && pd[next.id].start;
+      if (!next || !start) break;
+      // «Ф1 «Семестр 1»» → «Ф1»: в одну строку хвоста длинное имя не нужно
+      return 'Фаза закрыта — ' + String(next.name).split(' ')[0] +
+        ' стартует ' + U.fmtDayMonth(start);
+    }
+    return 'Фаза закрыта — новые уроки придут пакетом контента';
+  }
+
+  function nextUpBlock(t) {
+    return '<div class="nextup">' + U.esc(nextUp(t)) + '</div>';
+  }
+
   function ifThenLine(t) {
     var r = State.ifThenOfDay(t);
     return r ? '<div class="ifthen">если ' + U.esc(r.text) + '</div>' : '';
@@ -830,6 +880,9 @@ window.App = (function () {
     weekStrip: weekStrip, weekDays: weekDays, dayRing: dayRing, dayPlan: dayPlan,
     cloudAlert: cloudAlert,
     planBlock: planBlock, planItems: planItems, levelSeg: levelSeg, addonChips: addonChips,
+    // сам объект экрана, а не только его запись в реестре: реестр можно
+    // перерегистрировать, а проверять надо настоящий «Сегодня»
+    Today: Today, nextUp: nextUp,
     minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
     resetOpen: function () { openItem = null; },
     setOpen: function (id) { openItem = id; },
