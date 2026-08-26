@@ -742,6 +742,11 @@ window.App = (function () {
     State.load();
     State.applyAutoMode();
     State.syncContent();
+    // тексты дел обновляются до первого рендера: бейдж «дела горят»
+    // на «Сегодня» читает тот же список
+    // проверка на функцию, а не только на модуль: service worker умеет
+    // отдать смесь версий, и один отсутствующий метод не должен ронять boot
+    if (window.Radar && Radar.migrateTodos) Radar.migrateTodos();
     register('today', Today);
     buildShell();
     booted = true;

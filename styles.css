@@ -733,3 +733,12 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 /* пропущенный урок в плане (сжатие Ф0, релиз 2.6.0) */
 .lrow.skip { opacity: .55; }
 .lrow.skip .lt { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* ---------- дела: свёрнутое и раскрытое «зачем» ---------- */
+/* свёрнуто — ровно одна строка, дальше многоточие */
+.todo-why1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* раскрыто — переносы строк исходника несут смысл: список вопросов
+   к guidance читается по пунктам, а не сплошняком */
+.todo-why{white-space:pre-wrap;margin-top:6px;line-height:1.55;font-size:12.5px}
+.todo-more{margin-top:4px;color:var(--fire);opacity:.8}
+textarea.txt-why{min-height:132px;resize:vertical;line-height:1.5;font-size:13px}
