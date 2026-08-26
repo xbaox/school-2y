@@ -49,17 +49,20 @@
     var pos = STEPS.effectivePos(s, State.today());
     var p = STEPS.params(s, State.today(), State.mode());
     // летом бейдж обязан говорить «Лето»: показывать S1 рядом со строкой
-    // летнего пресета S2 — прямое противоречие на одном экране
+    // летних параметров — прямое противоречие на одном экране
     var summer = !State.isSchool();
     return '<section class="block"><h2>Ступень нагрузки</h2>' +
-      '<p class="lead">Шкала из 7 позиций: S1–S4 растят время, Г1–Г3 — глубину. ' +
-      'Растёт сама по циклам, но поставить ступень вручную можно в любой момент.</p>' +
+      '<p class="lead">Насколько тяжёлый урок сейчас. Семь ступеней: S1–S4 удлиняют урок, ' +
+      'Г1–Г3 при той же длине усложняют задания. Ступень поднимается сама раз в две недели, ' +
+      'но поставить её вручную можно в любой момент.</p>' +
       '<div class="card">' +
       '<div class="srow"><div class="k">Сейчас<span>' + U.esc(STEPS.cardLine(p)) + '</span>' +
-      (summer ? '<span>старт шкалы ' + U.fmtDayMonth(State.AUTO_SCHOOL_DATE) + ' — с S1</span>' : '') +
+      '<span>' + U.esc(STEPS.CARD_LEGEND) + '</span>' +
+      (summer ? '<span>шкала стартует ' + U.fmtDayMonth(State.AUTO_SCHOOL_DATE) + ' — с S1</span>' : '') +
       '</div>' +
       '<div class="mono">' + U.esc(summer ? 'Лето' : STEPS.label(pos)) + '</div></div>' +
-      '<div class="srow"><div class="k">День цикла<span>цикл 14 дней, пауза при отсрочке и разгрузке</span></div>' +
+      '<div class="srow"><div class="k">День цикла<span>цикл 14 дней; стоит на паузе, ' +
+      'пока действует «не сейчас» или разгрузочная неделя</span></div>' +
       '<div class="mono">' + (State.isSchool() ? StepsFlow.cycleDay() + '/14' : '—') + '</div></div>' +
       '<button class="btn ghost" data-step-manual>Изменить ступень вручную</button>' +
       (State.isSchool() ? '<button class="btn ghost" data-step-deload>Неделя экзаменов — разгрузка</button>' : '') +
