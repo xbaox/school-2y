@@ -17,13 +17,15 @@
 
   describe('итог A-02: повторная вставка ничего не удваивает', function () {
     fresh();
+    // даты живут от State.today(): прибитая константа протухала через три дня
+    var t = State.today();
     var p = summary({
       score: 5, words: [{ en: 'slope', ru: 'наклон' }, { en: 'vertex', ru: 'вершина' }],
       debts: ['путает знак наклона']
     });
 
-    var r1 = State.applySummary('B2.1', p, { date: '2026-08-20' });
-    var r2 = State.applySummary('B2.1', p, { date: '2026-08-20' });
+    var r1 = State.applySummary('B2.1', p, { date: t });
+    var r2 = State.applySummary('B2.1', p, { date: t });
 
     eq(r1.replaced, false, 'первая вставка — новая запись');
     eq(r2.replaced, true, 'вторая заменила её');
@@ -31,24 +33,27 @@
     eq(State.s.debts.length, 1, 'долг заведён один');
     eq(State.s.stats.lessonsDone, 1, 'урок посчитан один раз');
     eq(State.s.stats.wordsTotal, 2, 'слова не удвоились');
-    eq((State.s.days['2026-08-20'] || {}).lessons.length, 1, 'в дне урок один');
+    eq((State.s.days[t] || {}).lessons.length, 1, 'в дне урок один');
   });
 
   describe('итог A-02: повторная вставка не запускает откат', function () {
     fresh();
     State.setMode('school');
     State.s.step.position = 3;
-    State.s.days['2026-08-19'] = { level: 'min', addons: [], lessons: [], points: 1 };
+    // вчера с очками — чтобы не сработало правило «серия сломалась»;
+    // до привязки к State.today() тест краснел сам собой через три дня
+    var t = State.today();
+    State.s.days[U.addDays(t, -1)] = { level: 'min', addons: [], lessons: [], points: 1 };
 
     var p = summary({ score: 4 });
-    State.applySummary('B2.1', p, { date: '2026-08-20' });
-    State.applySummary('B2.1', p, { date: '2026-08-20' });
+    State.applySummary('B2.1', p, { date: t });
+    State.applySummary('B2.1', p, { date: t });
 
     eq(StepsFlow.checkDemotion(), false, 'один урок дважды — это не два урока подряд');
     eq(State.s.step.position, 3, 'ступень на месте');
 
     // а два разных урока ниже 6 откат дают
-    State.applySummary('B2.2', summary({ score: 5 }), { date: '2026-08-20' });
+    State.applySummary('B2.2', summary({ score: 5 }), { date: t });
     eq(StepsFlow.checkDemotion(), true, 'два разных урока ниже 6 — откат');
     eq(State.s.step.position, 2, 'ступень опустилась на одну');
     State.setMode('summer');
