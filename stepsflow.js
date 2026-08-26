@@ -381,7 +381,8 @@ window.StepsFlow = (function () {
       stairs(p.pos) +
       '<div class="card2 mono small">' + U.esc(STEPS.cardLine(p)) + '</div>' +
       (State.isSchool()
-        ? '<div class="srow"><div class="k">День цикла<span>пауза при отсрочке и разгрузке</span></div>' +
+        ? '<div class="srow"><div class="k">День цикла<span>стоит на паузе, пока действует ' +
+        '«не сейчас» или разгрузочная неделя</span></div>' +
         '<div class="mono">' + cycleDay(t) + '/' + STEPS.CYCLE_DAYS + (isPaused(t) ? ' ⏸' : '') + '</div></div>' +
         '<div class="srow"><div class="k">Дней с очками</div><div class="mono ' + (c.okDays ? 'g' : '') + '">' +
         c.daysWithPoints + '/14</div></div>' +
@@ -432,7 +433,7 @@ window.StepsFlow = (function () {
       '<div class="name">' + (depthOn ? STEPS.label(active) : 'Г1–Г3') + '</div>' +
       '<div class="note">время стоит,<br>растёт глубина</div></div>';
     return '<div class="stairs">' + bars + depth +
-      '<div class="rope"></div><div class="rope-label">минималка · 15’ · константа</div></div>' +
+      '<div class="rope"></div><div class="rope-label">минималка · 15’ · не растёт никогда</div></div>' +
       '<div class="card rope-rule" style="margin-bottom:12px">' +
       '<div class="ic">🪢</div><div><b>Правило нуля: минималка не растёт никогда.</b> ' +
       'Её работа — не объём, а серия. Растут норма, полная и глубина уроков.</div></div>';
@@ -459,11 +460,12 @@ window.StepsFlow = (function () {
       title: 'Ступень вручную',
       sub: 'Поставить ступень вручную можно в любой момент. Новая ступень применяется ' +
         'со следующего скопированного промпта.',
-      body: '<div class="steplist">' + STEPS.TABLE.map(function (r) {
+      body: '<p class="lead">' + U.esc(STEPS.CARD_LEGEND) + '</p>' +
+        '<div class="steplist">' + STEPS.TABLE.map(function (r) {
         return '<button class="step-opt' + (r.pos === s.position ? ' on' : '') + '" data-pos="' + U.esc(r.pos) +
           '" aria-pressed="' + (r.pos === s.position) + '">' +
           '<b class="mono">' + r.name + '</b>' +
-          '<span class="mono tiny">~' + r.lesson + '′ · ' + r.qRange + ' заданий · старт ' + r.start +
+          '<span class="mono tiny"> · ~' + r.lesson + '′ · ' + r.qRange + ' заданий · старт ' + r.start +
           ' · перенос ×' + r.transfer + ' · RU ' + r.ru + '</span>' +
           '<em>' + U.esc(r.note) + '</em></button>';
       }).join('') + '</div>',

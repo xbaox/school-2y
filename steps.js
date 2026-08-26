@@ -87,7 +87,8 @@ window.STEPS = (function () {
 
   /**
    * Параметры для карточки урока и промпта — всегда одни и те же.
-   * mode 'summer' → пресет S2, подпись «Лето (пресет S2)».
+   * mode 'summer' → строка S2 под подписью «Лето»: до старта школы шкала
+   * ещё не идёт, и номер ступени на экране только путал.
    */
   function params(step, todayIso, mode) {
     var summer = mode !== 'school';
@@ -97,7 +98,7 @@ window.STEPS = (function () {
     return {
       pos: pos,
       name: r.name,
-      stepLabel: summer ? 'Лето (пресет S2)' : r.name,
+      stepLabel: summer ? 'Лето' : r.name,
       summer: summer,
       deload: !summer && onDeload(step, todayIso),
       normMin: r.norm,
@@ -120,6 +121,11 @@ window.STEPS = (function () {
     return p.stepLabel + ' · ~' + p.lessonLabel + '′ · ' + p.qRange +
       ' заданий · старт ' + p.startLevel + ' · перенос ×' + p.transfer + ' · RU ' + p.ru;
   }
+
+  /** Расшифровка колонок строки выше — под ней на экране Настроек. */
+  var CARD_LEGEND = 'старт — с какого уровня начинается практика · ' +
+    'перенос — сколько задач на применение в новой ситуации · ' +
+    'RU — сколько русского в объяснениях';
 
   /**
    * Строка карточки урока на «Сегодня». Держится синхронной с промптом:
@@ -146,7 +152,7 @@ window.STEPS = (function () {
 
   return {
     TABLE: TABLE, MAX: MAX, MIN: MIN, CYCLE_DAYS: CYCLE_DAYS, SUMMER_PRESET: SUMMER_PRESET,
-    RAMP_UNTIL: RAMP_UNTIL, onRamp: onRamp,
+    RAMP_UNTIL: RAMP_UNTIL, onRamp: onRamp, CARD_LEGEND: CARD_LEGEND,
     row: row, label: label, isTop: isTop,
     onDeload: onDeload, effectivePos: effectivePos,
     params: params, cardLine: cardLine, lessonLine: lessonLine, cycle: cycle

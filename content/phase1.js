@@ -21,13 +21,19 @@
     { id: 'B9', track: 'math', title: 'Преобразования графиков и обратные функции', deadline: '2026-10-18', lessons: [] },
     { id: 'B10', track: 'write', title: 'Абзац-мнение и заметка OSSLT', deadline: '2026-11-01', lessons: [] },
     { id: 'B11', track: 'math', title: 'Рациональные функции и асимптоты', deadline: '2026-11-15', lessons: [] },
-    { id: 'B12', track: 'biz', title: 'Маркетинг: 4P — поддержка BMI3C', deadline: '2026-11-29', lessons: [] },
+    {
+      id: 'B12', track: 'biz', title: 'Маркетинг: 4P — поддержка BMI3C', deadline: '2026-11-29', lessons: [],
+      note: 'BMI3C — школьный курс маркетинга, 11 класс.'
+    },
     { id: 'B13', track: 'math', title: 'Тригонометрия: радианы и графики sin/cos', deadline: '2026-12-13', lessons: [] },
     {
       id: 'B14', track: 'write', title: 'OSSLT-генеральная — до ноябрьского окна', deadline: '2026-12-20', lessons: [],
       note: 'если тест в ноябре — блок сдвигается раньше'
     },
     { id: 'B15', track: 'math', title: 'Тождества, теоремы синусов и косинусов', deadline: '2027-01-17', lessons: [] },
-    { id: 'B16', track: 'all', title: 'Финалы семестра: экзамен MHF4U', deadline: '2027-01-30', lessons: [] }
+    {
+      id: 'B16', track: 'all', title: 'Финалы семестра: экзамен MHF4U', deadline: '2027-01-30', lessons: [],
+      note: 'MHF4U — продвинутые функции, математика 12 класса.'
+    }
   ]
 });
