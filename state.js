@@ -8,7 +8,7 @@ window.State = (function () {
   'use strict';
 
   var KEY = 'study-system-v2';
-  var SCHEMA = 1;
+  var SCHEMA = 2;
   var APP_VERSION = '2.5.0';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
@@ -23,6 +23,12 @@ window.State = (function () {
   ];
 
   /** Дефолтные даты фаз (раздел 9.1), редактируются в Настройках. */
+  /** Дедлайны Ф0 после сжатия фазы (релиз 2.6.0) — источник миграции. */
+  var P0_DEADLINES = {
+    B1: '2026-08-29', B2: '2026-08-27', B3: '2026-09-01',
+    B4: '2026-09-03', B5: '2026-09-04', B6: '2026-09-07'
+  };
+
   var PHASE_DATES = {
     p0: { start: '2026-08-18', end: '2026-09-07' },
     p1: { start: '2026-09-08', end: '2027-01-31' },
@@ -197,6 +203,15 @@ window.State = (function () {
       if (out.step.deloadFrom && out.step.deloadUntil) {
         out.step.pauses.push({ from: U.addDays(out.step.deloadFrom, 1), to: out.step.deloadUntil, kind: 'deload' });
       }
+    }
+
+    // 2.6.0: новые дедлайны Фазы 0. Пользовательский дедлайн обычно не
+    // затирается, но сжатие фазы — это как раз пересмотр сроков, и сделать
+    // его надо ровно один раз: отсюда версия схемы.
+    if (((o && o.meta && o.meta.version) || 0) < 2) {
+      Object.keys(P0_DEADLINES).forEach(function (id) {
+        if (out.blocks[id]) out.blocks[id].deadline = P0_DEADLINES[id];
+      });
     }
 
     // 2.6.0: короткий id долга. Существующие долги получают D-1, D-2… по
@@ -460,6 +475,7 @@ window.State = (function () {
     if (window.CONTENT) {
       CONTENT.allBlocks().forEach(function (b) {
         b.lessons.forEach(function (l) {
+          if (l.skipped) return;
           if (!s.lessons[l.id]) {
             s.lessons[l.id] = { done: false, score: null, date: null };
             changed = true;
@@ -467,6 +483,15 @@ window.State = (function () {
         });
       });
     }
+
+    // пакет мог пометить урок пропущенным — блок от этого может стать
+    // закрытым, поэтому флаг done пересчитываем на каждом старте
+    Object.keys(s.blocks).forEach(function (id) {
+      var b = s.blocks[id];
+      var p = blockProgress(id);
+      var done = p.total > 0 && p.remaining === 0;
+      if (b.done !== done) { b.done = done; changed = true; }
+    });
 
     if (changed) touch(true);
     return changed;
@@ -486,16 +511,38 @@ window.State = (function () {
 
   function block(id) { return s.blocks[id] || null; }
 
-  /** Уроки блока из контента, по порядку. */
+  /** Уроки блока из контента, по порядку — включая пропущенные. */
   function blockLessons(blockId) {
     return window.CONTENT ? CONTENT.lessons(blockId) : [];
   }
 
-  /** { total, done, remaining } по урокам блока. */
+  /**
+   * Урок помечен «пропущен» в пакете контента (релиз 2.6.0, сжатие Ф0).
+   * Такой урок не считается в прогрессе и статистике, водопад его не
+   * назначает, и блок закрывается, когда закрыты все НЕ пропущенные.
+   * Флаг живёт в контенте, а не в состоянии: контент в БД не хранится,
+   * и следующий пакет фазы может решить иначе, ничего не мигрируя.
+   */
+  function isSkipped(lessonId) {
+    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
+    return !!(l && l.skipped);
+  }
+
+  /** Уроки блока, которые реально надо пройти. */
+  function activeLessons(blockId) {
+    return blockLessons(blockId).filter(function (l) { return !l.skipped; });
+  }
+
+  /** { total, done, remaining, skipped } по урокам блока; пропущенные не в счёт. */
   function blockProgress(blockId) {
-    var list = blockLessons(blockId), done = 0;
+    var all = blockLessons(blockId);
+    var list = all.filter(function (l) { return !l.skipped; });
+    var done = 0;
     list.forEach(function (l) { if (s.lessons[l.id] && s.lessons[l.id].done) done++; });
-    return { total: list.length, done: done, remaining: list.length - done };
+    return {
+      total: list.length, done: done, remaining: list.length - done,
+      skipped: all.length - list.length
+    };
   }
 
   /** Светофор темпа блока. null — если уроков ещё нет (контент не выпущен). */
@@ -568,7 +615,7 @@ window.State = (function () {
       var b = s.blocks[ids[i]];
       if (trackId && b.track !== trackId && b.track !== 'all') continue;
       if (phaseId && b.phase !== phaseId) continue;
-      var list = blockLessons(ids[i]);
+      var list = activeLessons(ids[i]);
       for (var j = 0; j < list.length; j++) {
         var st = s.lessons[list[j].id];
         if (!st || !st.done) return list[j].id;
@@ -908,6 +955,8 @@ window.State = (function () {
     KEY: KEY, SCHEMA: SCHEMA, APP_VERSION: APP_VERSION, AUTO_SCHOOL_DATE: AUTO_SCHOOL_DATE,
     PHASE_DATES: PHASE_DATES, PHASES: PHASES,
     get s() { return s; },
+    P0_DEADLINES: P0_DEADLINES,
+    isSkipped: isSkipped, activeLessons: activeLessons,
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
     migrate: migrate, validateImport: validateImport,
     subscribe: subscribe, emit: emit,

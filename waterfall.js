@@ -145,9 +145,9 @@ window.Waterfall = (function () {
 
   var RULES = [ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
 
-  /** Следующий непройденный урок конкретного блока. */
+  /** Следующий незакрытый урок блока; пропущенные водопад не назначает. */
   function nextInBlock(blockId) {
-    var list = State.blockLessons(blockId);
+    var list = State.activeLessons(blockId);
     for (var i = 0; i < list.length; i++) {
       var st = State.s.lessons[list[i].id];
       if (!st || !st.done) return list[i].id;
@@ -333,7 +333,7 @@ window.Waterfall = (function () {
   }
 
   return {
-    pick: pick, second: second, openSwap: openSwap, explain: explain,
+    pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };

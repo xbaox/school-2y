@@ -696,3 +696,7 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
   /* замкнувшееся кольцо не пульсирует — цвет и так меняется на ok */
   .ring.pulse{animation:none !important}
 }
+
+/* пропущенный урок в плане (сжатие Ф0, релиз 2.6.0) */
+.lrow.skip { opacity: .55; }
+.lrow.skip .lt { text-decoration: line-through; text-decoration-thickness: 1px; }

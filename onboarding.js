@@ -80,7 +80,7 @@ window.Onboarding = (function () {
     function () {
       var blocks = State.phaseBlocks('p0');
       var rows = blocks.map(function (id) {
-        var lessons = State.blockLessons(id);
+        var lessons = State.activeLessons(id);
         if (!lessons.length) return '';
         return '<div class="onb-block"><div class="onb-bt">' + State.blockLabel(id) + ' · ' +
           U.esc((State.block(id) || {}).title || '') + '</div>' +

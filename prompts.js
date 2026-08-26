@@ -56,6 +56,30 @@ window.PROMPTS = (function () {
     return lines.join('\n');
   }
 
+  /** Конкурсный урок (type: 'contest') — субботние олимпиадные задачи. */
+  function isContest(lesson) { return !!(lesson && lesson.type === 'contest'); }
+
+  /**
+   * Этапы конкурсного урока: три задачи по одной, полное авторское решение
+   * после каждой. Ни разогрева, ни видео, ни письма — иначе «упрощённый»
+   * шаблон снова вырастет в двухчасовой урок.
+   * Формат «ИТОГА УРОКА» тот же, что у обычного урока.
+   */
+  function contestStages() {
+    return [
+      '[ЭТАПЫ КОНКУРСНОГО УРОКА]',
+      '0. Статус-строка: блок/урок, счёт прошлого раза, открытые долги.',
+      '1. Задача 1: выдай условие целиком и жди решение (фото с бумаги). Не подсказывай, пока студент не застрял — тогда по правилу 8.',
+      '2. Разбор задачи 1: сначала полное авторское решение со всеми шагами, потом сравнение с работой студента — что сошлось, где потеря баллов.',
+      '3. Задачи 2 и 3 — тем же циклом, строго по одной.',
+      '4. Одна идея, которую стоит унести с этого урока, и «ИТОГ УРОКА».',
+      '',
+      'Сложность растёт от первой задачи к третьей: первая берётся уверенно, ' +
+      'третья — с подсказкой. Разогрева, видео и письменной работы в конкурсном уроке нет; ' +
+      'лестница L1/L2/L3 заменена этими тремя задачами.'
+    ].join('\n');
+  }
+
   /** «Особое» ступени: пункты про CEMC ⭐ уходят только в математические уроки. */
   function specialFor(p, isMath) {
     if (!p.special) return '';
@@ -198,6 +222,10 @@ window.PROMPTS = (function () {
     var block = State.block(blockId) || {};
     var trackId = block.track || 'eng';
     var p = STEPS.params(State.s.step, todayIso, State.mode());
+    var contest = isContest(lesson);
+    // в конкурсном уроке заданий ровно три — контракт должен говорить то же,
+    // что этапы, иначе правило 2 будет спорить с шаблоном
+    if (contest) p = Object.assign({}, p, { qRange: '3' });
     var videoDone = State.videoWatched(lessonId, todayIso) ? 'да' : 'нет';
     var saturday = U.weekday(todayIso) === 6;
     var youtube = videoQuery(lesson);
@@ -221,17 +249,19 @@ window.PROMPTS = (function () {
       'Дорожка: ' + State.trackName(trackId) + ' · Цель урока: ' + (lesson.goal || '—'),
       'Ступень нагрузки: ' + p.stepLabel + ' → длительность ~' + p.lessonLabel +
       ' мин, заданий за урок: ' + p.qRange + ',',
-      'старт практики с уровня ' + p.startLevel +
-      (p.finishLevel ? ' (финиш на ' + p.finishLevel + ' обязателен)' : '') +
-      ', задач на перенос: ' + p.transfer + cemcFlag + '.',
+      contest
+        ? 'формат: конкурсный урок — три задачи по одной, полное решение после каждой.'
+        : 'старт практики с уровня ' + p.startLevel +
+        (p.finishLevel ? ' (финиш на ' + p.finishLevel + ' обязателен)' : '') +
+        ', задач на перенос: ' + p.transfer + cemcFlag + '.',
       ruLine + special,
-      youtube ? 'Видео просмотрено: ' + videoDone + ' («' + youtube + '»)' : null,
+      youtube && !contest ? 'Видео просмотрено: ' + videoDone + ' («' + youtube + '»)' : null,
       lesson.focus ? 'Фокус практики: ' + lesson.focus : null,
-      lesson.writing ? 'Письменная работа урока: ' + lesson.writing : null,
+      lesson.writing && !contest ? 'Письменная работа урока: ' + lesson.writing : null,
       '',
       memoryBlock(trackId, lessonId),
       '',
-      stagesBlock(p, youtube, saturday),
+      contest ? contestStages() : stagesBlock(p, youtube, saturday),
       '',
       contractBlock(p),
       '',
@@ -393,7 +423,8 @@ window.PROMPTS = (function () {
 
   return {
     lesson: lessonPrompt, minimal: minimalPrompt, parse: parse, video: videoQuery,
-    stagesBlock: stagesBlock, contractBlock: contractBlock, finalBlock: finalBlock,
+    stagesBlock: stagesBlock, contestStages: contestStages, isContest: isContest,
+    contractBlock: contractBlock, finalBlock: finalBlock,
     sprintPlan: sprintPlan
   };
 })();

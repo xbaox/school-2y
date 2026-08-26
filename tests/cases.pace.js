@@ -2,7 +2,7 @@
 
 describe('темп: норматив', function () {
   eq(PACE.rate('school'), 2 / 7, 'школа — 2 урока в неделю');
-  eq(PACE.rate('summer'), 1.3, 'лето — 1.3 урока в день');
+  eq(PACE.rate('summer'), 1, 'до школы — 1 урок в день');
 });
 
 describe('темп: цвета', function () {
@@ -10,7 +10,7 @@ describe('темп: цвета', function () {
     return PACE.status({ remaining: remaining, deadline: deadline, today: today, mode: mode || 'summer' });
   }
 
-  // лето: 1.3 урока в день. 2 урока ≈ 1.5 дня.
+  // до школы: 1 урок в день, значит 2 урока — ровно 2 дня.
   eq(st(2, '2026-08-26', '2026-08-22').color, 'green', 'лето: 2 урока за 5 дней — зелёный');
   eq(st(2, '2026-08-26', '2026-08-22').text, 'запас 3 дня', 'запас считается в днях');
 

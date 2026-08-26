@@ -124,12 +124,17 @@
     }
     return '<div class="lessons">' + list.map(function (l) {
       var st = State.s.lessons[l.id] || {};
-      var mark = st.done ? '<span class="g">✓</span>' : '<span class="dim">○</span>';
+      // пропущенный урок не прячем: план должен объяснять, почему блок
+      // закрывается раньше, чем кончились строчки
+      var mark = l.skipped ? '<span class="dim">–</span>'
+        : (st.done ? '<span class="g">✓</span>' : '<span class="dim">○</span>');
       var score = st.done && st.score != null ? '<span class="mono tiny">' + st.score + '/10</span>' : '';
-      return '<div class="lrow">' +
+      var tail = l.skipped
+        ? '<span class="tiny dim"> — пропущен: сжатие Ф0</span>'
+        : '<span class="tiny dim"> — ' + U.esc(l.goal || '') + '</span>';
+      return '<div class="lrow' + (l.skipped ? ' skip' : '') + '">' +
         '<span class="lm">' + mark + '</span>' +
-        '<span class="lt">' + State.lessonNum(l.id) + '. ' + U.esc(l.title) +
-        '<span class="tiny dim"> — ' + U.esc(l.goal || '') + '</span></span>' +
+        '<span class="lt">' + State.lessonNum(l.id) + '. ' + U.esc(l.title) + tail + '</span>' +
         score + '</div>';
     }).join('') + '</div>';
   }
