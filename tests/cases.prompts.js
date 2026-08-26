@@ -1,19 +1,21 @@
 /* Шкала нагрузки (7.2) и парсер «ИТОГА УРОКА» (8.4). */
 
-describe('шкала 7.2: цифры таблицы', function () {
+describe('шкала 7.2: цифры таблицы v2', function () {
   function r(p) { return STEPS.row(p); }
-  eq([r(1).name, r(1).norm, r(1).full, r(1).lesson, r(1).minQ, r(1).start, r(1).transfer, r(1).ru],
-    ['S1', 45, 75, 30, 25, 'L1', '1', '≤40%'], 'строка S1');
-  eq([r(2).name, r(2).norm, r(2).full, r(2).lesson, r(2).minQ, r(2).start, r(2).transfer, r(2).ru],
-    ['S2', 55, 90, 40, 28, 'L1', '1–2', '≤30%'], 'строка S2');
-  eq([r(3).name, r(3).norm, r(3).full, r(3).lesson, r(3).minQ, r(3).start, r(3).transfer, r(3).ru],
-    ['S3', 65, 105, 50, 30, 'L2', '2', '≤25%'], 'строка S3');
-  eq([r(4).name, r(4).norm, r(4).full, r(4).lesson, r(4).minQ, r(4).start, r(4).transfer, r(4).ru],
-    ['S4', 75, 120, 50, 33, 'L2', '2–3', '≤20%'], 'строка S4');
-  eq([r(5).name, r(5).norm, r(5).full, r(5).lesson, r(5).minQ, r(5).start, r(5).transfer, r(5).ru],
-    ['Г1', 75, 120, 50, 35, 'L2', '3', '≤10%'], 'строка Г1 — время от S4');
-  eq([r(6).name, r(6).minQ, r(6).ru], ['Г2', 35, '0'], 'строка Г2 — русский 0');
-  eq([r(7).name, r(7).minQ, r(7).ru, r(7).finish], ['Г3', 35, '0', 'L3'], 'строка Г3 — финиш L3');
+  eq([r(1).name, r(1).lesson, r(1).qRange, r(1).start, r(1).transfer], ['S1', 35, '12–14', 'L1', '1'], 'строка S1');
+  eq([r(2).name, r(2).lesson, r(2).qRange, r(2).start, r(2).transfer], ['S2', 40, '14–16', 'L1', '1–2'], 'строка S2');
+  eq([r(3).name, r(3).lesson, r(3).qRange, r(3).start, r(3).transfer], ['S3', 45, '16–18', 'L2', '2'], 'строка S3');
+  eq([r(4).name, r(4).lesson, r(4).qRange, r(4).start, r(4).transfer], ['S4', 50, '18–20', 'L2', '2–3'], 'строка S4');
+  eq([r(5).name, r(5).lesson, r(5).qRange, r(5).start, r(5).transfer], ['Г1', 50, '18–20', 'L2', '3'], 'строка Г1 — время от S4');
+  eq([r(6).name, r(6).lesson, r(6).qRange, r(6).ru], ['Г2', 50, '18–20', '0'], 'строка Г2 — подача без русского');
+  eq([r(7).name, r(7).lesson, r(7).qRange, r(7).ru, r(7).finish], ['Г3', 50, '18–20', '0', 'L3'], 'строка Г3 — финиш L3');
+  eq(r(4).note, 'потолок времени', 'S4 — потолок времени');
+  eq([r(5).lesson, r(6).lesson, r(7).lesson], [r(4).lesson, r(4).lesson, r(4).lesson],
+    'Г1–Г3 берут время от S4: растёт глубина, не часы');
+  ok(r(6).special.indexOf('перевод фидбека остаётся') > 0,
+    'на Г2 подача без русского, но перевод фидбека никуда не девается');
+  // бюджет минут на день — доктрина, релизом не трогался
+  eq([r(1).norm, r(1).full, r(4).norm, r(4).full], [45, 75, 75, 120], 'norm и full не менялись');
   eq(STEPS.MAX, 7, 'после Г3 шкала заканчивается');
   eq(STEPS.MIN, 1, 'пол шкалы — S1');
   ok(r(5).cemc && r(6).cemc && r(7).cemc, 'CEMC ⭐ только на глубине');

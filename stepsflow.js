@@ -463,7 +463,7 @@ window.StepsFlow = (function () {
         return '<button class="step-opt' + (r.pos === s.position ? ' on' : '') + '" data-pos="' + U.esc(r.pos) +
           '" aria-pressed="' + (r.pos === s.position) + '">' +
           '<b class="mono">' + r.name + '</b>' +
-          '<span class="mono tiny">~' + r.lesson + '’ · ≥' + r.minQ + ' вопр. · старт ' + r.start +
+          '<span class="mono tiny">~' + r.lesson + '′ · ' + r.qRange + ' заданий · старт ' + r.start +
           ' · перенос ×' + r.transfer + ' · RU ' + r.ru + '</span>' +
           '<em>' + U.esc(r.note) + '</em></button>';
       }).join('') + '</div>',

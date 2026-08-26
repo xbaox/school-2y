@@ -9,38 +9,42 @@
 window.STEPS = (function () {
   'use strict';
 
-  /** Таблица 7.2. Позиции 5–7 берут время от S4. */
+  /**
+   * Таблица 7.2, параметры версии 2.6.0. Позиции 5–7 берут время от S4.
+   * Колонки norm и full — бюджет минут на день (уровни дня доктрины),
+   * с длительностью урока не связаны и релизом не менялись.
+   */
   var TABLE = [
     {
-      pos: 1, name: 'S1', norm: 45, full: 75, lesson: 30, minQ: 25, qRange: '12–14',
+      pos: 1, name: 'S1', norm: 45, full: 75, lesson: 35, qRange: '12–14',
       start: 'L1', transfer: '1', ru: '≤40%', note: 'старт школы', special: ''
     },
     {
-      pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, minQ: 28, qRange: '14–16',
-      start: 'L1', transfer: '1–2', ru: '≤30%', note: 'больше вопросов', special: ''
+      pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, qRange: '14–16',
+      start: 'L1', transfer: '1–2', ru: '≤30%', note: 'больше заданий', special: ''
     },
     {
-      pos: 3, name: 'S3', norm: 65, full: 105, lesson: 50, minQ: 30, qRange: '16–18',
+      pos: 3, name: 'S3', norm: 65, full: 105, lesson: 45, qRange: '16–18',
       start: 'L2', transfer: '2', ru: '≤25%', note: 'старт с L2', special: ''
     },
     {
-      pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, minQ: 33, qRange: '18–20',
+      pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, qRange: '18–20',
       start: 'L2', transfer: '2–3', ru: '≤20%', note: 'потолок времени', special: ''
     },
     {
-      pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, minQ: 35, qRange: '18–20',
+      pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, qRange: '18–20',
       start: 'L2', transfer: '3', ru: '≤10%', note: 'время стоит, растёт глубина',
       cemc: true,
       special: 'в математических уроках добавь 1 задачу уровня CEMC ⭐; «перевёртыш» («а что если…») обязателен в каждом уроке'
     },
     {
-      pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, minQ: 35, qRange: '18–20',
+      pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, qRange: '18–20',
       start: 'L2', transfer: '3', ru: '0', note: 'без русского',
       cemc: true,
-      special: 'русский → 0 (только по моей явной просьбе); задачи CEMC ⭐ и в блок-тестах; письменная работа 8–10 предложений'
+      special: 'подача без русского (перевод фидбека остаётся!); задачи CEMC ⭐ и в тестах; письменная работа 8–10 предложений'
     },
     {
-      pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, minQ: 35, qRange: '18–20',
+      pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, qRange: '18–20',
       start: 'L2', finish: 'L3', transfer: '3', ru: '0', note: 'экзаменационный темп',
       cemc: true,
       // «финиш на L3» печатает сама строка старта практики — здесь его нет,
@@ -102,7 +106,6 @@ window.STEPS = (function () {
       lessonLabel: ramp ? RAMP_LESSON_LABEL : String(r.lesson),
       qRange: ramp ? RAMP_Q_RANGE : r.qRange,
       ramp: ramp,
-      minQuestions: r.minQ,
       startLevel: r.start,
       finishLevel: r.finish || null,
       transfer: r.transfer,
