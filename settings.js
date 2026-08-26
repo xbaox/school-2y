@@ -89,7 +89,7 @@
     var pd = State.s.settings.phaseDates;
     var rows = State.phases().map(function (p) {
       var d = pd[p.id] || {};
-      return '<div class="prow">' +
+      return '<div class="phrow">' +
         '<div class="k">' + U.esc(p.name) + '</div>' +
         '<div class="pdates">' +
         '<input class="txt" type="date" aria-label="Начало фазы ' + U.esc(p.name) + '" ' +

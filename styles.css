@@ -29,7 +29,12 @@ body{
   font-size:15px;line-height:1.55;
   -webkit-font-smoothing:antialiased;
   overscroll-behavior-y:none;
-  overflow-wrap:anywhere;
+  /* break-word, а не anywhere: anywhere участвует в расчёте min-content,
+     поэтому flex-колонки сжимались уже своего текста и рвали слова
+     посимвольно — «Листат/ь», «Ле/то», «8/10» цифрами столбиком.
+     break-word переносит внутри слова только когда иначе оно вылезет,
+     а на ширину колонки не влияет. */
+  overflow-wrap:break-word;
 }
 button,input,textarea,select{font:inherit;color:inherit}
 button{
@@ -86,6 +91,11 @@ h3{font-size:14px;font-weight:600}
 .sub{color:var(--muted);max-width:56ch}
 .lead{color:var(--muted);font-size:14px;margin-bottom:16px;max-width:60ch}
 .mono{font-family:var(--mono)}
+/* nowrap вешаем не на весь .mono, а на моно-АТОМЫ — счёт «8/10», ранг,
+   бейдж ступени, короткую дату. Строки параметров («~40′ · 14–16 заданий
+   · старт L1 · перенос ×1–2 · RU ≤30%») тоже моно, но их переносить надо:
+   на 390px они шире экрана. */
+.rowline > .mono,.srow > .mono,.lrow .mono,.item .rowline > .mono,.wk .mono{white-space:nowrap}
 .muted{color:var(--muted)}
 .dim{color:var(--dim)}
 .g{color:var(--ok)} .y{color:var(--warn)} .r{color:var(--bad)} .fire{color:var(--fire)}
@@ -105,6 +115,8 @@ section.block:first-of-type{margin-top:0}
 .card2{background:var(--card2);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .card + .card{margin-top:10px}
 .rowline{display:flex;justify-content:space-between;align-items:center;gap:10px}
+/* текст слева жмётся, колонка справа (счёт, ранг, дата) — никогда */
+.rowline > .mono{flex-shrink:0}
 
 /* ---------- плашка «облако отключено» на «Сегодня» ---------- */
 
@@ -263,15 +275,20 @@ section.block:first-of-type{margin-top:0}
 .btn{
   display:block;width:100%;border-radius:11px;padding:11px;text-align:center;
   font-size:13.5px;font-weight:600;border:1px solid transparent;
+  /* подпись кнопки не переносится: «Листать» в две строки — не перенос,
+     а сломанная вёрстка */
+  white-space:nowrap;
 }
+/* кнопка в ряду не ужимается ниже своей подписи */
+.btn-row .btn,.linkbtn,.btn.ghost{min-width:max-content}
 .btn.pr{background:var(--fire);color:#12151c}
 .btn.pr:disabled{background:var(--card2);color:var(--dim);border-color:var(--line)}
 .btn.sec{border-color:var(--line);color:var(--ink)}
 .btn.ghost{color:var(--muted);font-weight:500;font-size:12.5px;padding:8px;min-height:44px}
 .btn.danger{border-color:rgba(248,113,113,.4);color:var(--bad)}
 .btn:active{transform:scale(.99)}
-.btn-row{display:flex;gap:7px}
-.btn-row .btn{flex:1}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+.btn-row .btn{flex:1 1 auto}
 .linkbtn{color:var(--fire);font-size:12.5px;text-decoration:underline;text-underline-offset:3px;
   display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
 
@@ -281,15 +298,21 @@ section.block:first-of-type{margin-top:0}
 .mini i{flex:1;height:5px;border-radius:99px}
 .fresh .trow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
 .fresh .trow:last-child{border-bottom:none}
-.fresh .tname{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fresh .tbar{flex:1;min-width:64px;height:8px;background:var(--card2);border-radius:99px;overflow:hidden}
+/* «Академ. английский» больше не троеточится: имя дорожки — смысловая метка,
+   лучше две строки по словам, чем обрезанное слово */
+.fresh .tname{flex:1 1 40%;min-width:0;font-size:13px;line-height:1.3;overflow-wrap:break-word}
+.fresh .tbar{flex:1 1 25%;min-width:48px;height:8px;background:var(--card2);border-radius:99px;overflow:hidden}
 .fresh .tbar i{display:block;height:100%;border-radius:99px}
-.fresh .tdays{width:auto;min-width:72px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0}
+.fresh .tdays{min-width:72px;text-align:right;font-family:var(--mono);font-size:11px;
+  flex-shrink:0;white-space:nowrap}
+/* дорожка, до которой в этой фазе просто нет уроков: не зовём к действию,
+   которого нет — водопад её всё равно пропускает */
+.fresh .tdays.none{color:var(--dim);font-size:10.5px;white-space:normal;line-height:1.25}
 
 /* ---------- селектор уровня дня ---------- */
 
 .lvlseg{width:100%;margin-bottom:12px}
-.lvlseg button{flex:1;min-width:0;padding:0 6px;font-size:12.5px}
+.lvlseg button{flex:1;min-width:0;padding:0 6px;font-size:12.5px;white-space:nowrap}
 .lvlseg button[aria-pressed="true"]{background:var(--fire);color:#12151c;font-weight:600}
 
 /* ---------- ПЛАН ДНЯ: главный блок экрана ---------- */
@@ -421,7 +444,9 @@ section.block:first-of-type{margin-top:0}
 .srow{display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding:12px 0;border-bottom:1px solid var(--line)}
 .srow:last-child{border-bottom:none}
-.k{font-size:13.5px}
+/* «Лето», «S1», «3/14» — правая колонка строки настроек: не рвать и не жать */
+.srow > .mono{flex-shrink:0;white-space:nowrap;text-align:right}
+.k{font-size:13.5px;min-width:0}
 .k span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
 .num{width:64px;background:var(--card2);border:1px solid var(--line);border-radius:9px;
   padding:7px 9px;font-family:var(--mono);font-size:13px;text-align:center}
@@ -431,8 +456,13 @@ section.block:first-of-type{margin-top:0}
 textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.5}
 
 /* даты фаз: подпись сверху, пара полей снизу — на 320px в строку не влезают */
-.prow{padding:12px 0;border-bottom:1px solid var(--line)}
-.prow:last-child{border-bottom:none}
+/* строка фазы в Настройках. Класс переименован из .prow: то же имя
+   носит строка «Плана дня» на «Сегодня» (grid-column:2; display:flex),
+   и название фазы, став flex-элементом рядом с полями дат, сжималось
+   до одного символа и рвалось в дюжину строк. */
+.phrow{padding:12px 0;border-bottom:1px solid var(--line)}
+.phrow:last-child{border-bottom:none}
+.phrow .k{min-width:0}
 .pdates{display:flex;align-items:center;gap:8px;margin-top:6px}
 .pdates .txt{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px}
 
@@ -498,6 +528,9 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 
 .list{display:flex;flex-direction:column;gap:8px}
 .item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+/* колонка счёта в «Итогах уроков» держит строку, тема слева ужимается */
+.item .rowline > div:first-child{min-width:0;flex:1}
+.item .rowline > .mono{flex-shrink:0;white-space:nowrap}
 .item .t{font-size:13.5px}
 .item .s{font-size:11.5px;color:var(--muted);margin-top:3px}
 /* цвет срока обязан перебивать цвет строки: у .item .s тот же вес,
@@ -528,7 +561,7 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 .lrow{display:flex;align-items:baseline;gap:8px;padding:5px 0;font-size:13px}
 .lrow .lm{width:14px;flex-shrink:0}
 .lrow .lt{flex:1;min-width:0}
-.lrow .mono{color:var(--muted);flex-shrink:0}
+.lrow .mono{color:var(--muted);flex-shrink:0;white-space:nowrap}
 
 /* ---------- ступени: критерии, история, ручной выбор ---------- */
 
