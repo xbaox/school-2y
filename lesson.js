@@ -138,7 +138,8 @@ window.Lesson = (function () {
     var d = State.day(todayIso) || { lessons: [], addons: [] };
     var closedToday = d.lessons.indexOf(lessonId) >= 0 || isDone(lessonId);
 
-    var whyClass = sel.reason.kind === 'radar' ? '' :
+    // дедлайн и радар — красные: оба означают «срок уже здесь»
+    var whyClass = (sel.reason.kind === 'radar' || sel.reason.kind === 'deadline') ? '' :
       (sel.reason.kind === 'fresh' ? 'w-fresh' : (sel.reason.kind === 'swap' ? 'w-swap' : 'w-plan'));
 
     var pos = State.lessonNum(lessonId);

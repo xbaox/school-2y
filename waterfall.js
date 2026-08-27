@@ -84,6 +84,44 @@ window.Waterfall = (function () {
   }
 
   /** 3. Светофор: блок с красным темпом. */
+  /**
+   * Правило 1: у блока дедлайн сегодня или уже позади, а незакрытый урок
+   * в нём остался.
+   *
+   * Раньше горящий дедлайн влиял на выбор только через светофор (правило 3),
+   * а тот ловит лишь красный. Блок с одним оставшимся уроком и дедлайном
+   * сегодня — «впритык», то есть жёлтый: 27.08 приложение отдало день
+   * бизнесу, пока у Б2 истекал срок с незакрытым Б2.4. Срок, наступивший
+   * сегодня, — самый жёсткий сигнал в системе, поэтому он идёт первым.
+   */
+  function ruleDeadline(t, exclude) {
+    var ids = Object.keys(State.s.blocks).sort(function (a, b) {
+      var da = State.s.blocks[a].deadline || '9999', db = State.s.blocks[b].deadline || '9999';
+      // раньше дедлайн — раньше очередь; при равных берём младший блок
+      if (da !== db) return da < db ? -1 : 1;
+      return CONTENT.num(a) - CONTENT.num(b);
+    });
+    for (var i = 0; i < ids.length; i++) {
+      var b = State.s.blocks[ids[i]];
+      if (!b.deadline || b.deadline > t) continue;
+      if (b.track === exclude) continue;
+      var next = nextInBlock(ids[i]);
+      if (!next) continue;
+      var over = U.diffDays(b.deadline, t);
+      return {
+        track: b.track,
+        blockId: ids[i],
+        lessonId: next,
+        reason: {
+          kind: 'deadline',
+          text: 'дедлайн: ' + State.blockLabel(ids[i]) +
+            (over > 0 ? ' просрочен на ' + U.days(over) : ' сегодня')
+        }
+      };
+    }
+    return null;
+  }
+
   function rulePace(t, exclude) {
     var ids = Object.keys(State.s.blocks).sort(function (a, b) {
       var da = State.s.blocks[a].deadline || '9999', db = State.s.blocks[b].deadline || '9999';
@@ -143,7 +181,7 @@ window.Waterfall = (function () {
     };
   }
 
-  var RULES = [ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
+  var RULES = [ruleDeadline, ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
 
   /** Следующий незакрытый урок блока; пропущенные водопад не назначает. */
   function nextInBlock(blockId) {
@@ -315,12 +353,13 @@ window.Waterfall = (function () {
   /* ---------- объяснение выбора: правило выбора урока ---------- */
 
   var EXPLAIN = [
-    { kind: 'radar', n: 1, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
-    { kind: 'fresh', n: 2, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней', act: '→ она' },
-    { kind: 'pace', n: 3, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
-    { kind: 'debts', n: 4, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },
+    { kind: 'deadline', n: 1, name: 'Дедлайн', cond: 'срок блока сегодня или позади, урок в нём не закрыт', act: '→ этот блок' },
+    { kind: 'radar', n: 2, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
+    { kind: 'fresh', n: 3, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней', act: '→ она' },
+    { kind: 'pace', n: 4, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
+    { kind: 'debts', n: 5, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },
     {
-      kind: 'plan', n: 5, name: 'Шаблон недели',
+      kind: 'plan', n: 6, name: 'Шаблон недели',
       cond: 'пн мат · вт письмо · ср мат · чт инфа/бизнес · пт мат · сб письмо ⭐ · вс радар', act: '→ по шаблону'
     }
   ];
@@ -352,7 +391,7 @@ window.Waterfall = (function () {
   return {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
-    hasLessonsNow: hasLessonsNow,
+    hasLessonsNow: hasLessonsNow, ruleDeadline: ruleDeadline, EXPLAIN: EXPLAIN,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };
 })();
