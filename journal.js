@@ -70,7 +70,8 @@
       'через 4, 10 и 21 день, потом засыпает и колоду больше не занимает.</p>' +
       '<div class="card rowline">' +
       '<div class="k">В колоде ' + deck + ' ' + U.plural(deck, 'карточка', 'карточки', 'карточек') +
-      '<span>активных ' + w.active + ' · выучено ' + w.known + ' · сегодня ' + n + '</span></div>' +
+      '<span>слова: активных ' + w.active + ', выучено ' + w.known +
+      ' · долги: ' + State.openDebts().length + ' · сегодня ' + n + '</span></div>' +
       '<button class="btn pr" style="width:auto;min-height:44px;padding:0 16px" data-open-cards>Листать</button>' +
       '</div></section>';
   }
@@ -195,13 +196,15 @@ window.Cards = (function () {
     // выученные слова, у которых срок повтора не подошёл, в колоду не берём
     var words = State.activeWords().map(function (w) {
       return {
-        type: 'word', en: w.en, front: w.en, back: w.ru,
+        type: 'word', en: w.en, key: 'w:' + String(w.en).toLowerCase().trim(),
+        front: w.en, back: w.ru,
         meta: U.fmtShort(w.date) + ' · ' + w.lessonId + ' · ' + statusName(State.wordStatus(w.en))
       };
     });
     var debts = State.openDebts().map(function (d) {
       return {
-        type: 'debt', front: (d.did ? d.did + ' · ' : '') + d.text,
+        type: 'debt', key: 'd:' + (d.did || d.id),
+        front: (d.did ? d.did + ' · ' : '') + d.text,
         back: 'долг из ' + d.createdIn + ' · погашено ' + State.debtProgress(d) + '/2' +
           ' · отработан в ' + ((d.clearedIn || []).join(', ') || '—'),
         meta: State.trackName(d.track || 'eng')
@@ -244,6 +247,7 @@ window.Cards = (function () {
 
         function paint() {
           var c = list2[idx];
+          markSeen(c.key);
           box.className = 'cardbox' + (flipped ? ' flip' : '') + (c.type === 'debt' ? ' debt' : '');
           box.innerHTML = '<div class="cb-side">' + U.esc(flipped ? c.back : c.front) + '</div>' +
             '<div class="cb-meta tiny dim">' + U.esc(c.meta || '') + (c.type === 'debt' ? ' · долг' : '') + '</div>';
@@ -253,17 +257,17 @@ window.Cards = (function () {
           grade.hidden = !canGrade;
           move.hidden = canGrade;
           var n = State.wordCounts();
+          // строка читается без арифметики: у слов и долгов свои счётчики
           counter.textContent = (idx + 1) + ' из ' + list2.length +
-            ' · активных ' + n.active + ' · выучено ' + n.known +
+            ' · слова: активных ' + n.active + ', выучено ' + n.known +
+            ' · долги: ' + State.openDebts().length +
             ' · сегодня ' + count();
         }
         function step(n) {
-          // одна карточка — листать некуда: счётчик просмотров не должен расти
           if (list2.length < 2) return;
           idx = (idx + n + list2.length) % list2.length;
           flipped = false;
-          bump();
-          paint();
+          paint();                       // отметку ставит сам paint, по ключу карточки
         }
         box.onclick = function () { flipped = !flipped; paint(); };
         root.querySelector('[data-prev]').onclick = function () { step(-1); };
@@ -281,21 +285,30 @@ window.Cards = (function () {
           if (list2.length < 2) { flipped = false; paint(); return; }
           step(1);
         });
-        bump();
         paint();
       }
     });
   }
 
-  /** Счётчик просмотренных за сегодня. */
-  function bump() {
-    var c = State.s.cards || (State.s.cards = { lastDay: null, viewedToday: 0 });
+  /**
+   * Отмечает карточку показанной сегодня. Считаем УНИКАЛЬНЫЕ карточки:
+   * колода кольцевая, и прежний счётчик нажатий давал «сегодня 151» при
+   * колоде 80 — число, которое не с чем сравнить.
+   * Обнуление — на границе суток; State.today() держит её на 04:00.
+   */
+  function markSeen(key) {
+    if (!key) return;
+    var c = State.s.cards || (State.s.cards = { lastDay: null, viewedToday: 0, seen: [] });
+    if (!Array.isArray(c.seen)) c.seen = [];
     var t = State.today();
-    if (c.lastDay !== t) { c.lastDay = t; c.viewedToday = 0; }
-    c.viewedToday++;
+    if (c.lastDay !== t) { c.lastDay = t; c.seen = []; c.viewedToday = 0; }
+    if (c.seen.indexOf(key) >= 0) return;        // ту же карточку второй раз не считаем
+    c.seen.push(key);
+    c.viewedToday = c.seen.length;
     State.touch(true);
   }
 
+  /** Сколько разных карточек посмотрели сегодня. */
   function count() {
     var c = State.s.cards || {};
     return c.lastDay === State.today() ? (c.viewedToday || 0) : 0;
@@ -334,7 +347,7 @@ window.Cards = (function () {
   }
 
   return {
-    open: open, deck: deck, count: count,
+    open: open, deck: deck, count: count, markSeen: markSeen,
     openLessonWords: openLessonWords, statusName: statusName
   };
 })();
