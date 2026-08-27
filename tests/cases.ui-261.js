@@ -97,10 +97,13 @@
     State.applySummary('B2.1', summary({
       words: [{ en: 'slope', ru: 'наклон' }, { en: 'vertex', ru: 'вершина' }]
     }), { date: '2026-08-25' });
-    State.s.cards = { lastDay: State.today(), viewedToday: 64 };
+    // 2.6.4: счётчик дня — набор уникальных карточек, а не число нажатий
+    State.s.cards = { lastDay: State.today(), viewedToday: 2, seen: ['w:slope', 'w:vertex'] };
 
     var html = App.screen('journal').render();
-    ok(html.indexOf('активных 2 · выучено 0 · сегодня 64') > 0, 'единый стиль строки');
+    // 2.6.4: у слов и долгов свои счётчики, «сегодня» считает уникальные карточки
+    ok(html.indexOf('слова: активных 2, выучено 0 · долги: 0 · сегодня 2') > 0,
+      'единый стиль строки: ' + html.slice(html.indexOf('В колоде'), html.indexOf('В колоде') + 120));
     eq(html.indexOf('просмотрено:'), -1, 'старой формулировки нет');
   });
 })();

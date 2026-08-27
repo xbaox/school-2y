@@ -135,7 +135,10 @@ window.State = (function () {
       radar: [],
       todos: [],
       summaries: [],
-      cards: { lastDay: null, viewedToday: 0 },
+      // seen — ключи карточек, показанных сегодня. Считаем уникальные:
+      // «сегодня 151» при колоде 80 означало число нажатий на «дальше»,
+      // а не сколько карточек человек посмотрел.
+      cards: { lastDay: null, viewedToday: 0, seen: [] },
       // SRS-накладка на банк слов: ключ — слово в нижнем регистре.
       // Сами слова живут в итогах уроков, здесь только их судьба.
       srs: {},
@@ -177,6 +180,12 @@ window.State = (function () {
     out.settings = Object.assign({}, base.settings, (o && o.settings) || {});
     out.step = Object.assign({}, base.step, (o && o.step) || {});
     out.cards = Object.assign({}, base.cards, (o && o.cards) || {});
+    // состояние до 2.6.4 считало нажатия: набора нет, а число несопоставимо
+    // с новым смыслом — начинаем счёт заново. Смотрим в исходные данные,
+    // а не в результат слияния: пустой набор туда уже подставил blank().
+    var rawCards = (o && o.cards) || {};
+    out.cards.seen = Array.isArray(rawCards.seen) ? rawCards.seen.slice() : [];
+    if (!Array.isArray(rawCards.seen)) out.cards.viewedToday = 0;
     if (!out.srs || typeof out.srs !== 'object' || Array.isArray(out.srs)) out.srs = {};
     out.stats = Object.assign({}, base.stats, (o && o.stats) || {});
 
