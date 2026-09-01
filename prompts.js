@@ -275,9 +275,15 @@ window.PROMPTS = (function () {
    * Шаблон 8.5. Пустые блоки не печатаются: пока банк слов и долгов пуст,
    * просить ИИ гонять «слов пока нет» — значит тратить разминку впустую.
    * Нумерация пересчитывается по оставшимся пунктам.
+   *
+   * Слова берём по расписанию повторов (warmupWords), а не по возрасту:
+   * oldestWords SRS не смотрел и гнал в разминку одни и те же пятнадцать
+   * выученных слов каждый день. Пункт с пересказом печатается всегда —
+   * поэтому промпт не бывает пустым, даже когда сегодня повторять нечего.
    */
-  function minimalPrompt() {
-    var words = State.oldestWords(15);
+  function minimalPrompt(opts) {
+    var todayIso = (opts && opts.today) || State.today();
+    var words = State.warmupWords(15, todayIso);
     var debts = State.openDebts().slice(0, 3);
     var lines = ['Разминка ~10 минут, без урока и без «ИТОГА».'];
     var n = 0;
