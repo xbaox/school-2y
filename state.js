@@ -847,6 +847,38 @@ window.State = (function () {
   /** 15 слов с самой давней датой появления (раздел 8.5). */
   function oldestWords(n) { return wordBank().slice(0, n || 15); }
 
+  /**
+   * Слова разминки (раздел 8.5) — по расписанию повторов, а не по возрасту.
+   *
+   * До 2.6.5 разминка звала oldestWords(15), а он SRS не смотрит вовсе: в промпт
+   * каждый день уезжали одни и те же пятнадцать самых старых слов, все давно
+   * выученные и со сроком повтора в будущем. Список был константным навсегда —
+   * банк отсортирован по дате урока и не сокращается.
+   *
+   * Порядок групп:
+   *  1) подошедшие повторы (known, срок наступил) — самый давний срок первым;
+   *  2) слова в работе; те, где последний ответ был «не знал», — первыми
+   *     (ошибка обнуляет streak, поэтому streak 0 у learning и означает
+   *     «последним ответом было не знал»);
+   *  3) остальные активные — новые, по старшинству банка.
+   * Выученное с ненаступившим сроком не берётся: activeWords его уже отсеял.
+   */
+  function warmupWords(n, todayIso) {
+    var t = todayIso || today();
+    var due = [], learning = [], fresh = [];
+    activeWords(t).forEach(function (w, i) {
+      var r = srsRec(w.en);
+      var item = { en: w.en, ru: w.ru, i: i, due: (r && r.due) || '', streak: (r && r.streak) || 0 };
+      if (r && r.status === 'known') due.push(item);
+      else if (r && r.status === 'learning') learning.push(item);
+      else fresh.push(item);
+    });
+    due.sort(function (a, b) { return a.due === b.due ? a.i - b.i : (a.due < b.due ? -1 : 1); });
+    learning.sort(function (a, b) { return a.streak === b.streak ? a.i - b.i : a.streak - b.streak; });
+    return due.concat(learning, fresh).slice(0, n || 15)
+      .map(function (w) { return { en: w.en, ru: w.ru }; });
+  }
+
   /** Слова двух последних уроков дорожки + 5 случайных старых, вперемешку (раздел 8.1). */
   function recentWords(trackId, excludeLessonId) {
     var sums = recentSummaries(trackId, 2, excludeLessonId);
@@ -1104,6 +1136,7 @@ window.State = (function () {
     markVideoWatched: markVideoWatched, videoWatched: videoWatched,
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
+    warmupWords: warmupWords,
     recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,
