@@ -142,6 +142,10 @@ window.State = (function () {
       // SRS-накладка на банк слов: ключ — слово в нижнем регистре.
       // Сами слова живут в итогах уроков, здесь только их судьба.
       srs: {},
+      // Какие долги реально ушли в промпт: lessons[urok] — список id урока,
+      // min — список разминки. Перезаписывается каждым копированием промпта.
+      // По нему «Погашено» проверяется на «этот долг вообще показывали?».
+      injected: { min: [], lessons: {} },
       stats: { wordsTotal: 0, lessonsDone: 0, bestStreak: 0 },
       onboarded: false
     };
@@ -187,6 +191,16 @@ window.State = (function () {
     out.cards.seen = Array.isArray(rawCards.seen) ? rawCards.seen.slice() : [];
     if (!Array.isArray(rawCards.seen)) out.cards.viewedToday = 0;
     if (!out.srs || typeof out.srs !== 'object' || Array.isArray(out.srs)) out.srs = {};
+
+    // 2.6.5: список показанных долгов. У состояний до 2.6.5 его нет — значит,
+    // промпт копировался старой версией и ограничивать «Погашено» нечем:
+    // пустой lessons[] читается как «ограничения нет» (см. injectedPool).
+    if (!out.injected || typeof out.injected !== 'object' || Array.isArray(out.injected)) {
+      out.injected = { min: [], lessons: {} };
+    }
+    if (!Array.isArray(out.injected.min)) out.injected.min = [];
+    if (!out.injected.lessons || typeof out.injected.lessons !== 'object' ||
+      Array.isArray(out.injected.lessons)) out.injected.lessons = {};
     out.stats = Object.assign({}, base.stats, (o && o.stats) || {});
 
     // списки доктрины: пустой или не-массив — берём дефолт целиком
@@ -912,6 +926,57 @@ window.State = (function () {
 
   function debtsCount(trackId) { return openDebts(trackId).length; }
 
+  /* ---------- какие долги ушли в промпт (2.6.5) ---------- */
+
+  var PROMPT_DEBTS = 5;         // столько долгов дорожки уходит в промпт урока
+  var WARMUP_DEBTS = 3;         // столько — в промпт разминки, дорожки любые
+
+  /**
+   * Отбор долгов для промптов — один на всех.
+   * Раньше срез 5 и срез 3 жили прямо в prompts.js; теперь их зовёт и то место,
+   * где мы запоминаем показанное. Иначе списки разъедутся и защита «Погашено»
+   * начнёт отвергать долги, которые ИИ честно видел.
+   */
+  function promptDebts(trackId) { return openDebts(trackId).slice(0, PROMPT_DEBTS); }
+  function warmupDebts() { return openDebts().slice(0, WARMUP_DEBTS); }
+
+  function debtKey(d) { return (d && (d.did || d.id)) || null; }
+
+  /**
+   * Запоминает, какие долги ушли в промпт. lessonId = null → разминка.
+   * Перезаписывается каждым копированием: в работе список из последнего промпта.
+   */
+  function markInjectedDebts(lessonId, debts) {
+    var ids = (debts || []).map(debtKey).filter(Boolean);
+    if (lessonId) s.injected.lessons[lessonId] = ids;
+    else s.injected.min = ids;
+    touch();
+    return ids;
+  }
+
+  /** Что было показано по уроку: его список плюс список разминки. */
+  function injectedDebts(lessonId) {
+    var own = (lessonId && s.injected.lessons[lessonId]) || null;
+    if (!own) return null;                       // промпт копировали до 2.6.5
+    var out = own.slice();
+    (s.injected.min || []).forEach(function (id) { if (out.indexOf(id) < 0) out.push(id); });
+    return out;
+  }
+
+  /**
+   * Открытые долги, которые урок имел право гасить, или null — если промпт
+   * этого урока копировался старой версией и списка нет. null означает
+   * «проверять нечем», и матчинг работает по-старому: молча отвергать всё
+   * подряд после обновления было бы хуже самой дыры.
+   */
+  function injectedPool(lessonId) {
+    var ids = injectedDebts(lessonId);
+    if (!ids) return null;
+    return s.debts.filter(function (d) {
+      return d.status === 'open' && ids.indexOf(debtKey(d)) >= 0;
+    });
+  }
+
   function normText(t) {
     return String(t || '').toLowerCase().replace(/[«»"'`.,;:!?()—–-]/g, ' ').replace(/\s+/g, ' ').trim();
   }
@@ -963,8 +1028,18 @@ window.State = (function () {
    * реальные перефразы они всё равно не ловили, а чужой долг закрыть могли.
    */
   function matchDebt(text, trackId) {
+    return matchDebtIn(text, trackId, s.debts.filter(function (d) { return d.status === 'open'; }));
+  }
+
+  /**
+   * Тот же матчинг, но по заданному набору долгов.
+   * С 2.6.5 «Погашено» урока судится по набору из его промпта: оба яруса,
+   * и id, и текст ≥0.85, ищут только среди показанного. Без этого ИИ,
+   * продолживший нумерацию сам, гасил долг, которого в промпте не было.
+   */
+  function matchDebtIn(text, trackId, open) {
     var raw = String(text || '');
-    var open = s.debts.filter(function (d) { return d.status === 'open'; });
+    open = open || [];
 
     var m = DEBT_ID_RE.exec(raw);
     if (m) {
@@ -1070,12 +1145,22 @@ window.State = (function () {
       created.push(debt);
     });
 
-    var cleared = [], closed = [], unmatched = [];
+    var cleared = [], closed = [], unmatched = [], foreign = [];
+    // урок гасит только то, что сам показывал; pool === null — промпт копировали
+    // до 2.6.5, судить не по чему, работаем по всему банку как раньше
+    var pool = injectedPool(lessonId);
     (parsed.cleared || []).forEach(function (text) {
-      var debt = matchDebt(text, trackId);
-      // молча глотать нечитаемое «Погашено» нельзя: студент должен увидеть,
-      // что строка не легла ни на один долг, и поправить id
-      if (!debt) { unmatched.push(text); return; }
+      var debt = pool ? matchDebtIn(text, trackId, pool) : matchDebt(text, trackId);
+      if (!debt) {
+        // долг существует, но в промпте этого урока его не было — это чужой id,
+        // а не мусор: показываем отдельно, иначе «не сопоставлено» врёт
+        var outside = pool ? matchDebt(text, trackId) : null;
+        if (outside) foreign.push(outside.did || outside.id);
+        // молча глотать нечитаемое «Погашено» нельзя: студент должен увидеть,
+        // что строка не легла ни на один долг, и поправить id
+        else unmatched.push(text);
+        return;
+      }
       if (debt.clearedIn.indexOf(lessonId) < 0) debt.clearedIn.push(lessonId);
       // две строки итога могли смэтчиться в один долг — считаем его один раз
       if (cleared.indexOf(debt) < 0) cleared.push(debt);
@@ -1099,7 +1184,7 @@ window.State = (function () {
       ok: true, lessonId: lessonId, score: parsed.score, replaced: replaced,
       words: (parsed.words || []).length,
       created: created.length, cleared: cleared.length, closed: closed.length,
-      unmatched: unmatched
+      unmatched: unmatched, foreign: foreign
     };
   }
 
@@ -1141,7 +1226,11 @@ window.State = (function () {
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,
     activeWords: activeWords, wordCounts: wordCounts, lessonWords: lessonWords,
-    matchDebt: matchDebt, debtProgress: debtProgress, similarity: similarity,
+    matchDebt: matchDebt, matchDebtIn: matchDebtIn,
+    debtProgress: debtProgress, similarity: similarity,
+    promptDebts: promptDebts, warmupDebts: warmupDebts,
+    markInjectedDebts: markInjectedDebts, injectedDebts: injectedDebts,
+    injectedPool: injectedPool,
     nextDebtId: nextDebtId, applySummary: applySummary,
     ifThenOfDay: ifThenOfDay
   };

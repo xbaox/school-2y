@@ -119,6 +119,23 @@ window.U = (function () {
     });
   }
 
+  /**
+   * Ведущий id в тексте НОВОГО долга: «[D-12] », «D-12 — », «№3 », «#3 ».
+   *
+   * ИИ продолжает нумерацию, которую видит в промпте, и записывает новый долг
+   * как «[D-12] Пропускает артикль…». Такой текст ложится в банк вместе с чужим
+   * id, а правило 14 контракта велит копировать формулировку долга в «Погашено»
+   * дословно — и тогда id внутри текста погасит совсем другой долг.
+   * Номера присваивает система (nextDebtId), в тексте им делать нечего.
+   */
+  var LEAD_ID_RE = /^\s*(?:[[(]\s*D\s*-\s*\d+\s*[\])]|D\s*-\s*\d+|[№#]\s*\d+)\s*[.:)\]—–-]*\s*/i;
+
+  function stripDebtId(text) {
+    var out = String(text == null ? '' : text), prev = null;
+    while (out !== prev && LEAD_ID_RE.test(out)) { prev = out; out = out.replace(LEAD_ID_RE, ''); }
+    return out.trim();
+  }
+
   function shuffle(arr, seed) {
     var a = arr.slice(), s = seed == null ? Math.random() * 1e9 : seed;
     function rnd() { s = (s * 9301 + 49297) % 233280; return s / 233280; }
@@ -135,6 +152,6 @@ window.U = (function () {
     addDays: addDays, diffDays: diffDays, weekday: weekday, weekStart: weekStart,
     fmtShort: fmtShort, fmtLong: fmtLong, fmtWeekday: fmtWeekday, fmtDayMonth: fmtDayMonth,
     plural: plural, days: days, uid: uid, clamp: clamp, esc: esc,
-    el: el, els: els, on: on, shuffle: shuffle
+    el: el, els: els, on: on, shuffle: shuffle, stripDebtId: stripDebtId
   };
 })();
