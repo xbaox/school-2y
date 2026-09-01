@@ -301,7 +301,9 @@ window.Lesson = (function () {
     U.on(host, 'click', '[data-watch]', function (e, el) { watch(el.dataset.watch); });
     U.on(host, 'click', '[data-summary]', function (e, el) { openSummary(el.dataset.summary); });
     U.on(host, 'click', '[data-minprompt]', function () {
-      UI.copy(PROMPTS.minimal(), 'Промпт минималки скопирован');
+      var debts = State.warmupDebts();
+      Promise.resolve(UI.copy(PROMPTS.minimal(), 'Промпт минималки скопирован'))
+        .then(function (ok) { if (ok) State.markInjectedDebts(null, debts); });
     });
     U.on(host, 'click', '[data-cards]', function () {
       if (window.Cards) Cards.open();
@@ -364,6 +366,13 @@ window.Lesson = (function () {
    * а отметка «скопировано» не ставится — иначе на «Сегодня» появлялась
    * кнопка «Вставить итог» для урока, промпта которого нет.
    */
+  /** Дорожка урока — так же, как её берёт lessonPrompt: из блока урока. */
+  function trackOf(lessonId) {
+    var l = CONTENT.lesson(lessonId);
+    var b = l ? State.block(l.blockId) : null;
+    return (b && b.track) || 'eng';
+  }
+
   function copyPrompt(lessonId) {
     if (tooSoon()) return;
     var text = PROMPTS.lesson(lessonId);
@@ -374,6 +383,9 @@ window.Lesson = (function () {
         if (!ok) return;
         remember(lessonId, sel && sel.lessonId === lessonId ? sel.reason : null);
         State.markPromptCopied(lessonId);
+        // список долгов этого промпта — по нему потом судится «Погашено».
+        // Пишем только после реального копирования: не скопировал — не показывал
+        State.markInjectedDebts(lessonId, State.promptDebts(trackOf(lessonId)));
       });
   }
 
@@ -452,16 +464,23 @@ window.Lesson = (function () {
           }
           close();
           var miss = (res.unmatched || []).length;
+          var alien = res.foreign || [];
           UI.toast('Урок ' + lessonId + ' закрыт · ' + res.score + '/10 · ' +
             res.words + ' ' + U.plural(res.words, 'слово', 'слова', 'слов') +
             (res.created ? ' · ' + res.created + ' ' + U.plural(res.created, 'долг', 'долга', 'долгов') : '') +
             (res.cleared ? ' · погашено ' + res.cleared : '') +
             (res.closed ? ' · закрыто ' + res.closed : ''), 'ok', 4200);
           // строки «Погашено», не легшие ни на один долг, показываем отдельно —
-          // иначе они пропадают, а студент думает, что долг отработан
-          if (miss) {
-            UI.toast('Не сопоставлено: ' + miss + ' ' +
-              U.plural(miss, 'строка', 'строки', 'строк') + ' «Погашено» — проверь id', '', 6000);
+          // иначе они пропадают, а студент думает, что долг отработан.
+          // Чужой id — отдельная строка: долг существует, но в этом уроке его
+          // не показывали, и «не сопоставлено» про него соврало бы
+          if (miss || alien.length) {
+            var parts = [];
+            if (alien.length) parts.push('не из этого урока: ' + alien.length +
+              ' (' + alien.join(', ') + ')');
+            if (miss) parts.push('не сопоставлено: ' + miss + ' ' +
+              U.plural(miss, 'строка', 'строки', 'строк'));
+            UI.toast('«Погашено» — ' + parts.join(' · ') + '. Проверь id', '', 6000);
           }
         };
       }
