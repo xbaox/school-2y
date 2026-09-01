@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 2;
-  var APP_VERSION = '2.6.4';
+  var APP_VERSION = '2.6.5';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';
@@ -252,12 +252,80 @@ window.State = (function () {
       if (d && !d.did) d.did = 'D-' + (++seq);
     });
 
+    repairDebts(out);
+
     // A-14: свежесть дорожки без единого урока считается от даты онбординга;
     // у состояний, живших до этого поля, точкой отсчёта становится сегодня
     if (!out.meta.onboardedAt) out.meta.onboardedAt = today();
 
     out.meta.version = SCHEMA;
     return out;
+  }
+
+  /* ---------- 2.6.5: ремонт банка долгов ---------- */
+
+  /**
+   * Чинит три следа от того, что ИИ сам придумывал номера долгов, и один след
+   * от парсера. Идемпотентна: каждый шаг проверяет форму до правки, повторный
+   * прогон меняет ноль. → отчёт { reopened:[], cleaned:[], merged:[] }
+   */
+  function repairDebts(out) {
+    var report = { reopened: [], cleaned: [], merged: [] };
+    var debts = out.debts || [];
+    function byDid(did) {
+      var found = null;
+      debts.forEach(function (d) { if (d && d.did === did) found = d; });
+      return found;
+    }
+
+    // 1. Ложное погашение D-11 уроком B1.3. В промпте B1.3 стояли D-1..D-4 и
+    //    D-10; ИИ продолжил нумерацию сам и написал «Погашено: [D-11] …».
+    //    matchDebt нашёл долг по id и засчитал ему касание, которого не было.
+    //    Правка точечная — это ремонт известного случая, а не общее правило:
+    //    B1.4 тоже выдумывал номера для новых долгов, но гасил ровно те пять,
+    //    что видел, и трогать его нельзя. Отпечаток — id, урок создания и
+    //    сам текст итога.
+    var false11 = byDid('D-11');
+    var b13 = (out.summaries || []).filter(function (x) { return x.lessonId === 'B1.3'; })[0];
+    if (false11 && false11.createdIn === 'B1.2' &&
+      (false11.clearedIn || []).indexOf('B1.3') >= 0 &&
+      b13 && String(b13.raw || '').indexOf('[D-11]') >= 0) {
+      false11.clearedIn = false11.clearedIn.filter(function (x) { return x !== 'B1.3'; });
+      if (false11.status === 'closed' && uniqueLessons(false11.clearedIn).length < 2) {
+        false11.status = 'open';
+        delete false11.closedDate;
+      }
+      report.reopened.push('D-11');
+    }
+
+    // 2. Выдуманные [D-…] внутри текстов долгов. Правило 14 велит копировать
+    //    формулировку в «Погашено» дословно — и такой текст погасил бы чужой
+    //    долг. С 2.6.5 парсер их срезает, здесь чистим уже накопленное.
+    debts.forEach(function (d) {
+      if (!d || !d.text) return;
+      var clean = U.stripDebtId(d.text);
+      if (clean && clean !== d.text) {
+        d.text = clean;
+        report.cleaned.push(d.did || d.id);
+      }
+    });
+
+    // 3. D-6 и D-7 — один долг, разрезанный парсером по точке с запятой внутри
+    //    шаблона «m = …; b = …». Огрызок D-6 закрылся сам (короткий текст целиком
+    //    попал в перефраз ИИ), а его вторая половина осталась висеть. Склеиваем
+    //    обратно: текст собираем из половин, чтобы вернуть исходную строку
+    //    символ в символ; остаётся старший id, состояние берём у открытой половины.
+    var d6 = byDid('D-6'), d7 = byDid('D-7');
+    if (d6 && d7 && /^Шаблон «m = /.test(d6.text) && /^b = /.test(d7.text)) {
+      d6.text = d6.text + '; ' + d7.text;
+      d6.status = d7.status;
+      d6.clearedIn = (d7.clearedIn || []).slice();
+      if (d7.closedDate) d6.closedDate = d7.closedDate; else delete d6.closedDate;
+      out.debts = debts.filter(function (d) { return d !== d7; });
+      report.merged.push('D-6+D-7');
+    }
+
+    return report;
   }
 
   /**
@@ -1203,7 +1271,7 @@ window.State = (function () {
     P0_DEADLINES: P0_DEADLINES,
     isSkipped: isSkipped, activeLessons: activeLessons,
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
-    migrate: migrate, validateImport: validateImport,
+    migrate: migrate, repairDebts: repairDebts, validateImport: validateImport,
     subscribe: subscribe, emit: emit,
     applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
     today: today, day: day, points: points, recount: recount,
