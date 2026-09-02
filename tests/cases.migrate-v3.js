@@ -164,17 +164,19 @@
     eq(d1.cat, 'П7', 'категория из таблицы');
     eq(d1.text.indexOf('Баллы → объём'), 0, 'текст канонический');
     eq(d1.clearedIn, ['B1.4'], 'касания объединены по уникальным урокам');
-    eq(d1.examples.length, 1, 'текст поглощённого стал примером');
-    eq(d1.examples[0].text, 'запись ученика D-2', 'именно его формулировка');
-    eq(d1.examples[0].lesson, 'B1.1', 'с уроком, где ошибка поймана');
+    eq(d1.examples.length, 2, 'собственный текст плюс текст поглощённого');
+    eq(d1.examples[0].text, d1.text, 'первый пример — собственный текст долга');
+    eq(d1.examples[0].lesson, 'B1.1', 'с уроком, где долг заведён');
     eq(d1.examples[0].date, '2026-08-23', 'и с датой этого урока');
+    eq(d1.examples[1].text, 'запись ученика D-2', 'следом — формулировка поглощённого');
+    eq(d1.examples[1].lesson, 'B1.1', 'с уроком, где ошибка поймана');
 
     var d2 = find(out, 'D-2');
     eq(d2.status, 'merged', 'поглощённый долг помечен');
     eq(d2.mergedInto, 'D-1', 'и знает, куда ушёл');
 
     var d8 = find(out, 'D-8');
-    eq(d8.examples.length, 4, 'D-8 поглотил четыре');
+    eq(d8.examples.length, 5, 'свой текст плюс четыре поглощённых');
     eq(d8.clearedIn, ['B2.4'], 'касание одно: у поглощённых их не было');
     eq(State.debtProgress(d8), 1, 'значит 1/2');
   });
@@ -183,7 +185,7 @@
     var d = find(out, 'D-25');
     eq(d.track, 'write', 'дорожка biz исчезла вместе с блоком Б12');
     eq(d.cat, 'П6', 'категория — полные предложения');
-    eq(d.examples.length, 3, 'три поглощённых долга стали примерами');
+    eq(d.examples.length, 4, 'свой текст плюс три поглощённых');
     eq(byStatus(out, 'open').filter(function (x) { return x.track === 'biz'; }).length, 0,
       'открытых долгов на biz не осталось');
   });
@@ -202,6 +204,17 @@
     eq(d3.closedDate, '2026-09-02', 'с датой закрытия');
     ok(d3.note.indexOf('B1.4') === 0, 'и с пояснением, чем отработан');
     eq(find(out, 'D-4').status, 'closed', 'D-4 как был закрыт, так и остался');
+  });
+
+  describe('2.7.0 миграция v3: у каждого открытого долга есть пример', function () {
+    // промпт этапа 4 печатает последний пример; пустых быть не должно
+    var open = byStatus(out, 'open');
+    ok(open.every(function (d) { return d.examples.length > 0; }), 'ни одного пустого списка');
+    ok(open.every(function (d) { return !!d.examples[d.examples.length - 1].text; }),
+      'у последнего примера есть текст');
+    var lone = find(out, 'D-10');   // ничего не поглощал
+    eq(lone.examples.length, 1, 'у долга без поглощённых пример один');
+    eq(lone.examples[0].text, lone.text, 'и это его собственный текст');
   });
 
   describe('2.7.0 миграция v3: новые поля есть у каждого долга', function () {
@@ -285,13 +298,58 @@
         B7: { phase: 'p1', track: 'math', title: 'x', deadline: '2026-09-20', done: false },
         B8: { phase: 'p1', track: 'write', title: 'y', deadline: '2026-09-13', done: false },
         B1: { phase: 'p0', track: 'write', title: 'z', deadline: '2026-08-29', done: false },
-        B99: { phase: 'p1', track: 'math', title: 'без срока', deadline: null, done: false }
+        B99: { phase: 'p1', track: 'math', title: 'без срока', deadline: null, done: false },
+        B20: { phase: 'p2', track: 'write', title: 'OSSLT-весна', deadline: '2027-03-31', done: false }
       }
     }));
     eq(st.blocks.B7.deadlineSource, 'content', 'совпал с контентным — значит его поставил контент');
     eq(st.blocks.B8.deadlineSource, 'user', 'не совпал — считаем, что срок двигали руками');
     eq(st.blocks.B1.deadlineSource, 'content', 'Ф0 сверяется с P0_DEADLINES');
     eq(st.blocks.B99.deadlineSource, undefined, 'срока нет — источника тоже');
+    eq(st.blocks.B20.deadlineSource, 'spread', 'блок Ф2 контенту не известен — срок раздан');
+  });
+
+  describe('2.7.0 дедлайны: свежая установка и мигрированное состояние совпадают', function () {
+    // раздача spreadDeadlines и метка источника обязаны сойтись, иначе
+    // второе устройство после обновления разойдётся с первым
+    State.reset();
+    State.syncContent();
+    var fresh = {};
+    Object.keys(State.s.blocks).forEach(function (id) {
+      fresh[id] = State.s.blocks[id].deadline + '|' + State.s.blocks[id].deadlineSource;
+    });
+
+    // то же состояние, но пришедшее из схемы 2 — без единой метки источника
+    var old = { meta: { version: 2 }, settings: {}, days: {}, debts: [], summaries: [], lessons: {}, blocks: {} };
+    Object.keys(State.s.blocks).forEach(function (id) {
+      var b = State.s.blocks[id];
+      old.blocks[id] = { phase: b.phase, track: b.track, title: b.title, deadline: b.deadline, done: false };
+    });
+    State.replace(old, true);
+    State.syncContent();
+
+    var after = {};
+    Object.keys(State.s.blocks).forEach(function (id) {
+      after[id] = State.s.blocks[id].deadline + '|' + State.s.blocks[id].deadlineSource;
+    });
+    eq(after, fresh, 'блоки, сроки и источники совпали до одного');
+    eq(State.block('B20').deadlineSource, 'spread', 'Ф2 — раздача');
+    eq(State.block('B7').deadlineSource, 'content', 'Ф1 — пакет контента');
+  });
+
+  describe('2.7.0 дедлайны: раздача переписывает свой срок, но не ручной', function () {
+    State.reset();
+    State.syncContent();
+    var was = State.block('B20').deadline;
+    State.s.blocks.B20.deadline = '2027-01-01';   // как будто съехал сам собой
+    State.syncContent();
+    eq(State.block('B20').deadline, was, 'раздача вернула свой срок');
+    eq(State.block('B20').deadlineSource, 'spread', 'источник прежний');
+
+    State.setDeadline('B20', '2027-01-01');
+    State.syncContent();
+    eq(State.block('B20').deadline, '2027-01-01', 'а поставленное руками раздача не трогает');
+    eq(State.block('B20').deadlineSource, 'user', 'и метка осталась user');
   });
 
   describe('2.7.0 дедлайны: контент переписывает свой же срок', function () {

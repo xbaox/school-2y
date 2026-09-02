@@ -131,6 +131,24 @@
     eq(State.injectedDebts('B1.3'), [did('долг восемь')], 'второе копирование заменило список');
   });
 
+  describe('2.7.0: протухший id в injected ничего не гасит', function () {
+    // после ремонта банка 2.7.0 в injected.lessons остаются id, ставшие
+    // merged или closed. Пул судит по статусу, поэтому вреда от них нет
+    State.reset();
+    State.syncContent();
+    State.s.debts = [
+      { id: 'a', did: 'D-1', track: 'write', text: 'живой долг', createdIn: 'B1.1', clearedIn: [], status: 'open' },
+      { id: 'b', did: 'D-2', track: 'write', text: 'поглощённый долг', createdIn: 'B1.1', clearedIn: [], status: 'merged', mergedInto: 'D-1' },
+      { id: 'c', did: 'D-3', track: 'write', text: 'закрытый долг', createdIn: 'B1.1', clearedIn: ['B1.1', 'B1.2'], status: 'closed' }
+    ];
+    State.s.injected.lessons['B3.2'] = ['D-1', 'D-2', 'D-3'];
+    var pool = State.injectedPool('B3.2');
+    eq(pool.map(function (d) { return d.did; }), ['D-1'], 'в пуле только открытый долг');
+    ok(!State.matchDebtIn('[D-2] поглощённый долг', 'write', pool), 'поглощённый не гасится');
+    ok(!State.matchDebtIn('[D-3] закрытый долг', 'write', pool), 'закрытый тоже');
+    ok(!!State.matchDebtIn('[D-1] живой долг', 'write', pool), 'а открытый — гасится');
+  });
+
   describe('2.6.5: список переживает миграцию', function () {
     bank();
     State.markInjectedDebts('B1.3', State.promptDebts('write'));

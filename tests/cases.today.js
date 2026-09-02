@@ -206,7 +206,9 @@
     eq(ids(p), ['radar', 'cards', 'retell'], 'радар и шаги минималки');
   });
 
-  describe('план: галочка урока ставится только итогом', function () {
+  // в воскресенье урочных пунктов в плане нет вовсе (app.js: раздел 7.8),
+  // поэтому кейс про галочку урока обязан идти в будний день
+  describe('план: галочка урока ставится только итогом', function () { withToday(MON, function () {
     fresh();
     var t = State.today();
     State.setLevel('norm');
@@ -226,9 +228,11 @@
     }, { date: t });
     eq(App.planItems(t, State.day(t)).filter(function (x) { return x.id === 'l1'; })[0].done, true,
       'после итога пункт отмечен');
-  });
+  }); });
 
-  describe('план: ручные галочки пишутся в день и переживают перерисовку', function () {
+  // на полном уровне в плане есть перерыв и два урока — но только в будни:
+  // в воскресенье первым пунктом идёт радар, а урочных нет вовсе
+  describe('план: ручные галочки пишутся в день и переживают перерисовку', function () { withToday(MON, function () {
     fresh();
     var t = State.today();
     State.setLevel('full');
@@ -249,7 +253,7 @@
     App.tick('break');
     eq(State.day(t).breakDone, false, 'и перерыв снимается');
     eq(State.points(t), 3, 'очки по-прежнему от уровня');
-  });
+  }); });
 
   describe('план: полный чек-лист радара ставит добавку сам', function () {
     fresh();
@@ -313,7 +317,9 @@
     eq(App.addonChips(State.day(SUN, true)).indexOf('Воскресный радар'), -1, 'в вс тоже нет');
   });
 
-  describe('план: закрытый день получает зелёный блок', function () {
+  // в воскресенье к минималке добавляется пункт радара, и день закрывается
+  // только вместе с ним — этот кейс про будни
+  describe('план: закрытый день получает зелёный блок', function () { withToday(MON, function () {
     fresh();
     var t = State.today();
     State.setLevel('min');
@@ -325,7 +331,7 @@
     var closed = App.planBlock(t, State.day(t));
     ok(/class="plan done"/.test(closed), 'все пункты — блок закрыт');
     ok(closed.indexOf('День закрыт ✓ 1 очко') > 0, 'строка итога дня со склонением');
-  });
+  }); });
 
   describe('план: селектор уровня — сегмент-контрол', function () {
     fresh();
@@ -380,7 +386,10 @@
     eq(lefts.map(function (x) { return Math.round(x); }), [19, 33, 52, 67, 81, 100], 'позиции по порогам');
   });
 
-  describe('кружки дней: закрытый, сегодняшний, пропущенный, будущий', function () {
+  // среда: только в середине недели видны все четыре состояния кружка разом.
+  // Раньше кейс подстраивался под живой день и три дня в неделю молча
+  // пропускал по одной проверке — теперь их всегда четыре
+  describe('кружки дней: закрытый, сегодняшний, пропущенный, будущий', function () { withToday('2026-08-26', function () {
     fresh();
     var t = State.today();
     var ws = U.weekStart(t);
@@ -391,11 +400,11 @@
     var cells = html.split('<div class="wd ').slice(1).map(function (s) { return s.slice(0, s.indexOf('"')); });
 
     eq(cells.length, 7, 'семь кружков');
-    ok(cells[0].indexOf('f-min') >= 0 || idx === 0, 'понедельник залит уровнем минималки');
+    ok(cells[0].indexOf('f-min') >= 0, 'понедельник залит уровнем минималки');
     ok(cells[idx].indexOf('now') >= 0, 'сегодняшний обведён');
-    if (idx < 6) ok(cells[6].indexOf('future') >= 0, 'воскресенье впереди — контур');
-    if (idx > 1) ok(cells[1].indexOf('miss') >= 0, 'пустой прошедший помечен пропуском');
-  });
+    ok(cells[6].indexOf('future') >= 0, 'воскресенье впереди — контур');
+    ok(cells[1].indexOf('miss') >= 0, 'пустой прошедший помечен пропуском');
+  }); });
 
   describe('кольцо дня: план = верхний уровень плюс добавки', function () {
     fresh();

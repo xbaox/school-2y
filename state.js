@@ -445,6 +445,15 @@ window.State = (function () {
   }
 
   /**
+   * Знает ли блок хоть один пакет контента. Блоки Ф2–Ф4 (LATER_BLOCKS) не знает
+   * никто: их сроки раздаёт spreadDeadlines, и источник у них 'spread'.
+   */
+  function contentKnowsBlock(blockId) {
+    if (P0_DEADLINES[blockId]) return true;
+    return !!(window.CONTENT && CONTENT.block(blockId));
+  }
+
+  /**
    * Ремонт банка долгов, источник дедлайнов и правило серии (ТЗ 1.2–1.4).
    * Идемпотентна дважды: снаружи её запирает версия схемы, внутри каждый шаг
    * проверяет форму до правки — повторный прогон меняет ноль.
@@ -453,7 +462,7 @@ window.State = (function () {
   function migrateV3(out) {
     var rep = {
       debts: { before: {}, after: {}, missing: [], merged: [], progress1: [] },
-      blocks: { content: 0, user: 0, none: 0 },
+      blocks: { content: 0, user: 0, spread: 0, none: 0 },
       words: { fromSummaries: 0, fromSrs: 0, wordsTotal: [0, 0] },
       days: { minimalBackfilled: 0 },
       cats: { duplicates: [] }
@@ -495,6 +504,15 @@ window.State = (function () {
       keep.cat = row.cat;
       keep.text = row.text;
       if (row.track) keep.track = row.track;
+      // собственный текст долга — первый пример. Без него у семи долгов без
+      // поглощённых примеров не было бы вовсе, а промпт печатает последний
+      if (!keep.examples.length) {
+        keep.examples.push({
+          lesson: keep.createdIn || null,
+          text: row.text,
+          date: lessonDate(keep.createdIn) || 'migration'
+        });
+      }
 
       (row.absorbs || []).forEach(function (did) {
         var gone = byDid[did];
@@ -570,8 +588,13 @@ window.State = (function () {
       var b = out.blocks[id];
       if (!b || b.deadlineSource) return;
       if (!b.deadline) { rep.blocks.none++; return; }
-      var c = contentDeadline(id);
-      b.deadlineSource = (c && c === b.deadline) ? 'content' : 'user';
+      if (!contentKnowsBlock(id)) {
+        // Ф2–Ф4: срок раздан spreadDeadlines, руками его никто не ставил
+        b.deadlineSource = 'spread';
+      } else {
+        var c = contentDeadline(id);
+        b.deadlineSource = (c && c === b.deadline) ? 'content' : 'user';
+      }
       rep.blocks[b.deadlineSource]++;
     });
 
@@ -633,7 +656,7 @@ window.State = (function () {
       ' · дубли категорий: ' + (rep.cats.duplicates.length || 'нет') +
       (rep.debts.missing.length ? ' · не найдены: ' + rep.debts.missing.join(', ') : ''));
     console.log('[migrate v3] дедлайны: content ' + rep.blocks.content + ' · user ' + rep.blocks.user +
-      ' · без срока ' + rep.blocks.none);
+      ' · spread ' + rep.blocks.spread + ' · без срока ' + rep.blocks.none);
     console.log('[migrate v3] слова: −' + rep.words.fromSummaries + ' из итогов · −' + rep.words.fromSrs +
       ' из SRS · банк ' + rep.words.wordsTotal[0] + ' → ' + rep.words.wordsTotal[1] +
       ' · дней с достроенной минималкой: ' + rep.days.minimalBackfilled);
@@ -861,14 +884,20 @@ window.State = (function () {
   function syncContent() {
     var changed = false;
 
-    function upsert(id, meta) {
+    /**
+     * source — кто даёт срок: 'content' (пакет фазы) или 'spread' (раздача по
+     * датам фазы для блоков Ф2–Ф4). Оба переписываются свободно; неприкосновенны
+     * только 'user' и 'shift' (ТЗ 1.3).
+     */
+    function upsert(id, meta, source) {
+      var src = source || 'content';
       var b = s.blocks[id];
       if (!b) {
         s.blocks[id] = {
           phase: meta.phase, track: meta.track, title: meta.title,
           deadline: meta.deadline || null, done: false
         };
-        if (meta.deadline) s.blocks[id].deadlineSource = 'content';
+        if (meta.deadline) s.blocks[id].deadlineSource = src;
         if (meta.note) s.blocks[id].note = meta.note;
         changed = true;
         return;
@@ -880,11 +909,14 @@ window.State = (function () {
       // 2.7.0 (ТЗ 1.3): раньше контент дописывал срок только в пустое место, и
       // новый пакет до пользователя не доезжал. Теперь пакет переписывает свой
       // же срок; поставленное руками ('user') и сдвиг фазы ('shift') неприкосновенны.
-      if (meta.deadline && b.deadline !== meta.deadline &&
-        b.deadlineSource !== 'user' && b.deadlineSource !== 'shift') {
-        b.deadline = meta.deadline;
-        b.deadlineSource = 'content';
-        changed = true;
+      if (meta.deadline && b.deadlineSource !== 'user' && b.deadlineSource !== 'shift') {
+        if (b.deadline !== meta.deadline) {
+          b.deadline = meta.deadline;
+          changed = true;
+        }
+        // метка обязана называть того, кто срок и правда даёт: иначе свежая
+        // установка и мигрированное состояние разъедутся на ровном месте
+        if (b.deadlineSource !== src) { b.deadlineSource = src; changed = true; }
       }
     }
 
@@ -902,7 +934,7 @@ window.State = (function () {
       var list = byPhase[ph];
       var dates = spreadDeadlines(ph, list.length);
       list.forEach(function (b, i) {
-        upsert(b.id, { phase: b.phase, track: b.track, title: b.title, deadline: dates[i] });
+        upsert(b.id, { phase: b.phase, track: b.track, title: b.title, deadline: dates[i] }, 'spread');
       });
     });
 
