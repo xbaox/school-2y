@@ -60,20 +60,21 @@
     ok(html().indexOf('mono fire') > 0, 'у новичка ноль не красный');
     ok(line(t).indexOf('выбери уровень') > 0, 'и текст зовёт, а не ругает');
 
-    // вчера были очки: день ещё идёт, ругаться не за что
-    State.s.days[U.addDays(t, -1)] = { level: 'min', addons: [], lessons: [], points: 1 };
+    // вчера была учёба: день ещё идёт, ругаться не за что. С 2.7.0 серию
+    // держат урок и минималка, поэтому «продуктивное вчера» — это они, не очки
+    State.s.days[U.addDays(t, -1)] = { level: 'min', addons: [], lessons: [], points: 1, minimalSteps: [true, true] };
     ok(html().indexOf('mono fire') > 0, 'после продуктивного вчера ноль не красный');
     ok(line(t).indexOf('серия 🔥 1 ждёт') > 0, 'строка показывает живую серию');
 
     // вчера было пусто — вот теперь красный
     State.s.days[U.addDays(t, -1)] = { level: 'none', addons: [], lessons: [], points: 0 };
-    State.s.days[U.addDays(t, -2)] = { level: 'full', addons: [], lessons: [], points: 3 };
+    State.s.days[U.addDays(t, -2)] = { level: 'full', addons: [], lessons: ['B1.1'], points: 3 };
     ok(html().indexOf('mono r') > 0, 'вчера пусто — ноль красный');
     eq(line(t), 'сегодня: 0 очков · вчера было пусто — минималка вернёт серию', 'мягкое предупреждение');
 
     // два пустых позади — текст жёстче
     State.s.days[U.addDays(t, -2)] = { level: 'none', addons: [], lessons: [], points: 0 };
-    State.s.days[U.addDays(t, -3)] = { level: 'full', addons: [], lessons: [], points: 3 };
+    State.s.days[U.addDays(t, -3)] = { level: 'full', addons: [], lessons: ['B1.1'], points: 3 };
     eq(line(t), 'сегодня: 0 очков · серия на грани — хватит минималки', 'серия на грани');
   });
 

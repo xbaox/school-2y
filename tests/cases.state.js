@@ -40,10 +40,11 @@
     fresh();
     State.setMode('school');
     State.s.step.position = 3;
-    // вчера с очками — чтобы не сработало правило «серия сломалась»;
-    // до привязки к State.today() тест краснел сам собой через три дня
+    // вчера с учёбой — чтобы не сработало правило «серия сломалась»;
+    // до привязки к State.today() тест краснел сам собой через три дня.
+    // С 2.7.0 серию держат урок и минималка, поэтому одних очков мало
     var t = State.today();
-    State.s.days[U.addDays(t, -1)] = { level: 'min', addons: [], lessons: [], points: 1 };
+    State.s.days[U.addDays(t, -1)] = { level: 'min', addons: [], lessons: [], points: 1, minimalSteps: [true, true] };
 
     var p = summary({ score: 4 });
     State.applySummary('B2.1', p, { date: t });

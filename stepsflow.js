@@ -231,11 +231,12 @@ window.StepsFlow = (function () {
 
     // пустая история — не «сломанная серия»: у новичка серии ещё не было,
     // и первые же три дня без очков не должны ронять ступень
-    var hasHistory = Object.keys(State.s.days).some(function (k) { return State.points(k) > 0; });
+    var hasHistory = Object.keys(State.s.days).some(function (k) { return State.holdsStreak(k); });
     if (!hasHistory) return false;
 
-    // 1) серия сломалась: три пустых дня подряд
-    var empty = DOCTRINE.emptyInRow(State.points, t);
+    // 1) серия сломалась: три пустых дня подряд. Считаем тем же правилом, что
+    // и экран «Сегодня» (ТЗ 1.4): день держат урок и минималка, а не добавки
+    var empty = State.emptyInRow();
     if (empty > DOCTRINE.MAX_EMPTY_IN_ROW) {
       var breakStart = U.addDays(t, -empty);
       var already = (s.history || []).some(function (h) {
