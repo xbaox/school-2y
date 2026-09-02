@@ -167,7 +167,20 @@ function eq(actual, expected, name) {
 /** Асинхронная проверка: fn возвращает промис, итог печатается после всех. */
 function defer(name, fn) { deferred.push({ name: name, group: group, fn: fn }); }
 
+/**
+ * Прогон куска набора в заданный день. Кейс, чьё ожидание привязано к дате,
+ * обязан фиксировать «сегодня»: иначе набор краснеет от того, что прошла
+ * неделя, а не от того, что сломался код. «Сегодня» возвращается на место
+ * даже если проверка внутри упала.
+ */
+function withToday(iso, fn) {
+  const real = ctx.U.today;
+  ctx.U.today = function () { return iso; };
+  try { return fn(); } finally { ctx.U.today = real; }
+}
+
 ctx.describe = describe; ctx.ok = ok; ctx.eq = eq; ctx.defer = defer;
+ctx.withToday = withToday;
 
 /* ---------- наборы проверок ---------- */
 
