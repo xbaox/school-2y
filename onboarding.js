@@ -168,7 +168,8 @@ window.Onboarding = (function () {
     for (var i = 1; i <= data.streak; i++) {
       var date = U.addDays(today, -i);
       if (!State.s.days[date]) {
-        State.s.days[date] = { level: 'min', addons: [], lessons: [], points: 1, imported: true };
+        // minimalSteps обязательны: с 2.7.0 серию держит минималка, а не очки
+        State.s.days[date] = { level: 'min', addons: [], lessons: [], points: 1, imported: true, minimalSteps: [true, true] };
       }
     }
     State.s.stats.bestStreak = Math.max(data.best, data.streak, State.s.stats.bestStreak || 0);

@@ -96,10 +96,12 @@
   });
 
   describe('2.6.5 ремонт: счётчики после миграции согласованы', function () {
+    // с 2.7.0 состояний пять: к open/closed добавились merged, checklist и deleted
+    var STATUSES = ['open', 'closed', 'merged', 'checklist', 'deleted'];
     var out = State.migrate(broken());
-    var open = out.debts.filter(function (d) { return d.status === 'open'; }).length;
+    var known = out.debts.filter(function (d) { return STATUSES.indexOf(d.status) >= 0; }).length;
     var closed = out.debts.filter(function (d) { return d.status === 'closed'; }).length;
-    eq(open + closed, out.debts.length, 'каждый долг ровно в одном состоянии');
+    eq(known, out.debts.length, 'каждый долг ровно в одном состоянии');
     eq(closed, 0, 'закрытых не осталось: единственный был огрызком D-6');
   });
 
@@ -112,9 +114,11 @@
   });
 
   describe('2.6.5 ремонт: чистый банк миграция не трогает', function () {
+    // id вне таблиц ремонта: D-1 и соседей 2.7.0 знает поимённо и правит
+    // по таблице ТЗ 1.2 — это отдельный кейс в cases.migrate-v3.js
     var src = {
       settings: {}, days: {}, summaries: [],
-      debts: [debt({ did: 'D-1', text: 'обычный долг', clearedIn: ['B1.1'] })]
+      debts: [debt({ did: 'D-60', text: 'обычный долг', clearedIn: ['B1.1'] })]
     };
     var out = State.migrate(JSON.parse(JSON.stringify(src)));
     eq(out.debts.length, 1, 'долг на месте');

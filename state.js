@@ -8,7 +8,7 @@ window.State = (function () {
   'use strict';
 
   var KEY = 'study-system-v2';
-  var SCHEMA = 2;
+  var SCHEMA = 3;
   var APP_VERSION = '2.6.5';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
@@ -28,6 +28,106 @@ window.State = (function () {
     B1: '2026-08-29', B2: '2026-08-27', B3: '2026-09-01',
     B4: '2026-09-03', B5: '2026-09-04', B6: '2026-09-07'
   };
+
+  /* ---------- 2.7.0: таксономия долгов (ТЗ 1.1) ---------- */
+
+  /**
+   * Закрытый список категорий долга. Корень пакета «Корень»: ИИ больше не
+   * сочиняет, чем ученик болен, — он выбирает код из этого списка.
+   * Долг без валидного `cat` создать нельзя, и в одной категории не бывает
+   * двух открытых долгов — дубли убиты структурно.
+   * Список правит только Архитектор через ТЗ; из UI он недоступен.
+   */
+  var DEBT_CATS = [
+    // дорожка write — «Письмо и чтение»
+    { code: 'П1', track: 'write', name: 'Point — спорное утверждение с глаголом, не тема и не цель' },
+    { code: 'П2', track: 'write', name: 'Evidence — проверяемый факт: прошедшее время, число, источник' },
+    { code: 'П3', track: 'write', name: 'Explain — разбор именно Evidence («this shows that…»), не пересказ Point' },
+    { code: 'П4', track: 'write', name: 'Link — возврат к Point без обобщений и новых фактов' },
+    { code: 'П5', track: 'write', name: 'Главная мысль текста — предложение с глаголом, накрывающее весь текст' },
+    { code: 'П6', track: 'write', name: 'Полные предложения — без ярлыков, фрагментов после двоеточия, голых формул' },
+    { code: 'П7', track: 'write', name: 'Баллы → объём: число идей и предложений = число marks; формат под команду' },
+    { code: 'П8', track: 'write', name: 'Команда — ответ строго под command word (state / define / explain / assess…)' },
+    { code: 'П9', track: 'write', name: 'Весь вопрос — все части и все требования (длина, язык, форма)' },
+    { code: 'П10', track: 'write', name: 'Вывод из текста (inference) — опирается на конкретную строку текста' },
+    // дорожка math — «Математика»
+    { code: 'М1', track: 'math', name: 'Требования условия — метод, язык ответа, форма («без цифр»), конкретный вопрос' },
+    { code: 'М2', track: 'math', name: 'Ходы записаны, запись читаема — иначе теряются part marks' },
+    { code: 'М3', track: 'math', name: 'Форма ответа — пара (x, y), единицы, знак, округление как просили' },
+    { code: 'М4', track: 'math', name: 'Параметры словами — m и b: знак, единицы, смысл («m = −4 L per hour, which is the rate…»)' },
+    { code: 'М5', track: 'math', name: 'Объяснение решения — одно лицо, present simple, полные предложения, финал называет величину' },
+    { code: 'М6', track: 'math', name: 'Проверка ответа по условию — домен, здравый смысл, подстановка' },
+    { code: 'М7', track: 'math', name: 'Определение термина (define) — категория + отличие, не пример и не число' },
+    { code: 'М8', track: 'math', name: 'Полнота — все части вопроса, вторая половина не брошена' },
+    { code: 'О1', track: 'math', name: 'Вход — после видео задан свой вопрос по материалу' }
+  ];
+
+  /**
+   * Ремонт банка долгов, миграция схемы 2 → 3 (ТЗ 1.2).
+   * `did` — долг, который остаётся (старейший id); `absorbs` — поглощаемые;
+   * `text` — канонический текст; `track` — дорожка, если её меняют.
+   * Тексты поглощённых уходят в `examples`: это живые примеры ошибки,
+   * и терять их вместе с дублями нельзя.
+   */
+  var DEBT_MERGE_V3 = [
+    { did: 'D-1', cat: 'П7', absorbs: ['D-2'], text: 'Баллы → объём: число идей и предложений не совпадает с числом marks; формат ответа не переносится с одной команды на другую' },
+    { did: 'D-10', cat: 'П2', absorbs: [], text: 'Evidence не факт: будущее время / без числа / без источника («I can buy» вместо «Last month I sold 14…»)' },
+    { did: 'D-11', cat: 'П3', absorbs: ['D-43'], text: 'Explain не разбирает Evidence: после факта нет «this shows that…», объясняется Point' },
+    { did: 'D-12', cat: 'П4', absorbs: [], text: 'Link уходит в обобщение или добавляет новый факт вместо возврата к Point' },
+    { did: 'D-13', cat: 'П1', absorbs: ['D-37'], text: 'Point — тема или цель вместо спорного утверждения с глаголом' },
+    { did: 'D-44', cat: 'П5', absorbs: [], text: 'Главная мысль записана как тема без глагола' },
+    { did: 'D-25', cat: 'П6', absorbs: ['D-30', 'D-35', 'D-42'], track: 'write', text: 'Ярлык, фрагмент после двоеточия или голая формула вместо полного предложения' },
+    { did: 'D-5', cat: 'М4', absorbs: ['D-6', 'D-24'], text: 'm и b словами: теряется знак, единицы или смысл (нужно: m = −4 L per hour, which is the rate…)' },
+    { did: 'D-8', cat: 'М1', absorbs: ['D-16', 'D-22', 'D-28', 'D-33'], text: 'Требования условия не выполнены: метод / язык ответа / «без цифр» / конкретный вопрос' },
+    { did: 'D-15', cat: 'М3', absorbs: [], text: 'Ответ системы одним числом вместо пары (x, y); форма ответа не как просили' },
+    { did: 'D-17', cat: 'М5', absorbs: [], text: 'В объяснении решения плавает лицо и время (I would → Add → We\'ll)' },
+    { did: 'D-19', cat: 'М2', absorbs: ['D-23'], text: 'Ходы не записаны или запись нечитаема (450 → 449) — потеря part marks' },
+    { did: 'D-21', cat: 'М8', absorbs: [], text: 'Отвечает на первую половину вопроса, вторую бросает' },
+    { did: 'D-9', cat: 'О1', absorbs: [], text: 'После видео не задан свой вопрос по материалу' }
+  ];
+
+  /** Не долги, а чек-лист языка: из открытых, из колоды и из промпта вон (ТЗ 1.2). */
+  var DEBT_CHECKLIST_V3 = [
+    'D-14', 'D-18', 'D-20', 'D-26', 'D-27', 'D-29', 'D-32',
+    'D-34', 'D-36', 'D-38', 'D-39', 'D-40', 'D-41'
+  ];
+
+  /** Ложный долг: правило про артикль после «is called» выдумано (ТЗ 1.2). */
+  var DEBT_DELETED_V3 = [{ did: 'D-31', reason: 'ложное правило' }];
+
+  /** Закрывается вручную: отработан уроком и тремя разминками (ТЗ 1.2). */
+  var DEBT_CLOSED_V3 = [
+    { did: 'D-3', closedDate: '2026-09-02', note: 'B1.4 + три разминки 30.08–02.09' }
+  ];
+
+  /** Карточки-мусор из B3.1: выдуманные или бессмысленные термины (ТЗ 1.2). */
+  var JUNK_WORDS_V3 = ['coverage test', 'approximate fact', 'conclusion drawn from'];
+
+  /** Категория по коду или null. */
+  function debtCat(code) {
+    var want = String(code || '').trim();
+    for (var i = 0; i < DEBT_CATS.length; i++) if (DEBT_CATS[i].code === want) return DEBT_CATS[i];
+    return null;
+  }
+
+  /** Категории дорожки; 'all' и пусто — обе дорожки (Б16). */
+  function catsForTrack(trackId) {
+    if (!trackId || trackId === 'all') return DEBT_CATS.slice();
+    return DEBT_CATS.filter(function (c) { return c.track === trackId; });
+  }
+
+  /** Дорожка кода категории: П → write, М/О → math. */
+  function catTrack(code) {
+    var c = debtCat(code);
+    return c ? c.track : null;
+  }
+
+  /** Код принадлежит дорожке урока? Для 'all' подходит любой код списка. */
+  function catFitsTrack(code, trackId) {
+    var c = debtCat(code);
+    if (!c) return false;
+    return !trackId || trackId === 'all' || c.track === trackId;
+  }
 
   var PHASE_DATES = {
     p0: { start: '2026-08-18', end: '2026-09-07' },
@@ -254,6 +354,10 @@ window.State = (function () {
 
     repairDebts(out);
 
+    // 2.7.0: ремонт банка долгов, источник дедлайнов, чистка слов и достройка
+    // минималки у импортированных дней. Разовая правка состояния — отсюда версия.
+    if (((o && o.meta && o.meta.version) || 0) < 3) migrateV3(out);
+
     // A-14: свежесть дорожки без единого урока считается от даты онбординга;
     // у состояний, живших до этого поля, точкой отсчёта становится сегодня
     if (!out.meta.onboardedAt) out.meta.onboardedAt = today();
@@ -326,6 +430,213 @@ window.State = (function () {
     }
 
     return report;
+  }
+
+  /* ---------- 2.7.0: миграция схемы 2 → 3 (ТЗ 1.2–1.4) ---------- */
+
+  /** Отчёт последней миграции v3 — для тестов и прогона на копии экспорта. */
+  var lastV3 = null;
+
+  /** Контентный дедлайн блока: Ф0 — из P0_DEADLINES, остальное — из пакета. */
+  function contentDeadline(blockId) {
+    if (P0_DEADLINES[blockId]) return P0_DEADLINES[blockId];
+    var b = window.CONTENT ? CONTENT.block(blockId) : null;
+    return (b && b.deadline) || null;
+  }
+
+  /**
+   * Ремонт банка долгов, источник дедлайнов и правило серии (ТЗ 1.2–1.4).
+   * Идемпотентна дважды: снаружи её запирает версия схемы, внутри каждый шаг
+   * проверяет форму до правки — повторный прогон меняет ноль.
+   * → отчёт «было → стало», он же уходит в консоль.
+   */
+  function migrateV3(out) {
+    var rep = {
+      debts: { before: {}, after: {}, missing: [], merged: [], progress1: [] },
+      blocks: { content: 0, user: 0, none: 0 },
+      words: { fromSummaries: 0, fromSrs: 0, wordsTotal: [0, 0] },
+      days: { minimalBackfilled: 0 },
+      cats: { duplicates: [] }
+    };
+    var debts = out.debts || [];
+
+    function countBy(list) {
+      var acc = {};
+      list.forEach(function (d) { var k = (d && d.status) || 'open'; acc[k] = (acc[k] || 0) + 1; });
+      return acc;
+    }
+    rep.debts.before = countBy(debts);
+    rep.debts.beforeTotal = debts.length;
+
+    var byDid = {};
+    debts.forEach(function (d) { if (d && d.did) byDid[d.did] = d; });
+
+    /** Дата урока из состояния — ею подписывается пример ошибки. */
+    function lessonDate(lessonId) {
+      var l = lessonId && out.lessons && out.lessons[lessonId];
+      return (l && l.date) || null;
+    }
+
+    // 0) поля новой схемы — у каждого долга, включая закрытые и поглощённые:
+    //    UI и промпт обращаются к ним без оглядки на статус
+    debts.forEach(function (d) {
+      if (!d) return;
+      if (!Array.isArray(d.examples)) d.examples = [];
+      if (!Array.isArray(d.failedIn)) d.failedIn = [];
+      if (!Object.prototype.hasOwnProperty.call(d, 'lastInjected')) d.lastInjected = null;
+      if (typeof d.shownCount !== 'number') d.shownCount = 0;
+      if (!Array.isArray(d.clearedIn)) d.clearedIn = [];
+    });
+
+    // 1) слияние дублей по таблице Архитектора
+    DEBT_MERGE_V3.forEach(function (row) {
+      var keep = byDid[row.did];
+      if (!keep) { rep.debts.missing.push(row.did); return; }
+      keep.cat = row.cat;
+      keep.text = row.text;
+      if (row.track) keep.track = row.track;
+
+      (row.absorbs || []).forEach(function (did) {
+        var gone = byDid[did];
+        if (!gone || gone.status === 'merged') return;   // уже поглощён — повтор ничего не делает
+        rep.debts.merged.push(did + '→' + row.did);
+        keep.examples.push({
+          lesson: gone.createdIn || null,
+          text: gone.text,
+          date: lessonDate(gone.createdIn)
+        });
+        (gone.clearedIn || []).forEach(function (x) {
+          if (keep.clearedIn.indexOf(x) < 0) keep.clearedIn.push(x);
+        });
+        gone.status = 'merged';
+        gone.mergedInto = row.did;
+      });
+
+      // объединение могло дать два разных урока — тогда долг закрывается честно
+      var uniq = uniqueLessons(keep.clearedIn);
+      if (uniq.length >= 2) {
+        keep.status = 'closed';
+        if (!keep.closedDate) {
+          var dates = uniq.map(lessonDate).filter(Boolean).sort();
+          keep.closedDate = dates.length ? dates[dates.length - 1] : null;
+        }
+      } else {
+        keep.status = 'open';
+        delete keep.closedDate;
+      }
+      if (uniq.length === 1 && keep.status === 'open') rep.debts.progress1.push(keep.did);
+    });
+
+    // 2) чек-лист языка: это не долги, а привычки правописания
+    DEBT_CHECKLIST_V3.forEach(function (did) {
+      var d = byDid[did];
+      if (!d) { rep.debts.missing.push(did); return; }
+      d.status = 'checklist';
+      delete d.closedDate;
+    });
+
+    // 3) ложный долг: правила, которого нет в языке, ученик не должен «гасить»
+    DEBT_DELETED_V3.forEach(function (row) {
+      var d = byDid[row.did];
+      if (!d) { rep.debts.missing.push(row.did); return; }
+      d.status = 'deleted';
+      d.reason = row.reason;
+    });
+
+    // 4) закрытие вручную — отработано уроком и разминками
+    DEBT_CLOSED_V3.forEach(function (row) {
+      var d = byDid[row.did];
+      if (!d) { rep.debts.missing.push(row.did); return; }
+      d.status = 'closed';
+      d.closedDate = row.closedDate;
+      d.note = row.note;
+    });
+
+    rep.debts.after = countBy(out.debts || []);
+    rep.debts.afterTotal = (out.debts || []).length;
+
+    // контроль ТЗ 1.1: в одной категории не бывает двух открытых
+    var seenCat = {};
+    (out.debts || []).forEach(function (d) {
+      if (!d || d.status !== 'open' || !d.cat) return;
+      if (seenCat[d.cat]) rep.cats.duplicates.push(d.cat + ': ' + seenCat[d.cat] + ' + ' + d.did);
+      else seenCat[d.cat] = d.did;
+    });
+
+    // 5) источник дедлайна блока (ТЗ 1.3). Совпал с контентным — значит его
+    //    поставил контент и следующий пакет вправе его переписать; всё прочее
+    //    считаем поставленным руками и не трогаем.
+    Object.keys(out.blocks || {}).forEach(function (id) {
+      var b = out.blocks[id];
+      if (!b || b.deadlineSource) return;
+      if (!b.deadline) { rep.blocks.none++; return; }
+      var c = contentDeadline(id);
+      b.deadlineSource = (c && c === b.deadline) ? 'content' : 'user';
+      rep.blocks[b.deadlineSource]++;
+    });
+
+    // 6) карточки-мусор. Банк слов живёт в итогах, накладка SRS — рядом:
+    //    вычистить надо оба, иначе слово вернётся из итога на следующий день.
+    var junk = {};
+    JUNK_WORDS_V3.forEach(function (w) { junk[w] = true; });
+    (out.summaries || []).forEach(function (sum) {
+      var list = (sum && sum.parsed && sum.parsed.words) || null;
+      if (!Array.isArray(list)) return;
+      var kept = list.filter(function (w) { return !junk[String((w && w.en) || '').toLowerCase().trim()]; });
+      if (kept.length !== list.length) {
+        rep.words.fromSummaries += list.length - kept.length;
+        sum.parsed.words = kept;
+      }
+    });
+    Object.keys(out.srs || {}).forEach(function (k) {
+      if (junk[String(k).toLowerCase().trim()]) { delete out.srs[k]; rep.words.fromSrs++; }
+    });
+
+    // счётчик слов — размер банка уникальных en (A-21), после чистки он другой
+    rep.words.wordsTotal[0] = (out.stats && out.stats.wordsTotal) || 0;
+    var seenW = {};
+    (out.summaries || []).forEach(function (sum) {
+      (((sum && sum.parsed) || {}).words || []).forEach(function (w) {
+        var k = String((w && w.en) || '').toLowerCase().trim();
+        if (k) seenW[k] = true;
+      });
+    });
+    out.stats.wordsTotal = Object.keys(seenW).length;
+    rep.words.wordsTotal[1] = out.stats.wordsTotal;
+
+    // 7) серия (ТЗ 1.4): день держат урок и минималка, а не добавки. У дней,
+    //    импортированных из v1, поля minimalSteps нет вовсе — а уровень дня
+    //    там и означал, что минималка сделана. Без этой достройки новое
+    //    правило объявило бы пустыми десятки честно прожитых дней.
+    Object.keys(out.days || {}).forEach(function (iso) {
+      var d = out.days[iso];
+      if (!d || Array.isArray(d.minimalSteps)) return;
+      if (!d.imported) return;      // только дни из v1: там уровень и значил «минималка сделана»
+      d.minimalSteps = [true, true];
+      rep.days.minimalBackfilled++;
+    });
+
+    lastV3 = rep;
+    logV3(rep);
+    return rep;
+  }
+
+  /** Сводка «было → стало» в консоль — требование ТЗ 0.3. */
+  function logV3(rep) {
+    function line(acc) {
+      return Object.keys(acc).sort().map(function (k) { return k + ' ' + acc[k]; }).join(' · ') || '—';
+    }
+    console.log('[migrate v3] долги: ' + rep.debts.beforeTotal + ' (' + line(rep.debts.before) + ')' +
+      ' → ' + rep.debts.afterTotal + ' (' + line(rep.debts.after) + ')');
+    console.log('[migrate v3] на 1/2: ' + rep.debts.progress1.length +
+      ' [' + rep.debts.progress1.join(', ') + ']' +
+      ' · дубли категорий: ' + (rep.cats.duplicates.length || 'нет') +
+      (rep.debts.missing.length ? ' · не найдены: ' + rep.debts.missing.join(', ') : ''));
+    console.log('[migrate v3] дедлайны: content ' + rep.blocks.content + ' · user ' + rep.blocks.user +
+      ' · без срока ' + rep.blocks.none);
+    console.log('[migrate v3] слова: −' + rep.words.fromSummaries + ' из итогов · −' + rep.words.fromSrs +
+      ' из SRS · банк ' + rep.words.wordsTotal[0] + ' → ' + rep.words.wordsTotal[1] +
+      ' · дней с достроенной минималкой: ' + rep.days.minimalBackfilled);
   }
 
   /**
@@ -474,14 +785,34 @@ window.State = (function () {
     touch();
   }
 
-  function streak() { return DOCTRINE.streak(points, today()); }
-  function emptyInRow() { return DOCTRINE.emptyInRow(points, today()); }
+  /**
+   * Держит ли день серию (ТЗ 1.4). Держат только закрытый урок и выполненная
+   * минималка. Добавки (Проект, Клуб, Тест, Доп. урок) очки дают, а серию нет:
+   * иначе «Проект» в одиночку заменял учёбу. Исключение — воскресный радар,
+   * он часть доктрины, и такой день не пустой.
+   */
+  function holdsStreak(iso) {
+    var d = s.days[iso];
+    if (!d) return false;
+    if ((d.lessons || []).length) return true;
+    var ms = d.minimalSteps || [];
+    if (ms[0] && ms[1]) return true;
+    // именно воскресный: чек-лист радара отмечается в любой день, и без этой
+    // проверки лазейка «Проекта» просто переехала бы на радар
+    return U.weekday(iso) === 7 && (d.addons || []).indexOf('radar') >= 0;
+  }
+
+  /** Очки для серии: доктрина смотрит только «больше нуля». */
+  function streakPoints(iso) { return holdsStreak(iso) ? 1 : 0; }
+
+  function streak() { return DOCTRINE.streak(streakPoints, today()); }
+  function emptyInRow() { return DOCTRINE.emptyInRow(streakPoints, today()); }
   function weekPoints(iso) { return DOCTRINE.weekPoints(points, iso || today()); }
   function rank(iso) { return DOCTRINE.rankFor(weekPoints(iso), s.settings.ranks); }
   function nextRank(iso) { return DOCTRINE.nextRank(weekPoints(iso), s.settings.ranks); }
 
   function bumpBestStreak() {
-    var cur = DOCTRINE.streak(points, today());
+    var cur = DOCTRINE.streak(streakPoints, today());
     if (cur > (s.stats.bestStreak || 0)) s.stats.bestStreak = cur;
   }
 
@@ -537,6 +868,7 @@ window.State = (function () {
           phase: meta.phase, track: meta.track, title: meta.title,
           deadline: meta.deadline || null, done: false
         };
+        if (meta.deadline) s.blocks[id].deadlineSource = 'content';
         if (meta.note) s.blocks[id].note = meta.note;
         changed = true;
         return;
@@ -545,7 +877,15 @@ window.State = (function () {
       if (meta.track && b.track !== meta.track) { b.track = meta.track; changed = true; }
       if (meta.phase && b.phase !== meta.phase) { b.phase = meta.phase; changed = true; }
       if (meta.note && b.note !== meta.note) { b.note = meta.note; changed = true; }
-      if (!b.deadline && meta.deadline) { b.deadline = meta.deadline; changed = true; }
+      // 2.7.0 (ТЗ 1.3): раньше контент дописывал срок только в пустое место, и
+      // новый пакет до пользователя не доезжал. Теперь пакет переписывает свой
+      // же срок; поставленное руками ('user') и сдвиг фазы ('shift') неприкосновенны.
+      if (meta.deadline && b.deadline !== meta.deadline &&
+        b.deadlineSource !== 'user' && b.deadlineSource !== 'shift') {
+        b.deadline = meta.deadline;
+        b.deadlineSource = 'content';
+        changed = true;
+      }
     }
 
     // 1) блоки из пакетов контента
@@ -661,6 +1001,7 @@ window.State = (function () {
     var b = s.blocks[blockId];
     if (!b) return;
     b.deadline = isoDate || null;
+    b.deadlineSource = 'user';        // руками — значит контент сюда не лезет
     touch();
   }
 
@@ -670,7 +1011,11 @@ window.State = (function () {
     var n = 0;
     Object.keys(s.blocks).forEach(function (id) {
       var b = s.blocks[id];
-      if (b.phase === phaseId && b.deadline) { b.deadline = U.addDays(b.deadline, days); n++; }
+      if (b.phase === phaseId && b.deadline) {
+        b.deadline = U.addDays(b.deadline, days);
+        b.deadlineSource = 'shift';   // сдвиг фазы — тоже решение владельца
+        n++;
+      }
     });
     if (n) touch();
     return n;
@@ -1272,6 +1617,10 @@ window.State = (function () {
     isSkipped: isSkipped, activeLessons: activeLessons,
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
     migrate: migrate, repairDebts: repairDebts, validateImport: validateImport,
+    DEBT_CATS: DEBT_CATS, debtCat: debtCat, catsForTrack: catsForTrack,
+    catTrack: catTrack, catFitsTrack: catFitsTrack,
+    migrationReport: function () { return lastV3; },
+    holdsStreak: holdsStreak, streakPoints: streakPoints,
     subscribe: subscribe, emit: emit,
     applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
     today: today, day: day, points: points, recount: recount,

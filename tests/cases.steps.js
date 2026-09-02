@@ -106,9 +106,10 @@
     eq(StepsFlow.checkDemotion(), false, 'на пустой истории отката нет');
     eq(State.s.step.position, 3, 'ступень не тронута');
 
-    // появился день с очками — механика включается
+    // появился день с учёбой — механика включается. С 2.7.0 «день истории» —
+    // это закрытый урок или выполненная минималка, а не любые очки
     var t = State.today();
-    State.s.days[U.addDays(t, -5)] = { level: 'min', addons: [], lessons: [], points: 1 };
+    State.s.days[U.addDays(t, -5)] = { level: 'min', addons: [], lessons: [], points: 1, minimalSteps: [true, true] };
     eq(StepsFlow.checkDemotion(), true, 'после трёх пустых дней подряд — откат');
     eq(State.s.step.position, 2, 'ступень опустилась на одну');
     State.setMode('summer');
