@@ -153,8 +153,8 @@
 
   describe('память B-08: долги — только своей дорожки', function () {
     fresh();
-    State.applySummary('B1.1', summary({ debts: ['путает however и therefore'] }), { date: '2026-08-19' });
-    State.applySummary('B2.1', summary({ debts: ['путает знак наклона'] }), { date: '2026-08-20' });
+    State.applySummary('B1.1', summary({ debts: ['П3 — путает however и therefore'] }), { date: '2026-08-19' });
+    State.applySummary('B2.1', summary({ debts: ['М1 — путает знак наклона'] }), { date: '2026-08-20' });
 
     var math = PROMPTS.lesson('B2.2', { today: '2026-08-21' });
     ok(math.indexOf('путает знак наклона') > 0, 'свой долг в промпте');
@@ -171,10 +171,10 @@
   describe('память B-04: дорожка all память не фильтрует', function () {
     fresh();
     State.applySummary('B1.1', summary({
-      topics: 'команды заданий', words: [{ en: 'rubric', ru: 'критерии' }], debts: ['путает however']
+      topics: 'команды заданий', words: [{ en: 'rubric', ru: 'критерии' }], debts: ['П3 — путает however']
     }), { date: '2026-08-19' });
     State.applySummary('B2.1', summary({
-      topics: 'наклон', words: [{ en: 'slope', ru: 'наклон' }], debts: ['путает знак наклона']
+      topics: 'наклон', words: [{ en: 'slope', ru: 'наклон' }], debts: ['М1 — путает знак наклона']
     }), { date: '2026-08-20' });
 
     // B16 — блок track:'all' (финалы семестра); уроков в каркасе нет,

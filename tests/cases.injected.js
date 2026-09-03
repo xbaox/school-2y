@@ -18,22 +18,32 @@
     }, over || {});
   }
 
-  /** Восемь открытых долгов дорожки письма: в окно промпта влезают пять. */
+  /**
+   * Восемь открытых долгов дорожки письма: в окно промпта влезают пять.
+   * С 2.7.0 в одной категории живёт один открытый долг, а за урок заводится
+   * не больше трёх — отсюда восемь категорий и три урока.
+   */
   function bank() {
     fresh();
     State.applySummary('B1.1', summary({
-      debts: ['долг один', 'долг два', 'долг три', 'долг четыре']
+      debts: ['П1 — долг один', 'П2 — долг два', 'П3 — долг три']
     }), { date: '2026-08-20' });
     State.applySummary('B1.2', summary({
-      debts: ['долг пять', 'долг шесть', 'долг семь', 'долг восемь']
+      debts: ['П4 — долг четыре', 'П5 — долг пять', 'П6 — долг шесть']
     }), { date: '2026-08-21' });
+    State.applySummary('B1.4', summary({
+      debts: ['П7 — долг семь', 'П8 — долг восемь']
+    }), { date: '2026-08-22' });
   }
 
-  function did(text) {
+  /** Долг по примеру ошибки: текст в банке — «категория — пример». */
+  function byExample(example) {
     var found = null;
-    State.s.debts.forEach(function (d) { if (d.text === text) found = d; });
-    return found && found.did;
+    State.s.debts.forEach(function (d) { if (d.text.indexOf(example) >= 0) found = d; });
+    return found;
   }
+  function did(example) { var d = byExample(example); return d && d.did; }
+  function textOf(example) { var d = byExample(example); return d && d.text; }
 
   describe('2.6.5: промпт и запомненный список — один отбор', function () {
     bank();
@@ -89,7 +99,7 @@
     State.markInjectedDebts('B1.3', State.promptDebts('write'));
     // дословная формулировка непоказанного долга не должна его закрывать
     var res = State.applySummary('B1.3', summary({
-      cleared: ['долг шесть']
+      cleared: [textOf('долг шесть')]
     }), { date: '2026-08-22' });
     eq(res.cleared, 0, 'дословный текст чужого долга не сработал');
     eq(res.foreign, [did('долг шесть')], 'и он опознан как чужой');
@@ -197,16 +207,18 @@
   describe('2.6.5: долг в банк ложится без выдуманного id', function () {
     fresh();
     State.applySummary('B1.1', summary({
-      debts: ['[D-12] Пропускает артикль the']
+      debts: ['[D-12] П6 — Пропускает артикль the']
     }), { date: '2026-08-20' });
     // applySummary принимает уже разобранный итог; через парсер текст чистый
     var p = PROMPTS.parse([
       '=== ИТОГ УРОКА B1.2 ===', 'Пройдено: т', 'Уровень: L2', 'Счёт: 8/10',
-      'Долги:', '[D-77] Запятая перед because', '=== КОНЕЦ ==='
+      'Долги:', '[D-77] П4 — Запятая перед because', '=== КОНЕЦ ==='
     ].join('\n'));
     State.applySummary('B1.2', p, { date: '2026-08-21' });
     var last = State.s.debts[State.s.debts.length - 1];
-    eq(last.text, 'Запятая перед because', 'в банке текст без [D-77]');
+    eq(last.text.indexOf('D-77'), -1, 'в банке текст без [D-77]');
+    ok(/Запятая перед because$/.test(last.text), 'а пример ошибки на месте');
+    eq(last.cat, 'П4', 'категория из строки');
     eq(last.did, 'D-2', 'id присвоила система, по порядку');
   });
 

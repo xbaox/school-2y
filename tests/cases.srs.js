@@ -121,7 +121,7 @@
     eq(Cards.deck().filter(function (c) { return c.en === 'slope'; }).length, 0, 'именно slope');
 
     // долги в колоде остаются и оценок не имеют
-    State.applySummary('B2.2', summary({ debts: ['путает знак наклона'] }), { date: '2026-08-26' });
+    State.applySummary('B2.2', summary({ debts: ['М1 — путает знак наклона'] }), { date: '2026-08-26' });
     var debts = Cards.deck().filter(function (c) { return c.type === 'debt'; });
     eq(debts.length, 1, 'долг в колоде');
     eq(debts[0].en, undefined, 'у долга нет слова для оценки');

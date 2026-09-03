@@ -435,6 +435,7 @@ window.Lesson = (function () {
         (opts.date && opts.date !== State.today() ? ' Закроется числом ' + U.fmtShort(date) + '.' : ''),
       body:
         '<textarea class="txt" data-t placeholder="=== ИТОГ УРОКА ' + U.esc(lessonId) + ' ===&#10;Пройдено: …"></textarea>' +
+        '<div class="tiny dim" style="margin-top:6px">Сюда же вставляется строка разминки: «РАЗМИНКА: D-1 ✓ D-10 ✗ · слова 15/15».</div>' +
         '<div class="sum-err tiny r" style="margin-top:8px"></div>' +
         '<div class="btn-row" style="margin-top:10px">' +
         '<button class="btn sec" data-cancel>Отмена</button>' +
@@ -445,6 +446,18 @@ window.Lesson = (function () {
         setTimeout(function () { ta.focus(); }, 80);
         root.querySelector('[data-cancel]').onclick = close;
         root.querySelector('[data-save]').onclick = function () {
+          // отчёт разминки приходит в это же поле (ТЗ 2.3): урок он не
+          // закрывает, только отмечает касания долгов
+          if (PROMPTS.isWarmup(ta.value)) {
+            var w = PROMPTS.parseWarmup(ta.value);
+            if (!w.ok) { err.textContent = w.error; return; }
+            var wr = State.applyWarmup(w, { date: date });
+            close();
+            UI.toast('Разминка засчитана · касаний ' + wr.touched.length +
+              (wr.failed.length ? ' · не отработано ' + wr.failed.length : ''), 'ok', 4200);
+            if (wr.notices.length) UI.toast(wr.notices.join(' · '), '', 6000);
+            return;
+          }
           var parsed = PROMPTS.parse(ta.value);
           if (!parsed.ok) {
             err.textContent = parsed.error;
