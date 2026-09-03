@@ -822,6 +822,40 @@ window.App = (function () {
     }, Math.max(ms, 5000));
   }
 
+  /**
+   * Смесь версий: service worker умеет отдать часть файлов из старого кэша,
+   * и приложение стартует наполовину новым. Ловим это по API, которого
+   * в 2.6.x не было, и честно просим перезагрузить — молча работать
+   * на половине пакета хуже, чем сказать правду.
+   */
+  var V270 = [
+    ['State', 'stageName'], ['State', 'deckPlan'], ['State', 'debtBoard'],
+    ['State', 'applyWarmup'], ['PROMPTS', 'contractV3'], ['PROMPTS', 'parseWarmup'],
+    ['CONTENT', 'registerGlossary'], ['STEPS', 'stage'], ['Waterfall', 'ruleSaturday']
+  ];
+
+  function mixedBundle() {
+    var missing = [];
+    V270.forEach(function (pair) {
+      var mod = window[pair[0]];
+      if (!mod || typeof mod[pair[1]] !== 'function') missing.push(pair[0] + '.' + pair[1]);
+    });
+    return missing;
+  }
+
+  function warnMixed(missing) {
+    if (!missing.length || !window.UI || !UI.banner) return false;
+    UI.banner('mixed', {
+      kind: 'bad',
+      text: 'Загрузилась смесь версий (' + missing[0] + '). Перезагрузи страницу.',
+      action: {
+        label: 'Перезагрузить',
+        onClick: function () { if (window.location) window.location.reload(true); }
+      }
+    });
+    return true;
+  }
+
   function boot() {
     State.load();
     State.applyAutoMode();
@@ -847,6 +881,7 @@ window.App = (function () {
       if (!document.hidden) render();
     });
     scheduleDayRollover();
+    warnMixed(mixedBundle());
     registerSW();
     if (window.Sync && Sync.available()) {
       // «Сегодня» перерисовываем только когда плашка реально появляется или
@@ -919,6 +954,7 @@ window.App = (function () {
     Today: Today, nextUp: nextUp,
     minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
     stageOffer: stageOffer, debtsLine: debtsLine,
+    mixedBundle: mixedBundle, warnMixed: warnMixed,
     resetOpen: function () { openItem = null; },
     setOpen: function (id) { openItem = id; },
     get active() { return active; }

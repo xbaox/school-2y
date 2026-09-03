@@ -5,7 +5,7 @@
    Пути относительные — приложение живёт в подпапке GitHub Pages.
    ============================================================ */
 
-var VERSION = 'v2.6.5';
+var VERSION = 'v2.7.0';
 var SHELL = 'shell-' + VERSION;
 var FONTS = 'fonts-v1';
 
@@ -34,6 +34,7 @@ var ASSETS = [
   './settings.js',
   './onboarding.js',
   './content/registry.js',
+  './content/glossary.js',
   './content/phase0.js',
   './content/phase1.js',
   './content/phase2.js',
