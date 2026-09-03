@@ -258,6 +258,9 @@ window.State = (function () {
       // min — список разминки. Перезаписывается каждым копированием промпта.
       // По нему «Погашено» проверяется на «этот долг вообще показывали?».
       injected: { min: [], lessons: {} },
+      // Ступень нагрузки по имени (ТЗ 4.4). Двигается только кнопкой владельца:
+      // автоперехода нет ни вверх, ни по расписанию цикла.
+      scale: { stage: null, since: null },
       // Чек-лист языка (ТЗ 2.2, 4.3): пять пунктов, номера фиксированы.
       // stats[i] = { clean, total } — сколько раз пункт был чист из скольких уроков.
       checklist: { stats: [] },
@@ -321,6 +324,17 @@ window.State = (function () {
       out.checklist = { stats: [] };
     }
     if (!Array.isArray(out.checklist.stats)) out.checklist.stats = [];
+
+    // ступень по умолчанию — S0 (ТЗ 4.4). Дефолт безусловный, не по версии
+    // схемы: иначе состояние, пережившее миграцию v3 до этого релиза,
+    // осталось бы без ступени навсегда
+    if (!out.scale || typeof out.scale !== 'object' || Array.isArray(out.scale)) {
+      out.scale = { stage: null, since: null };
+    }
+    if (!out.scale.stage || !STEPS.stage(out.scale.stage)) {
+      out.scale.stage = 'S0';
+      out.scale.since = out.scale.since || today();
+    }
 
     // списки доктрины: пустой или не-массив — берём дефолт целиком
     ['levels', 'addons', 'ranks'].forEach(function (k) {
@@ -857,6 +871,57 @@ window.State = (function () {
   function bumpBestStreak() {
     var cur = DOCTRINE.streak(streakPoints, today());
     if (cur > (s.stats.bestStreak || 0)) s.stats.bestStreak = cur;
+  }
+
+  /* ---------- ступень нагрузки (ТЗ 4.4) ---------- */
+
+  /** Имя текущей ступени: 'S0' … 'Г3'. */
+  function stageName() { return (s.scale && s.scale.stage) || 'S0'; }
+
+  /** Параметры текущей ступени — их видят и карточка урока, и промпт. */
+  function stageParams(iso) {
+    var t = iso || today();
+    return STEPS.params(s.step, t, mode(), stageName());
+  }
+
+  /**
+   * Готов ли ученик к следующей ступени (ТЗ 4.4): средний счёт последних
+   * семи дней ≥ 8 при трёх и более закрытых уроках. Само по себе это ничего
+   * не двигает — только зажигает кнопку.
+   */
+  function readyForNextStage(iso) {
+    var t = iso || today();
+    var from = U.addDays(t, -6);
+    var scores = [];
+    Object.keys(s.lessons).forEach(function (id) {
+      var l = s.lessons[id];
+      if (!l || !l.done || l.score == null || !l.date) return;
+      if (l.date < from || l.date > t) return;
+      scores.push(l.score);
+    });
+    if (scores.length < 3) return false;
+    var sum = scores.reduce(function (a, b) { return a + b; }, 0);
+    return sum / scores.length >= 8;
+  }
+
+  /** Следующая ступень, если кнопку показывать пора, иначе null. */
+  function nextStageOffer(iso) {
+    if (!isSchool()) return null;
+    var next = STEPS.nextStage(stageName());
+    if (!next) return null;
+    return readyForNextStage(iso) ? next : null;
+  }
+
+  /** Поднять ступень. Только руками — автоперехода нет (ТЗ 4.4). */
+  function setStage(name, iso) {
+    if (!STEPS.stage(name)) return false;
+    s.scale.stage = name;
+    s.scale.since = iso || today();
+    // позиция шкалы идёт следом, чтобы цикл и разгрузка не спорили с промптом
+    var r = STEPS.stage(name);
+    if (r.pos >= STEPS.MIN) s.step.position = r.pos;
+    touch();
+    return true;
   }
 
   /* ---------- дорожки ---------- */
@@ -1414,8 +1479,71 @@ window.State = (function () {
    * где мы запоминаем показанное. Иначе списки разъедутся и защита «Погашено»
    * начнёт отвергать долги, которые ИИ честно видел.
    */
-  function promptDebts(trackId) { return openDebts(trackId).slice(0, PROMPT_DEBTS); }
-  function warmupDebts() { return openDebts().slice(0, WARMUP_DEBTS); }
+  /**
+   * 2.7.0: в промпт урока уходят ВСЕ открытые долги дорожки — окно из пяти
+   * FIFO заменено доской по категориям (ТЗ 4.2). Порядок — тот же, что у
+   * пометки ПРИОРИТЕТ, чтобы «Засчитано» и внимание смотрели в одну сторону.
+   */
+  function promptDebts(trackId) {
+    var prio = priorityDebts(trackId);
+    var rest = openDebts(trackId).filter(function (d) { return prio.indexOf(d) < 0; });
+    return prio.concat(rest);
+  }
+
+  /** Разминка: до трёх долгов, тем же правилом внимания (ТЗ 4.5). */
+  function warmupDebts() { return priorityDebts(null).slice(0, WARMUP_DEBTS); }
+
+
+  /* ---------- 2.7.0: долги для промпта (ТЗ 4.2, блок 6) ---------- */
+
+  var PROMPT_PRIORITY = 3;      // столько долгов получают пометку ПРИОРИТЕТ
+
+  /** Категории, по которым строится доска долгов дорожки. */
+  function promptCats(trackId) {
+    return trackHasCats(trackId) ? catsForTrack(trackId) : DEBT_CATS.slice();
+  }
+
+  /**
+   * Порядок внимания: сначала долги на «1/2» — им остался один урок до
+   * закрытия, потом давно не показывавшиеся. Пометку получают первые три.
+   */
+  function priorityDebts(trackId) {
+    function older(a, b) {
+      var x = a.lastInjected || '', y = b.lastInjected || '';
+      if (x !== y) return x < y ? -1 : 1;
+      var sa = a.shownCount || 0, sb = b.shownCount || 0;
+      if (sa !== sb) return sa - sb;
+      return 0;
+    }
+    var open = openDebts(trackId);
+    var half = open.filter(function (d) { return debtProgress(d) === 1; }).sort(older);
+    var rest = open.filter(function (d) { return debtProgress(d) !== 1; }).sort(older);
+    return half.concat(rest).slice(0, PROMPT_PRIORITY);
+  }
+
+  /**
+   * Доска долгов дорожки: по строке на КАЖДУЮ категорию таксономии — и на
+   * открытую, и на чистую. Так преподаватель видит всю карту, а не окно из
+   * пяти FIFO, и не может завести долг вне списка.
+   * → [{ cat, name, debt, priority }]
+   */
+  function debtBoard(trackId) {
+    var open = openDebts(trackId);
+    var byCat = {};
+    open.forEach(function (d) { if (d.cat) byCat[d.cat] = d; });
+    var prio = {};
+    priorityDebts(trackId).forEach(function (d) { prio[d.did] = true; });
+    return promptCats(trackId).map(function (c) {
+      var d = byCat[c.code] || null;
+      return { cat: c.code, name: c.name, debt: d, priority: !!(d && prio[d.did]) };
+    });
+  }
+
+  /** Последний пример ошибки долга или null. */
+  function lastExample(d) {
+    var list = (d && d.examples) || [];
+    return list.length ? list[list.length - 1] : null;
+  }
 
   function debtKey(d) { return (d && (d.did || d.id)) || null; }
 
@@ -1423,8 +1551,16 @@ window.State = (function () {
    * Запоминает, какие долги ушли в промпт. lessonId = null → разминка.
    * Перезаписывается каждым копированием: в работе список из последнего промпта.
    */
-  function markInjectedDebts(lessonId, debts) {
+  function markInjectedDebts(lessonId, debts, opts) {
+    var date = (opts && opts.date) || today();
     var ids = (debts || []).map(debtKey).filter(Boolean);
+    // 2.7.0: долг помнит, когда его показывали и сколько раз — по этому
+    // и выбирается, кому достанется пометка ПРИОРИТЕТ в следующий раз
+    (debts || []).forEach(function (d) {
+      if (!d || !d.did) return;
+      d.lastInjected = date;
+      d.shownCount = (d.shownCount || 0) + 1;
+    });
     if (lessonId) s.injected.lessons[lessonId] = ids;
     else s.injected.min = ids;
     touch();
@@ -1839,6 +1975,8 @@ window.State = (function () {
     blockPace: blockPace, refreshBlockDone: refreshBlockDone,
     setDeadline: setDeadline, shiftPhase: shiftPhase, phaseBlocks: phaseBlocks,
     lessonLabel: lessonLabel,
+    stageName: stageName, stageParams: stageParams, setStage: setStage,
+    readyForNextStage: readyForNextStage, nextStageOffer: nextStageOffer,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
     freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,
@@ -1847,6 +1985,8 @@ window.State = (function () {
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
     warmupWords: warmupWords,
     applyWarmup: applyWarmup, parseDebtLine: parseDebtLine,
+    debtBoard: debtBoard, priorityDebts: priorityDebts, lastExample: lastExample,
+    promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,

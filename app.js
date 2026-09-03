@@ -112,6 +112,12 @@ window.App = (function () {
         State.toggleAddon(el.dataset.addon);
       });
       U.on(host, 'click', '[data-step]', function () { StepsFlow.openDetails(); });
+      U.on(host, 'click', '[data-stage-up]', function (e, el) {
+        var to = el.dataset.stageUp;
+        if (!State.setStage(to)) return;
+        UI.toast('Ступень ' + to + '. Урок станет длиннее — это норма.', 'ok', 4200);
+        render();
+      });
       U.on(host, 'click', '[data-goto-cloud]', function () { gotoCloud(); });
 
       // аккордеон плана: раскрыт один пункт за раз
@@ -388,7 +394,22 @@ window.App = (function () {
       : emptyPlan(t);
 
     return '<div class="plan' + (allDone ? ' done' : '') + '">' +
-      body + sundayEscape(t, d) + planStatus(t, d, allDone) + '</div>';
+      body + sundayEscape(t, d) + planStatus(t, d, allDone) + '</div>' +
+      stageOffer(t);
+  }
+
+  /**
+   * Кнопка «Стало легко → S1» (ТЗ 4.4). Появляется, когда средний счёт
+   * последних семи дней ≥ 8 при трёх и более закрытых уроках. Автоперехода
+   * нет: ступень двигает только владелец, и только отсюда.
+   */
+  function stageOffer(t) {
+    var next = State.nextStageOffer(t);
+    if (!next) return '';
+    return '<div class="stage-offer">' +
+      '<button class="btn pr" data-stage-up="' + U.esc(next) + '">Стало легко → ' + U.esc(next) + '</button>' +
+      '<div class="tiny dim" style="margin-top:6px">Уроки идут ровно: счёт держится восьмёркой. ' +
+      'Ступень поднимается только по этой кнопке.</div></div>';
   }
 
   /** Раскрыт первый невыполненный пункт, пока владелец не решил иначе. */
@@ -884,6 +905,7 @@ window.App = (function () {
     // перерегистрировать, а проверять надо настоящий «Сегодня»
     Today: Today, nextUp: nextUp,
     minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
+    stageOffer: stageOffer,
     resetOpen: function () { openItem = null; },
     setOpen: function (id) { openItem = id; },
     get active() { return active; }

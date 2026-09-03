@@ -2,7 +2,15 @@
 
 describe('шкала 7.2: цифры таблицы v2', function () {
   function r(p) { return STEPS.row(p); }
-  eq([r(1).name, r(1).lesson, r(1).qRange, r(1).start, r(1).transfer], ['S1', 35, '12–14', 'L1', '1'], 'строка S1');
+  // 2.7.0: S1 стал ровно 12 заданий (ТЗ 4.4), перед ним появилась S0
+  eq([r(1).name, r(1).lesson, r(1).qRange, r(1).start, r(1).transfer], ['S1', 35, '12', 'L1', '1'], 'строка S1');
+  var s0 = STEPS.stage('S0');
+  eq([s0.name, s0.title, s0.lesson, s0.qRange, s0.start], ['S0', 'Старт школы', 30, '8', 'L1'], 'строка S0');
+  eq(s0.layout, '2 разогрев L1 · 4 основа L2 · 1 письмо · 1 стретч ⭐', 'раскладка S0');
+  eq(STEPS.stage('S1').layout, '2 разогрев L1 · 7 основа L2 · 1 письмо · 2 стретч ⭐', 'раскладка S1');
+  eq(STEPS.nextStage('S0'), 'S1', 'за S0 идёт S1');
+  eq(STEPS.nextStage('Г3'), null, 'после Г3 шкала кончается');
+  eq(STEPS.stages().length, 8, 'всего восемь ступеней');
   eq([r(2).name, r(2).lesson, r(2).qRange, r(2).start, r(2).transfer], ['S2', 40, '14–16', 'L1', '1–2'], 'строка S2');
   eq([r(3).name, r(3).lesson, r(3).qRange, r(3).start, r(3).transfer], ['S3', 45, '16–18', 'L2', '2'], 'строка S3');
   eq([r(4).name, r(4).lesson, r(4).qRange, r(4).start, r(4).transfer], ['S4', 50, '18–20', 'L2', '2–3'], 'строка S4');

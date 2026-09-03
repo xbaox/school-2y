@@ -34,6 +34,11 @@
     State.applySummary('B1.4', summary({
       debts: ['П7 — долг семь', 'П8 — долг восемь']
     }), { date: '2026-08-22' });
+    // долг чужой дорожки: в промпт урока письма он не попадает никогда,
+    // и именно он играет роль «чужого id» после 2.7.0
+    State.applySummary('B2.1', summary({
+      debts: ['М1 — долг математики']
+    }), { date: '2026-08-23' });
   }
 
   /** Долг по примеру ошибки: текст в банке — «категория — пример». */
@@ -45,21 +50,24 @@
   function did(example) { var d = byExample(example); return d && d.did; }
   function textOf(example) { var d = byExample(example); return d && d.text; }
 
-  describe('2.6.5: промпт и запомненный список — один отбор', function () {
+  describe('2.7.0: промпт и запомненный список — один отбор', function () {
     bank();
     var ids = State.promptDebts('write').map(function (d) { return d.did; });
-    eq(ids.length, 5, 'в окно промпта уходит пять');
+    eq(ids.length, 8, 'в промпт уходят все открытые долги дорожки, а не окно из пяти');
     var text = PROMPTS.lesson('B1.3', { today: '2026-08-22' });
     ids.forEach(function (id) {
-      ok(text.indexOf('[' + id + ']') > 0, id + ' действительно напечатан в промпте');
+      ok(text.indexOf('ОТКРЫТ ' + id + ' ') > 0, id + ' действительно напечатан в промпте');
     });
-    eq(text.indexOf('[' + did('долг шесть') + ']'), -1, 'шестой в промпт не попал');
+    eq(text.indexOf('ОТКРЫТ ' + did('долг математики') + ' '), -1,
+      'долг чужой дорожки в промпт не попал');
+    // пометку внимания получают только три
+    eq((text.match(/← ПРИОРИТЕТ/g) || []).length, 3, 'ПРИОРИТЕТ ровно у трёх');
   });
 
   describe('2.6.5: чужой id ничего не закрывает и виден в отчёте', function () {
     bank();
     State.markInjectedDebts('B1.3', State.promptDebts('write'));
-    var alien = did('долг шесть');                   // существует, но не показан
+    var alien = did('долг математики');              // существует, но чужой дорожки
 
     var res = State.applySummary('B1.3', summary({
       cleared: ['[' + alien + '] отработано']
@@ -99,27 +107,27 @@
     State.markInjectedDebts('B1.3', State.promptDebts('write'));
     // дословная формулировка непоказанного долга не должна его закрывать
     var res = State.applySummary('B1.3', summary({
-      cleared: [textOf('долг шесть')]
+      cleared: [textOf('долг математики')]
     }), { date: '2026-08-22' });
     eq(res.cleared, 0, 'дословный текст чужого долга не сработал');
-    eq(res.foreign, [did('долг шесть')], 'и он опознан как чужой');
+    eq(res.foreign, [did('долг математики')], 'и он опознан как чужой');
   });
 
   describe('2.6.5: разминка расширяет список урока, а не заменяет', function () {
     bank();
     State.markInjectedDebts('B1.3', State.promptDebts('write'));
     var ids = State.injectedDebts('B1.3');
-    eq(ids.length, 5, 'пока разминку не копировали — только окно урока');
+    eq(ids.length, 8, 'пока разминку не копировали — только доска урока');
 
-    State.markInjectedDebts(null, State.warmupDebts());
-    eq(State.injectedDebts('B1.3').length, 5,
-      'первые три разминки и так внутри окна — дублей не появилось');
+    State.markInjectedDebts(null, [{ did: did('долг три') }]);
+    eq(State.injectedDebts('B1.3').length, 8,
+      'долг разминки уже был на доске урока — дублей не появилось');
 
-    // разминка с долгом вне окна урока
-    State.markInjectedDebts(null, [{ did: did('долг семь') }]);
+    // разминка с долгом чужой дорожки: на доске письма его нет
+    State.markInjectedDebts(null, [{ did: did('долг математики') }]);
     var wide = State.injectedDebts('B1.3');
-    eq(wide.length, 6, 'долг разминки добавился к окну урока');
-    ok(wide.indexOf(did('долг семь')) >= 0, 'именно он');
+    eq(wide.length, 9, 'долг разминки добавился к доске урока');
+    ok(wide.indexOf(did('долг математики')) >= 0, 'именно он');
   });
 
   describe('2.6.5: без записи промпта ограничения нет (состояния до 2.6.5)', function () {
@@ -128,7 +136,7 @@
     eq(State.injectedDebts('B1.3'), null, 'списка нет');
     eq(State.injectedPool('B1.3'), null, 'и пула нет');
     var res = State.applySummary('B1.3', summary({
-      cleared: ['[' + did('долг шесть') + '] отработано']
+      cleared: ['[' + did('долг математики') + '] отработано']
     }), { date: '2026-08-22' });
     eq(res.cleared, 1, 'матчинг работает по-старому, а не отвергает всё подряд');
   });
@@ -136,7 +144,7 @@
   describe('2.6.5: каждое копирование перезаписывает список', function () {
     bank();
     State.markInjectedDebts('B1.3', State.promptDebts('write'));
-    eq(State.injectedDebts('B1.3').length, 5, 'пять после первого копирования');
+    eq(State.injectedDebts('B1.3').length, 8, 'вся доска дорожки после первого копирования');
     State.markInjectedDebts('B1.3', [{ did: did('долг восемь') }]);
     eq(State.injectedDebts('B1.3'), [did('долг восемь')], 'второе копирование заменило список');
   });
@@ -163,7 +171,7 @@
     bank();
     State.markInjectedDebts('B1.3', State.promptDebts('write'));
     var back = State.migrate(JSON.parse(JSON.stringify(State.s)));
-    eq(back.injected.lessons['B1.3'].length, 5, 'список урока на месте');
+    eq(back.injected.lessons['B1.3'].length, 8, 'список урока на месте');
     var blank = State.migrate({ settings: {}, days: {} });
     eq(blank.injected, { min: [], lessons: {} }, 'у старого состояния поле создаётся пустым');
   });
@@ -222,9 +230,11 @@
     eq(last.did, 'D-2', 'id присвоила система, по порядку');
   });
 
-  describe('2.6.5: контракт запрещает нумеровать новые долги', function () {
-    var c = PROMPTS.contractBlock({ lessonLabel: '40', lessonMin: 40, qRange: '10–12', ru: '≤30%' });
-    ok(c.indexOf('БЕЗ номеров и без [D-…]') > 0, 'правило 14 дополнено');
-    ok(c.indexOf('чужой id система игнорирует') > 0, 'и предупреждает про «Погашено»');
+  describe('2.7.0: контракт запрещает выдумывать долги', function () {
+    var c = PROMPTS.contractV3();
+    ok(c.indexOf('только с кодом категории из [ДОЛГИ]') > 0, 'новый долг — только по коду');
+    ok(c.indexOf('только за верную демонстрацию долга из [ДОЛГИ] без подсказки') > 0,
+      'и предупреждает про «Засчитано»');
+    ok(c.indexOf('Слов «закрыт», «погашен» не писать') > 0, 'словами долг не закрыть');
   });
 })();
