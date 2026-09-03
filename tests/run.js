@@ -117,6 +117,7 @@ const MODULES = [
   'pace.js',
   'steps.js',
   'content/registry.js',
+  'content/glossary.js',
   'content/phase0.js',
   'content/phase1.js',
   'state.js',

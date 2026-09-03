@@ -268,7 +268,9 @@ window.Waterfall = (function () {
    * дорожку всё равно пропускает.
    */
   function hasLessonsNow(trackId) {
-    return State.nextLessonInTrack(trackId) != null;
+    // именно в текущей фазе — так и написано в подписи. Сквозная очередь
+    // (nextLessonInTrack без фазы) ведёт дальше, но подпись говорит о фазе
+    return State.nextLessonInTrack(trackId, State.currentPhase()) != null;
   }
 
   function freshText(trackId, days) {
