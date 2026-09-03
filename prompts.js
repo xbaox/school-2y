@@ -113,10 +113,14 @@ window.PROMPTS = (function () {
       '[ЭТАПЫ КОНКУРСНОГО УРОКА]',
       '0. Статус-строка: блок/урок, счёт прошлого раза, открытые долги.',
       '1. Задача 1: выдай условие целиком и жди решение (фото с бумаги). Не подсказывай, пока ученик не застрял — тогда по правилу 5.',
-      '2. Разбор задачи 1: сначала полное авторское решение со всеми шагами, потом сравнение с работой студента — что сошлось, где потеря баллов.',
+      '2. Разбор задачи 1: сначала полное авторское решение со всеми шагами, потом сравнение с работой ученика — что сошлось, где потеря баллов.',
       '3. Задачи 2 и 3 — тем же циклом, строго по одной.',
       '4. Одна идея, которую стоит унести с этого урока, и «ИТОГ УРОКА».',
       '',
+      'Долги ПРИОРИТЕТ проверяются внутри разборов задач по записи решения (М1, М2, М3); ' +
+      '«Засчитано» — только за демонстрацию без подсказки.',
+      'Уровень в ИТОГе: L3 — часть B решена полностью; L2 — две задачи из трёх не ниже ' +
+      'половины баллов; L1 — иначе.',
       'Сложность растёт от первой задачи к третьей: первая берётся уверенно, ' +
       'третья — с подсказкой. Разогрева, видео и письменной работы в конкурсном уроке нет; ' +
       'лестница L1/L2/L3 заменена этими тремя задачами.'
@@ -219,8 +223,20 @@ window.PROMPTS = (function () {
    * CONTENT.glossary, инлайн-объект берётся как есть. Висячий ключ молча не
    * пропадает: он и есть сигнал, что пакет контента разъехался с глоссарием.
    */
-  function glossaryBlock(lesson) {
+  /**
+   * Запасной глоссарий: у хвостов Ф0 и будущих пробелов поля terms нет,
+   * а определения ИИ сочинять всё равно не должен. Базовый набор дорожки
+   * печатается тем же блоком и по тем же правилам.
+   */
+  var FALLBACK_TERMS = {
+    write: ['point', 'evidence', 'explain', 'link', 'topic sentence',
+      'concluding sentence', 'main idea', 'arguable', 'state', 'define'],
+    math: ['state', 'define', 'explain (command)', 'describe', 'justify', 'domain', 'range']
+  };
+
+  function glossaryBlock(lesson, trackId) {
     var terms = (lesson && lesson.terms) || [];
+    if (!terms.length) terms = FALLBACK_TERMS[trackId] || FALLBACK_TERMS.write;
     if (!terms.length) return null;
     var lines = ['[ГЛОССАРИЙ] — используй эти определения дословно; своих формулировок не изобретай.'];
     terms.forEach(function (t) {
@@ -292,7 +308,21 @@ window.PROMPTS = (function () {
 
   /* ---------- 4.2 блок 11: ключи ---------- */
 
-  function keysBlock(lesson, contest) {
+  /**
+   * Критерии письма из трёх баллов — по дорожке. В ключах должно стоять,
+   * ЗА ЧТО ставится балл, а не текст задания: текст ученик и так видит
+   * в [КОНТЕКСТ], а преподавателю нужна шкала.
+   */
+  var WRITING_KEY = {
+    math: 'Письмо (3): 1 — все требуемые термины использованы верно; ' +
+      '1 — полные предложения, одно лицо, present simple, финал называет величину; ' +
+      '1 — математически верно',
+    write: 'Письмо (3): 1 — содержание точно по заданию и по тексту; ' +
+      '1 — полные предложения своими словами, без копирования; ' +
+      '1 — чек-лист языка чист'
+  };
+
+  function keysBlock(lesson, contest, trackId) {
     var tasks = (lesson && lesson.tasks) || [];
     var lines = ['=== КЛЮЧИ — для преподавателя; ученик не читает ==='];
     if (!tasks.length) {
@@ -306,7 +336,9 @@ window.PROMPTS = (function () {
         else lines.push('Основа ' + (++n) + ': ' + (t.key || '—'));
       });
     }
-    if (!contest && lesson && lesson.writing) lines.push('Письмо: ' + lesson.writing);
+    if (!contest && lesson && lesson.writing) {
+      lines.push(WRITING_KEY[trackId] || WRITING_KEY.write);
+    }
     return lines.join('\n');
   }
 
@@ -372,7 +404,7 @@ window.PROMPTS = (function () {
     var sums = State.recentSummaries(trackId, 1, lessonId);
     var qs = sums.length ? ((sums[0].parsed || {}).warmup || []) : [];
     qs = qs.filter(function (q) { return q && String(q).trim(); });
-    var words = State.recentWords(trackId, lessonId);
+    var words = State.lastLessonWords(trackId, lessonId);
     var lines = ['[РАЗОГРЕВ] — два задания в начале урока: отсюда и из долгов с пометкой ПРИОРИТЕТ.'];
     lines.push(qs.length
       ? 'Вопросы из прошлого итога: ' + qs.join('; ')
@@ -418,7 +450,7 @@ window.PROMPTS = (function () {
 
     // Порядок блоков — ТЗ 4.2, и он не случайный: контракт первым, ключи
     // последними. Ключ, увиденный раньше попытки, обесценивает урок.
-    var gloss = glossaryBlock(lesson);
+    var gloss = glossaryBlock(lesson, trackId);
     var text = textBlock(lesson);
     return [
       'Ты — мой персональный преподаватель школьной программы Онтарио.',
@@ -457,7 +489,7 @@ window.PROMPTS = (function () {
       '',
       finalBlock(lessonId, contest),
       '',
-      keysBlock(lesson, contest)
+      keysBlock(lesson, contest, trackId)
     ].filter(function (l) { return l !== null; }).join('\n');
   }
 
