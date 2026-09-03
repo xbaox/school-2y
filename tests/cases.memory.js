@@ -32,7 +32,7 @@
     ok(prompt.indexOf('B1.1') > 0, 'итог подписан номером урока');
 
     // вопросы стоят внутри своего блока, а не свалены в кучу
-    var warm = prompt.slice(prompt.indexOf('[РАЗОГРЕВ]'), prompt.indexOf('[ЭТАПЫ УРОКА]'));
+    var warm = prompt.slice(prompt.indexOf('[РАЗОГРЕВ]'), prompt.indexOf('[ЭТАПЫ УРОКА — '));
     ok(warm.indexOf('что такое rubric?') > 0, 'вопросы стоят внутри блока разогрева');
   });
 
