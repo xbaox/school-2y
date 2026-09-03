@@ -147,7 +147,7 @@
     State.applySummary('B1.1', {
       score: 8, level: 'L2', topics: 'x',
       words: [{ en: 'rubric', ru: 'критерии' }, { en: 'submit', ru: 'сдать' }],
-      debts: ['путает justify'], cleared: [], warmup: [], writing: '', raw: ''
+      debts: ['П8 — путает justify'], cleared: [], warmup: [], writing: '', raw: ''
     }, { date: MON });
     var d = State.day(MON, true);
     d.level = 'min';

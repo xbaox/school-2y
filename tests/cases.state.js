@@ -21,7 +21,7 @@
     var t = State.today();
     var p = summary({
       score: 5, words: [{ en: 'slope', ru: 'наклон' }, { en: 'vertex', ru: 'вершина' }],
-      debts: ['путает знак наклона']
+      debts: ['М1 — путает знак наклона']
     });
 
     var r1 = State.applySummary('B2.1', p, { date: t });
@@ -76,27 +76,28 @@
   describe('долги A-08: частичное совпадение требует длины и доли', function () {
     fresh();
     State.applySummary('B2.1', summary({
-      debts: ['путает знак наклона', 'не переводит per в умножение']
+      debts: ['М1 — путает знак наклона', 'М3 — не переводит per в умножение']
     }), { date: '2026-08-20' });
+    var first = State.s.debts[0];
 
-    ok(State.matchDebt('путает знак наклона', 'math'), 'точное совпадение находится');
+    ok(State.matchDebt(first.text, 'math'), 'точное совпадение находится');
     ok(!State.matchDebt('знак', 'math'), 'короткий огрызок долг не гасит');
     ok(!State.matchDebt('per', 'math'), 'три буквы — не совпадение');
-    ok(State.matchDebt('путает знак наклона в графике', 'math'), 'близкая по длине строка совпадает');
+    ok(State.matchDebt(first.text + ' в графике', 'math'), 'близкая по длине строка совпадает');
     ok(!State.matchDebt('квадратное уравнение', 'math'), 'посторонний текст ничего не гасит');
   });
 
   describe('долг закрывается двумя разными уроками (8.4)', function () {
     fresh();
-    State.applySummary('B2.1', summary({ debts: ['путает знак наклона'] }), { date: '2026-08-20' });
-    State.applySummary('B2.2', summary({ cleared: ['путает знак наклона'] }), { date: '2026-08-21' });
+    State.applySummary('B2.1', summary({ debts: ['М1 — путает знак наклона'] }), { date: '2026-08-20' });
+    State.applySummary('B2.2', summary({ cleared: [State.s.debts[0].text] }), { date: '2026-08-21' });
     eq(State.s.debts[0].status, 'open', 'после одного урока долг ещё открыт');
 
     // тот же урок второй раз — не второй урок
-    State.applySummary('B2.2', summary({ cleared: ['путает знак наклона'] }), { date: '2026-08-21' });
+    State.applySummary('B2.2', summary({ cleared: [State.s.debts[0].text] }), { date: '2026-08-21' });
     eq(State.s.debts[0].status, 'open', 'повтор того же урока долг не закрывает');
 
-    State.applySummary('B2.3', summary({ cleared: ['путает знак наклона'] }), { date: '2026-08-22' });
+    State.applySummary('B2.3', summary({ cleared: [State.s.debts[0].text] }), { date: '2026-08-22' });
     eq(State.s.debts[0].status, 'closed', 'два разных урока — долг закрыт');
   });
 
