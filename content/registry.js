@@ -48,6 +48,30 @@ window.CONTENT = (function () {
   var packs = {};          // phase → pack
   var blocks = {};         // blockId → block
   var lessons = {};        // lessonId → lesson
+  var glossary = {};       // ключ → { en, ru, def, ex, non }
+
+  /**
+   * Глоссарий понятий (ТЗ 3.1). Один общий словарь на все фазы: уроки
+   * ссылаются на ключи в поле terms, промпт разворачивает их дословно.
+   * Определения приходят от Архитектора — ИИ их не сочиняет.
+   */
+  function registerGlossary(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return 0;
+    var n = 0;
+    Object.keys(obj).forEach(function (k) {
+      var e = obj[k];
+      if (!e || typeof e !== 'object') return;
+      glossary[k] = e;
+      n++;
+    });
+    return n;
+  }
+
+  /** Запись глоссария по ключу или null. */
+  function term(key) {
+    var k = String(key == null ? '' : key);
+    return Object.prototype.hasOwnProperty.call(glossary, k) ? glossary[k] : null;
+  }
 
   function register(pack) {
     if (!pack || !pack.phase) return;
@@ -75,7 +99,12 @@ window.CONTENT = (function () {
     var q = window.__CONTENT_Q;
     if (!q || !q.length) return 0;
     var n = q.length;
-    while (q.length) register(q.shift());
+    while (q.length) {
+      var item = q.shift();
+      // в очереди лежат и пакеты фаз, и глоссарий — различаем по форме
+      if (item && item.glossary) registerGlossary(item.glossary);
+      else register(item);
+    }
     return n;
   }
 
@@ -95,10 +124,18 @@ window.CONTENT = (function () {
 
   function num(blockId) { return parseInt(String(blockId).replace(/\D/g, ''), 10) || 0; }
 
+  /** Подпись блока из контента (например 'К' у суббот) или null. */
+  function label(blockId) {
+    var b = blocks[blockId];
+    return (b && b.label) || null;
+  }
+
   drainQueue();
 
   return {
-    register: register, drainQueue: drainQueue, pack: pack, block: block, lesson: lesson,
+    register: register, registerGlossary: registerGlossary, drainQueue: drainQueue,
+    pack: pack, block: block, lesson: lesson, term: term, label: label,
+    get glossary() { return glossary; },
     lessons: blockLessons, hasLessons: hasLessons,
     allBlocks: allBlocks, phaseBlocks: phaseBlocks, num: num,
     COURSE_TRACK: COURSE_TRACK, COURSES_NO_TRACK: COURSES_NO_TRACK, trackForCourse: trackForCourse

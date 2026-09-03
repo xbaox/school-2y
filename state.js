@@ -1082,8 +1082,20 @@ window.State = (function () {
 
   function blockNum(id) { return parseInt(String(id).replace(/\D/g, ''), 10) || 0; }
 
-  /** Отображаемый номер блока: B12 → Б12. */
-  function blockLabel(id) { return 'Б' + blockNum(id); }
+  /**
+   * Отображаемый номер блока: B12 → Б12. Контент может задать свою подпись
+   * полем label — так субботний блок B53 показывается как «К» (ТЗ 3.1).
+   */
+  function blockLabel(id) {
+    var own = window.CONTENT && CONTENT.label ? CONTENT.label(id) : null;
+    return own || ('Б' + blockNum(id));
+  }
+
+  /** Отображаемая подпись урока: B53.1 → К.1, B7.2 → Б7.2. */
+  function lessonLabel(lessonId) {
+    var p = String(lessonId).split('.');
+    return blockLabel(p[0]) + '.' + (p[1] || '1');
+  }
 
   /** Отображаемый номер урока: B12.3 → урок 3. */
   function lessonNum(lessonId) {
@@ -1826,6 +1838,7 @@ window.State = (function () {
     block: block, blockLessons: blockLessons, blockProgress: blockProgress,
     blockPace: blockPace, refreshBlockDone: refreshBlockDone,
     setDeadline: setDeadline, shiftPhase: shiftPhase, phaseBlocks: phaseBlocks,
+    lessonLabel: lessonLabel,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
     freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,
