@@ -395,7 +395,20 @@ window.App = (function () {
 
     return '<div class="plan' + (allDone ? ' done' : '') + '">' +
       body + sundayEscape(t, d) + planStatus(t, d, allDone) + '</div>' +
-      stageOffer(t);
+      debtsLine() + stageOffer(t);
+  }
+
+  /**
+   * Одна строка про долги под блоком урока (ТЗ 7). Индикатор на карточке
+   * колоды отменён владельцем и не возвращается — здесь и только здесь.
+   */
+  function debtsLine() {
+    var open = State.openDebts();
+    if (!open.length) return '';
+    var half = open.filter(function (d) { return State.debtProgress(d) === 1; }).length;
+    return '<div class="tiny dim center" style="margin-top:8px">долги: ' +
+      open.length + ' ' + U.plural(open.length, 'открытый', 'открытых', 'открытых') +
+      (half ? ' · ' + half + ' на 1/2' : '') + '</div>';
   }
 
   /**
@@ -905,7 +918,7 @@ window.App = (function () {
     // перерегистрировать, а проверять надо настоящий «Сегодня»
     Today: Today, nextUp: nextUp,
     minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
-    stageOffer: stageOffer,
+    stageOffer: stageOffer, debtsLine: debtsLine,
     resetOpen: function () { openItem = null; },
     setOpen: function (id) { openItem = id; },
     get active() { return active; }
