@@ -945,9 +945,12 @@ window.State = (function () {
     return id;
   }
 
-  /** Активная фаза по сегодняшней дате (или последняя начавшаяся). */
-  function currentPhase() {
-    var t = today(), pd = s.settings.phaseDates, last = PHASES[0].id;
+  /**
+   * Активная фаза по дате (или последняя начавшаяся). Без аргумента —
+   * по сегодняшнему дню; правила водопада передают свой день явно.
+   */
+  function currentPhase(iso) {
+    var t = iso || today(), pd = s.settings.phaseDates, last = PHASES[0].id;
     for (var i = 0; i < PHASES.length; i++) {
       var id = PHASES[i].id, d = pd[id];
       if (!d) continue;
