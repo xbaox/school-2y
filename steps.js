@@ -24,6 +24,7 @@ window.STEPS = (function () {
     pos: 0, name: 'S0', title: 'Старт школы',
     norm: 45, full: 75, lesson: 30, qRange: '8',
     layout: '2 разогрев L1 · 4 основа L2 · 1 письмо · 1 стретч ⭐',
+    slots: { warm: 2, base: 4, write: 1, stretch: 1 },
     sprintLabel: '~13–15 минут',
     start: 'L1', transfer: '1', ru: '≤40%', note: 'старт школы', special: ''
   };
@@ -32,6 +33,7 @@ window.STEPS = (function () {
     {
       pos: 1, name: 'S1', title: 'S1', norm: 45, full: 75, lesson: 35, qRange: '12',
       layout: '2 разогрев L1 · 7 основа L2 · 1 письмо · 2 стретч ⭐',
+      slots: { warm: 2, base: 7, write: 1, stretch: 2 },
       start: 'L1', transfer: '1', ru: '≤40%', note: 'шкала пошла', special: ''
     },
     {
@@ -87,6 +89,17 @@ window.STEPS = (function () {
   function row(pos) { return TABLE[U.clamp(pos || 1, MIN, MAX) - 1]; }
 
   /** Ступень по имени: 'S0' → отдельная строка, остальные — из таблицы. */
+  /**
+   * Раскладка заданий ступени. У S0 и S1 она задана ТЗ; у S2–Г3 своей нет,
+   * и считается по тому же правилу: разогрев 2 · письмо 1 · стретч 2 ·
+   * остальное — основа, от нижней границы диапазона заданий.
+   */
+  function slotsOf(r) {
+    if (r.slots) return r.slots;
+    var total = parseInt(String(r.qRange).split('–')[0], 10) || 12;
+    return { warm: 2, base: Math.max(1, total - 5), write: 1, stretch: 2 };
+  }
+
   function stage(name) {
     if (name === 'S0') return S0;
     for (var i = 0; i < TABLE.length; i++) if (TABLE[i].name === name) return TABLE[i];
@@ -142,6 +155,7 @@ window.STEPS = (function () {
       name: r.name,
       title: r.title || r.name,
       layout: r.layout || '',
+      slots: slotsOf(r),
       sprintLabel: r.sprintLabel || '',
       stepLabel: summer ? 'Лето' : r.name,
       summer: summer,
@@ -198,7 +212,7 @@ window.STEPS = (function () {
   return {
     TABLE: TABLE, MAX: MAX, MIN: MIN, CYCLE_DAYS: CYCLE_DAYS, SUMMER_PRESET: SUMMER_PRESET,
     RAMP_UNTIL: RAMP_UNTIL, onRamp: onRamp, CARD_LEGEND: CARD_LEGEND,
-    S0: S0, stage: stage, stages: stages, nextStage: nextStage,
+    S0: S0, stage: stage, stages: stages, nextStage: nextStage, slotsOf: slotsOf,
     row: row, label: label, isTop: isTop,
     onDeload: onDeload, effectivePos: effectivePos,
     params: params, cardLine: cardLine, lessonLine: lessonLine, cycle: cycle

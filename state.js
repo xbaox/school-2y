@@ -1554,10 +1554,15 @@ window.State = (function () {
   function markInjectedDebts(lessonId, debts, opts) {
     var date = (opts && opts.date) || today();
     var ids = (debts || []).map(debtKey).filter(Boolean);
-    // 2.7.0: долг помнит, когда его показывали и сколько раз — по этому
-    // и выбирается, кому достанется пометка ПРИОРИТЕТ в следующий раз
+    // 2.7.0: отметку показа получают только долги с пометкой ПРИОРИТЕТ —
+    // те, что реально пошли в работу. Если метить всю доску, «давно не
+    // показывавшиеся» совпадут у всех и ротация внимания умрёт.
+    var prio = {};
+    priorityDebts(lessonId ? lessonTrack(lessonId) : null).forEach(function (d) {
+      prio[d.did] = true;
+    });
     (debts || []).forEach(function (d) {
-      if (!d || !d.did) return;
+      if (!d || !d.did || !prio[d.did]) return;
       d.lastInjected = date;
       d.shownCount = (d.shownCount || 0) + 1;
     });
