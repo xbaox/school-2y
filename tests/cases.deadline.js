@@ -106,11 +106,13 @@
     var html = Waterfall.fullBars();       // просто чтобы модуль был жив
     ok(html, 'модуль водопада отвечает');
 
-    // порядок правил виден в шторке «Кто получает урок дня»
-    var kinds = ['deadline', 'radar', 'fresh', 'pace', 'debts', 'plan'];
-    eq(Waterfall.EXPLAIN.map(function (r) { return r.kind; }), kinds, 'дедлайн — первый');
-    eq(Waterfall.EXPLAIN.map(function (r) { return r.n; }), [1, 2, 3, 4, 5, 6], 'нумерация подряд');
-    eq(Waterfall.EXPLAIN[0].name, 'Дедлайн', 'называется понятно');
-    ok(Waterfall.EXPLAIN[0].cond.indexOf('срок блока сегодня или позади') === 0, 'условие описано');
+    // порядок правил виден в шторке «Кто получает урок дня».
+    // С 2.7.0 первой стоит суббота ⭐: блок К дедлайна не имеет вовсе,
+    // и любое правило ниже забрало бы субботу себе
+    var kinds = ['contest', 'deadline', 'radar', 'fresh', 'pace', 'debts', 'plan'];
+    eq(Waterfall.EXPLAIN.map(function (r) { return r.kind; }), kinds, 'суббота ⭐, за ней дедлайн');
+    eq(Waterfall.EXPLAIN.map(function (r) { return r.n; }), [1, 2, 3, 4, 5, 6, 7], 'нумерация подряд');
+    eq(Waterfall.EXPLAIN[1].name, 'Дедлайн', 'дедлайн называется понятно');
+    ok(Waterfall.EXPLAIN[1].cond.indexOf('срок блока сегодня или позади') === 0, 'условие описано');
   });
 })();

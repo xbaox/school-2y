@@ -3,9 +3,10 @@
    и свежесть дорожек (7.4).
 
    Сверху вниз, первое сработавшее правило назначает дорожку:
-   1. Радар (событие ≤3 дней) · 2. Свежесть (≥5 дней без урока)
-   3. Светофор (красный блок) · 4. Долги (≥5 открытых)
-   5. Шаблон недели. Воскресенье — радар-день, урок не назначается.
+   0. Суббота ⭐ (конкурсный урок блока К) · 1. Дедлайн блока
+   2. Радар (событие ≤3 дней) · 3. Свежесть (≥5 дней без урока)
+   4. Светофор (красный блок) · 5. Долги (≥5 открытых)
+   6. Шаблон недели. Воскресенье — радар-день, урок не назначается.
    Дорожка без доступных уроков пропускается всеми правилами.
    ============================================================ */
 
@@ -83,7 +84,6 @@ window.Waterfall = (function () {
     };
   }
 
-  /** 3. Светофор: блок с красным темпом. */
   /**
    * Правило 1: у блока дедлайн сегодня или уже позади, а незакрытый урок
    * в нём остался.
@@ -99,7 +99,7 @@ window.Waterfall = (function () {
       var da = State.s.blocks[a].deadline || '9999', db = State.s.blocks[b].deadline || '9999';
       // раньше дедлайн — раньше очередь; при равных берём младший блок
       if (da !== db) return da < db ? -1 : 1;
-      return CONTENT.num(a) - CONTENT.num(b);
+      return (window.CONTENT ? CONTENT.num(a) - CONTENT.num(b) : 0);
     });
     for (var i = 0; i < ids.length; i++) {
       var b = State.s.blocks[ids[i]];
@@ -181,7 +181,35 @@ window.Waterfall = (function () {
     };
   }
 
-  var RULES = [ruleDeadline, ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
+  /**
+   * Правило 0: суббота ⭐ — день конкурсных задач CEMC.
+   * Стоит выше дедлайна намеренно: блок К дедлайна не имеет вовсе, и любое
+   * правило ниже забрало бы субботу себе. Конкурсных уроков нет — правило
+   * молчит, и суббота идёт как раньше, по шаблону недели.
+   */
+  function ruleSaturday(t, exclude) {
+    if (U.weekday(t) !== 6) return null;
+    if (!window.CONTENT) return null;
+    var phase = State.currentPhase(t);
+    var blocks = CONTENT.phaseBlocks(phase);
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (exclude && b.track === exclude) continue;
+      var list = State.activeLessons(b.id);
+      for (var j = 0; j < list.length; j++) {
+        if (!PROMPTS.isContest(list[j])) continue;
+        var st = State.s.lessons[list[j].id];
+        if (st && st.done) continue;
+        return {
+          track: b.track, blockId: b.id, lessonId: list[j].id,
+          reason: { kind: 'contest', text: 'суббота ⭐: задачи CEMC' }
+        };
+      }
+    }
+    return null;
+  }
+
+  var RULES = [ruleSaturday, ruleDeadline, ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
 
   /** Следующий незакрытый урок блока; пропущенные водопад не назначает. */
   function nextInBlock(blockId) {
@@ -355,13 +383,14 @@ window.Waterfall = (function () {
   /* ---------- объяснение выбора: правило выбора урока ---------- */
 
   var EXPLAIN = [
-    { kind: 'deadline', n: 1, name: 'Дедлайн', cond: 'срок блока сегодня или позади, урок в нём не закрыт', act: '→ этот блок' },
-    { kind: 'radar', n: 2, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
-    { kind: 'fresh', n: 3, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней', act: '→ она' },
-    { kind: 'pace', n: 4, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
-    { kind: 'debts', n: 5, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },
+    { kind: 'contest', n: 1, name: 'Суббота ⭐', cond: 'суббота, и в фазе остался конкурсный урок', act: '→ блок К' },
+    { kind: 'deadline', n: 2, name: 'Дедлайн', cond: 'срок блока сегодня или позади, урок в нём не закрыт', act: '→ этот блок' },
+    { kind: 'radar', n: 3, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
+    { kind: 'fresh', n: 4, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней', act: '→ она' },
+    { kind: 'pace', n: 5, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
+    { kind: 'debts', n: 6, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },
     {
-      kind: 'plan', n: 6, name: 'Шаблон недели',
+      kind: 'plan', n: 7, name: 'Шаблон недели',
       cond: 'пн мат · вт письмо · ср мат · чт инфа/бизнес · пт мат · сб письмо ⭐ · вс радар', act: '→ по шаблону'
     }
   ];
@@ -393,7 +422,8 @@ window.Waterfall = (function () {
   return {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
-    hasLessonsNow: hasLessonsNow, ruleDeadline: ruleDeadline, EXPLAIN: EXPLAIN,
+    hasLessonsNow: hasLessonsNow, ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday,
+    EXPLAIN: EXPLAIN,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };
 })();
