@@ -132,7 +132,7 @@ window.Lesson = (function () {
 
     var blockId = lesson.blockId;
     var b = State.block(blockId) || {};
-    var p = STEPS.params(State.s.step, todayIso, State.mode());
+    var p = STEPS.params(State.s.step, todayIso, State.mode(), State.stageName());
     var pr = State.blockProgress(blockId);
     var pace = State.blockPace(blockId);
     var d = State.day(todayIso) || { lessons: [], addons: [] };

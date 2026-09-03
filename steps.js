@@ -14,10 +14,25 @@ window.STEPS = (function () {
    * Колонки norm и full — бюджет минут на день (уровни дня доктрины),
    * с длительностью урока не связаны и релизом не менялись.
    */
+  /**
+   * S0 «Старт школы» (ТЗ 2.7.0, п. 4.4) — ступень до шкалы: тридцать минут
+   * и восемь заданий, чтобы первая школьная неделя не сорвалась об объём.
+   * В нумерации TABLE её нет намеренно: step.position в живом состоянии
+   * по-прежнему значит S1…Г3, и сдвигать этот смысл миграцией нельзя.
+   */
+  var S0 = {
+    pos: 0, name: 'S0', title: 'Старт школы',
+    norm: 45, full: 75, lesson: 30, qRange: '8',
+    layout: '2 разогрев L1 · 4 основа L2 · 1 письмо · 1 стретч ⭐',
+    sprintLabel: '~13–15 минут',
+    start: 'L1', transfer: '1', ru: '≤40%', note: 'старт школы', special: ''
+  };
+
   var TABLE = [
     {
-      pos: 1, name: 'S1', norm: 45, full: 75, lesson: 35, qRange: '12–14',
-      start: 'L1', transfer: '1', ru: '≤40%', note: 'старт школы', special: ''
+      pos: 1, name: 'S1', title: 'S1', norm: 45, full: 75, lesson: 35, qRange: '12',
+      layout: '2 разогрев L1 · 7 основа L2 · 1 письмо · 2 стретч ⭐',
+      start: 'L1', transfer: '1', ru: '≤40%', note: 'шкала пошла', special: ''
     },
     {
       pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, qRange: '14–16',
@@ -70,6 +85,25 @@ window.STEPS = (function () {
   function onRamp(todayIso) { return String(todayIso || '') <= RAMP_UNTIL; }
 
   function row(pos) { return TABLE[U.clamp(pos || 1, MIN, MAX) - 1]; }
+
+  /** Ступень по имени: 'S0' → отдельная строка, остальные — из таблицы. */
+  function stage(name) {
+    if (name === 'S0') return S0;
+    for (var i = 0; i < TABLE.length; i++) if (TABLE[i].name === name) return TABLE[i];
+    return null;
+  }
+
+  /** Все ступени по порядку: S0, S1 … Г3. */
+  function stages() { return [S0].concat(TABLE); }
+
+  /** Следующая ступень за этой или null на потолке. */
+  function nextStage(name) {
+    var list = stages();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].name === name) return list[i + 1] ? list[i + 1].name : null;
+    }
+    return null;
+  }
   function label(pos) { return row(pos).name; }
   function isTop(pos) { return U.clamp(pos, MIN, MAX) >= MAX; }
 
@@ -90,14 +124,25 @@ window.STEPS = (function () {
    * mode 'summer' → строка S2 под подписью «Лето»: до старта школы шкала
    * ещё не идёт, и номер ступени на экране только путал.
    */
-  function params(step, todayIso, mode) {
+  /**
+   * Параметры для карточки урока и промпта — всегда одни и те же.
+   * mode 'summer' → строка S2 под подписью «Лето»: до старта школы шкала
+   * ещё не идёт, и номер ступени на экране только путал.
+   * stageName (ТЗ 4.4) — названная ступень из state.scale; она главнее
+   * позиции, потому что двигается только кнопкой владельца.
+   */
+  function params(step, todayIso, mode, stageName) {
     var summer = mode !== 'school';
+    var named = !summer && stageName ? stage(stageName) : null;
     var pos = summer ? SUMMER_PRESET : effectivePos(step, todayIso);
-    var r = row(pos);
+    var r = named || row(pos);
     var ramp = onRamp(todayIso);
     return {
-      pos: pos,
+      pos: named ? named.pos : pos,
       name: r.name,
+      title: r.title || r.name,
+      layout: r.layout || '',
+      sprintLabel: r.sprintLabel || '',
       stepLabel: summer ? 'Лето' : r.name,
       summer: summer,
       deload: !summer && onDeload(step, todayIso),
@@ -153,6 +198,7 @@ window.STEPS = (function () {
   return {
     TABLE: TABLE, MAX: MAX, MIN: MIN, CYCLE_DAYS: CYCLE_DAYS, SUMMER_PRESET: SUMMER_PRESET,
     RAMP_UNTIL: RAMP_UNTIL, onRamp: onRamp, CARD_LEGEND: CARD_LEGEND,
+    S0: S0, stage: stage, stages: stages, nextStage: nextStage,
     row: row, label: label, isTop: isTop,
     onDeload: onDeload, effectivePos: effectivePos,
     params: params, cardLine: cardLine, lessonLine: lessonLine, cycle: cycle
