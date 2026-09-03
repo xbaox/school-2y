@@ -1543,6 +1543,24 @@ window.State = (function () {
       .map(function (w) { return { en: w.en, ru: w.ru }; });
   }
 
+  /**
+   * Слова ПРОШЛОГО урока этой дорожки — ровно они, без добора случайными.
+   * Добор тянул в математику «main idea» и «to explain» из урока чтения:
+   * повторы по расписанию — дело разминки и колоды, а не разогрева урока.
+   */
+  function lastLessonWords(trackId, excludeLessonId) {
+    var sums = recentSummaries(trackId, 1, excludeLessonId);
+    if (!sums.length) return [];
+    var out = [], seen = {};
+    (((sums[0].parsed) || {}).words || []).forEach(function (w) {
+      var k = wordKey(w.en);
+      if (!k || seen[k] || wordStatus(w.en) === 'known') return;
+      seen[k] = true;
+      out.push({ en: w.en, ru: w.ru });
+    });
+    return out;
+  }
+
   /** Слова двух последних уроков дорожки + 5 случайных старых, вперемешку (раздел 8.1). */
   function recentWords(trackId, excludeLessonId) {
     var sums = recentSummaries(trackId, 2, excludeLessonId);
@@ -2102,7 +2120,8 @@ window.State = (function () {
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,
     setDeckCursor: setDeckCursor, DECK_CAP: DECK_CAP, DECK_DEBTS: DECK_DEBTS,
-    recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
+    recentWords: recentWords, lastLessonWords: lastLessonWords,
+    openDebts: openDebts, debtsCount: debtsCount,
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,
     activeWords: activeWords, wordCounts: wordCounts, lessonWords: lessonWords,
