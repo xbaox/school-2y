@@ -7,7 +7,8 @@
 (function () {
   'use strict';
 
-  var debtFilter = 'open';   // open | closed
+  var debtGroup = null;          // раскрытая группа; null — открытые
+  var openExamples = {};         // did → раскрыт ли список примеров   // open | closed
   var openSummaries = {};    // индекс итога → раскрыт ли сырой текст
 
   function render() {
@@ -121,35 +122,116 @@
       '</div>';
   }
 
+  /**
+   * Экран долгов (ТЗ 7). Пять состояний вместо двух: «закрыто» — это только
+   * status 'closed'. Чек-лист языка, поглощённые и удалённые живут своими
+   * группами, иначе счётчик «закрыто 29» врал бы владельцу в лицо.
+   */
   function debtsSection() {
     var all = State.s.debts;
-    var open = all.filter(function (d) { return d.status === 'open'; });
-    var closed = all.filter(function (d) { return d.status !== 'open'; });
-    var list = debtFilter === 'open' ? open : closed;
+    function by(st) { return all.filter(function (d) { return d.status === st; }); }
+    var open = by('open');
+    var half = open.filter(function (d) { return State.debtProgress(d) === 1; });
+    var groups = [
+      { id: 'open', name: 'открытые', list: sortOpen(open) },
+      { id: 'closed', name: 'закрытые', list: by('closed') },
+      { id: 'checklist', name: 'ушли в чек-лист языка', list: by('checklist') },
+      { id: 'merged', name: 'поглощённые', list: by('merged') },
+      { id: 'deleted', name: 'удалённые', list: by('deleted') }
+    ].filter(function (g) { return g.list.length; });
 
-    var head = '<section class="block"><div class="rowline" style="margin-bottom:10px">' +
-      '<h2 style="margin:0">Банк долгов</h2>' +
-      '<div class="seg"><button data-debt-f="open" aria-pressed="' + (debtFilter === 'open') + '">открытые ' + open.length + '</button>' +
-      '<button data-debt-f="closed" aria-pressed="' + (debtFilter === 'closed') + '">закрытые ' + closed.length + '</button></div>' +
-      '</div>';
+    var head = '<section class="block">' +
+      '<h2 style="margin:0 0 4px">Банк долгов</h2>' +
+      '<p class="lead">открыто ' + open.length + ' · на 1/2 — ' + half.length +
+      ' · закрыто ' + by('closed').length + ' · чек-лист ' + by('checklist').length + '</p>';
 
-    if (!list.length) {
-      return head + UI.empty('🧩', debtFilter === 'open'
-        ? 'Открытых долгов нет. Они появятся из «ИТОГА УРОКА».'
-        : 'Пока ничего не погашено. Долг закрывается после верных ответов в двух разных уроках.') + '</section>';
+    var body = groups.map(function (g) {
+      var openGroup = debtGroup === g.id || (debtGroup === null && g.id === 'open');
+      return '<div class="dgroup">' +
+        '<button class="dghead rowline" data-debt-g="' + g.id + '" aria-expanded="' + openGroup + '">' +
+        '<span class="t">' + g.name + '</span><span class="mono dim">' + g.list.length + '</span>' +
+        '</button>' +
+        (openGroup ? '<div class="list">' + g.list.map(debtRow).join('') + '</div>' : '') +
+        '</div>';
+    }).join('');
+
+    return head + (body || UI.empty('🧩', 'Банк долгов пуст. Они появятся из «ИТОГА УРОКА».')) +
+      checklistLine() + '</section>';
+  }
+
+  /** Открытые: сначала те, кому остался один урок до закрытия. */
+  function sortOpen(list) {
+    return list.slice().sort(function (a, b) {
+      var pa = State.debtProgress(a), pb = State.debtProgress(b);
+      if (pa !== pb) return pb - pa;
+      return String(a.did).localeCompare(String(b.did), 'ru', { numeric: true });
+    });
+  }
+
+  function debtRow(d) {
+    var cat = State.debtCat(d.cat);
+    var title = (d.did || '') + (cat ? ' · ' + cat.code + ' ' + shortCat(cat.name) : '');
+    var ex = (d.examples || []);
+    var openEx = !!openExamples[d.did];
+    var line = [];
+    if (d.status === 'open') {
+      line.push('касаний ' + State.debtProgress(d) + '/2');
+      var last = (d.clearedIn || [])[(d.clearedIn || []).length - 1];
+      if (last) line.push('последнее ' + lastTouch(last));
+      line.push('показан ' + (d.shownCount || 0) + ' ' +
+        U.plural(d.shownCount || 0, 'раз', 'раза', 'раз'));
+    } else if (d.status === 'closed') {
+      line.push('закрыт ' + (d.closedDate ? U.fmtShort(d.closedDate) : '—'));
+      if (d.note) line.push(d.note);
+    } else if (d.status === 'merged') {
+      line.push('поглощён долгом ' + (d.mergedInto || '—'));
+    } else if (d.status === 'deleted') {
+      line.push(d.reason || 'удалён');
+    } else {
+      line.push('чек-лист языка — не долг');
     }
 
-    return head + '<div class="list">' + list.map(function (d) {
-      var done = State.debtProgress(d);
-      var where = U.esc((d.clearedIn || []).join(', ') || 'пока нигде');
-      return '<div class="item">' +
-        '<div class="t">' + UI.trackDot(d.track || 'eng') +
-        (d.did ? ' <span class="mono dim">' + U.esc(d.did) + '</span>' : '') +
-        ' ' + U.esc(d.text) + '</div>' +
-        '<div class="s">создан в ' + U.esc(d.createdIn) + ' · погашено ' + done + '/2: ' + where +
-        (d.status !== 'open' ? ' · закрыт ' + (d.closedDate ? U.fmtShort(d.closedDate) : '') : '') + '</div>' +
-        '</div>';
-    }).join('') + '</div></section>';
+    return '<div class="item">' +
+      '<div class="t">' + UI.trackDot(d.track || 'eng') + ' <span class="mono dim">' +
+      U.esc(title) + '</span></div>' +
+      '<div class="dtext">' + U.esc(d.text) + '</div>' +
+      '<div class="s">' + U.esc(line.join(' · ')) + '</div>' +
+      (ex.length
+        ? '<button class="linkbtn tiny" data-debt-ex="' + U.esc(d.did) + '">' +
+        (openEx ? 'скрыть примеры' : 'примеры (' + ex.length + ')') + '</button>' +
+        (openEx ? '<ul class="dex">' + ex.map(function (e) {
+          return '<li>' + U.esc(e.text) +
+            '<span class="dim"> — ' + U.esc(e.lesson || '—') +
+            (e.date && e.date !== 'migration' ? ', ' + U.fmtShort(e.date) : '') + '</span></li>';
+        }).join('') + '</ul>' : '')
+        : '') +
+      '</div>';
+  }
+
+  /** «B1.4 (01.09)» или «разминка 03.09» — касание из урока и из разминки. */
+  function lastTouch(mark) {
+    var m = /^warmup:(.+)$/.exec(String(mark));
+    if (m) return 'разминка ' + U.fmtShort(m[1]);
+    var l = State.s.lessons[mark];
+    return mark + (l && l.date ? ' (' + U.fmtShort(l.date) + ')' : '');
+  }
+
+  /** Категория длинная — на строке долга нужна её голова, до тире. */
+  function shortCat(name) {
+    var i = String(name).indexOf(' — ');
+    return i > 0 ? String(name).slice(0, i) : name;
+  }
+
+  /** Строка статистики чек-листа языка (ТЗ 7). */
+  function checklistLine() {
+    var stats = (State.s.checklist && State.s.checklist.stats) || [];
+    var live = stats.filter(function (x) { return x && x.total; });
+    if (!live.length) return '';
+    return '<p class="lead" style="margin-top:12px">чек-лист: ' +
+      stats.map(function (x, i) {
+        if (!x || !x.total) return null;
+        return (i + 1) + ' — ' + x.clean + '/' + x.total + (i === 0 ? ' чисто' : '');
+      }).filter(Boolean).join(' · ') + '</p>';
   }
 
   function uniq(list) {
@@ -159,8 +241,14 @@
   }
 
   function mount(host) {
-    U.on(host, 'click', '[data-debt-f]', function (e, el) {
-      debtFilter = el.dataset.debtF;
+    U.on(host, 'click', '[data-debt-g]', function (e, el) {
+      var g = el.dataset.debtG;
+      debtGroup = (debtGroup === g || (debtGroup === null && g === 'open')) ? '' : g;
+      App.renderScreen('journal');
+    });
+    U.on(host, 'click', '[data-debt-ex]', function (e, el) {
+      var did = el.dataset.debtEx;
+      openExamples[did] = !openExamples[did];
       App.renderScreen('journal');
     });
     U.on(host, 'click', '[data-sum]', function (e, el) {
@@ -175,7 +263,12 @@
     });
   }
 
-  App.register('journal', { render: render, mount: mount });
+  App.register('journal', {
+    render: render, mount: mount,
+    // какая группа банка долгов раскрыта: нужно и экрану, и проверкам
+    setGroup: function (g) { debtGroup = g; },
+    setExamples: function (did, on) { openExamples[did] = !!on; }
+  });
 })();
 
 /* ============================================================
