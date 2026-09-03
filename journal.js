@@ -65,9 +65,10 @@
     var deck = Cards.deck().length;
     var w = State.wordCounts();
     return '<section class="block"><h2>Карточки</h2>' +
-      '<p class="lead">Слова из итогов уроков и незакрытые слабые места, старые вперёд. ' +
-      'Тап переворачивает, дальше «знал / не знал». Три верных подряд — слово уходит на повтор ' +
-      'через 4, 10 и 21 день, потом засыпает и колоду больше не занимает.</p>' +
+      '<p class="lead">Колода дня: подошедшие повторы, слова в работе, слова последнего урока ' +
+      'и до трёх открытых долгов. Не больше ' + State.DECK_CAP + ' карточек — минималка не растёт. ' +
+      'Тап переворачивает, дальше «знал / не знал»: три верных подряд — и слово уходит на повтор ' +
+      'через 4, 10 и 21 день.</p>' +
       '<div class="card rowline">' +
       '<div class="k">В колоде ' + deck + ' ' + U.plural(deck, 'карточка', 'карточки', 'карточек') +
       '<span>слова: активных ' + w.active + ', выучено ' + w.known +
@@ -182,8 +183,8 @@
    Старые вперёд, тап переворачивает, затем «знал / не знал».
    Три верных подряд — слово выучено и уходит на интервалы
    4 → 10 → 21 день, потом спит. Ошибка на выученном возвращает
-   его в работу. Время минималки от этого не растёт: колода,
-   наоборот, со временем становится короче.
+   его в работу. Время минималки не растёт не потому, что банк
+   сокращается, а потому, что у колоды дня есть кэп (ТЗ 6).
    Долги оценок не имеют — они закрываются уроками, не карточками.
    ============================================================ */
 
@@ -192,19 +193,24 @@ window.Cards = (function () {
 
   var idx = 0, flipped = false;
 
-  function deck() {
-    // выученные слова, у которых срок повтора не подошёл, в колоду не берём
-    var words = State.activeWords().map(function (w) {
+  /**
+   * Колода дня (ТЗ 6): подошедшие повторы → в работе → слова последнего
+   * урока → добор, и до трёх открытых долгов ротацией по дню. Состав и
+   * порядок считает State.deckPlan; здесь — только оформление карточек.
+   */
+  function deck(todayIso) {
+    var plan = State.deckPlan(todayIso);
+    var words = plan.words.map(function (w) {
       return {
         type: 'word', en: w.en, key: 'w:' + String(w.en).toLowerCase().trim(),
         front: w.en, back: w.ru,
         meta: U.fmtShort(w.date) + ' · ' + w.lessonId + ' · ' + statusName(State.wordStatus(w.en))
       };
     });
-    var debts = State.openDebts().map(function (d) {
+    var debts = plan.debts.map(function (d) {
       return {
         type: 'debt', key: 'd:' + (d.did || d.id),
-        front: (d.did ? d.did + ' · ' : '') + d.text,
+        front: (d.did ? d.did + ' · ' : '') + (d.cat ? d.cat + ' · ' : '') + d.text,
         back: 'долг из ' + d.createdIn + ' · погашено ' + State.debtProgress(d) + '/2' +
           ' · отработан в ' + ((d.clearedIn || []).join(', ') || '—'),
         meta: State.trackName(d.track || 'eng')
@@ -217,8 +223,11 @@ window.Cards = (function () {
   function statusName(st) { return STATUS_NAME[st] || 'новое'; }
 
   function open() {
-    idx = 0; flipped = false;
     var list = deck();
+    // курсор дня: закрыл шторку на пятнадцатой — открываешь на пятнадцатой.
+    // Пройденную сегодня очередь начинаем заново, но говорим об этом
+    idx = State.deckDone() ? 0 : Math.min(State.deckCursor(), Math.max(0, list.length - 1));
+    flipped = false;
     if (!list.length) {
       UI.sheet({
         title: 'Карточки',
@@ -229,7 +238,9 @@ window.Cards = (function () {
     }
     UI.sheet({
       title: 'Карточки',
-      sub: 'Тап по карточке — перевернуть, потом честно отметь себя.',
+      sub: State.deckDone()
+        ? 'Очередь на сегодня пройдена — дальше по желанию.'
+        : 'Тап по карточке — перевернуть, потом честно отметь себя.',
       body: '<div class="cardbox" data-box></div>' +
         '<div class="btn-row" style="margin-top:12px" data-grade hidden>' +
         '<button class="btn sec" data-know="0">не знал</button>' +
@@ -261,12 +272,17 @@ window.Cards = (function () {
           counter.textContent = (idx + 1) + ' из ' + list2.length +
             ' · слова: активных ' + n.active + ', выучено ' + n.known +
             ' · долги: ' + State.openDebts().length +
-            ' · сегодня ' + count();
+            ' · сегодня ' + count() +
+            (State.deckDone() ? ' · очередь пройдена ✓' : '');
         }
         function step(n) {
           if (list2.length < 2) return;
+          var was = idx;
           idx = (idx + n + list2.length) % list2.length;
           flipped = false;
+          // очередь считается пройденной, когда с последней карточки
+          // шагнули вперёд — а не когда просто её открыли
+          State.setDeckCursor(idx, { done: n > 0 && was === list2.length - 1 });
           paint();                       // отметку ставит сам paint, по ключу карточки
         }
         box.onclick = function () { flipped = !flipped; paint(); };
