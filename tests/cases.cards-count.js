@@ -13,7 +13,7 @@
     State.applySummary('B2.1', {
       score: 7, level: 'L2', topics: 'т',
       words: [{ en: 'slope', ru: 'наклон' }, { en: 'vertex', ru: 'вершина' }],
-      debts: ['путает знак наклона'], cleared: [], warmup: [], writing: '', raw: ''
+      debts: ['М1 — путает знак наклона'], cleared: [], warmup: [], writing: '', raw: ''
     }, { date: '2026-08-25' });
     State.s.cards = { lastDay: State.today(), viewedToday: 0, seen: [] };
   }

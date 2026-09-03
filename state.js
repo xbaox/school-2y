@@ -122,11 +122,23 @@ window.State = (function () {
     return c ? c.track : null;
   }
 
-  /** Код принадлежит дорожке урока? Для 'all' подходит любой код списка. */
+  /** У дорожки есть собственные категории? У biz и cs их в таксономии нет. */
+  function trackHasCats(trackId) {
+    if (!trackId || trackId === 'all') return false;
+    return DEBT_CATS.some(function (c) { return c.track === trackId; });
+  }
+
+  /**
+   * Код принадлежит дорожке урока? Для 'all' подходит любой код списка.
+   * Дорожки без собственных категорий (biz — живой блок Б5 Ф0, cs) ведут себя
+   * как 'all': иначе на таком уроке ИИ не смог бы записать ни одного долга,
+   * и реальная ошибка ученика пропала бы молча.
+   */
   function catFitsTrack(code, trackId) {
     var c = debtCat(code);
     if (!c) return false;
-    return !trackId || trackId === 'all' || c.track === trackId;
+    if (!trackHasCats(trackId)) return true;
+    return c.track === trackId;
   }
 
   var PHASE_DATES = {
@@ -246,6 +258,9 @@ window.State = (function () {
       // min — список разминки. Перезаписывается каждым копированием промпта.
       // По нему «Погашено» проверяется на «этот долг вообще показывали?».
       injected: { min: [], lessons: {} },
+      // Чек-лист языка (ТЗ 2.2, 4.3): пять пунктов, номера фиксированы.
+      // stats[i] = { clean, total } — сколько раз пункт был чист из скольких уроков.
+      checklist: { stats: [] },
       stats: { wordsTotal: 0, lessonsDone: 0, bestStreak: 0 },
       onboarded: false
     };
@@ -302,6 +317,10 @@ window.State = (function () {
     if (!out.injected.lessons || typeof out.injected.lessons !== 'object' ||
       Array.isArray(out.injected.lessons)) out.injected.lessons = {};
     out.stats = Object.assign({}, base.stats, (o && o.stats) || {});
+    if (!out.checklist || typeof out.checklist !== 'object' || Array.isArray(out.checklist)) {
+      out.checklist = { stats: [] };
+    }
+    if (!Array.isArray(out.checklist.stats)) out.checklist.stats = [];
 
     // списки доктрины: пустой или не-массив — берём дефолт целиком
     ['levels', 'addons', 'ranks'].forEach(function (k) {
@@ -502,17 +521,18 @@ window.State = (function () {
       var keep = byDid[row.did];
       if (!keep) { rep.debts.missing.push(row.did); return; }
       keep.cat = row.cat;
-      keep.text = row.text;
-      if (row.track) keep.track = row.track;
-      // собственный текст долга — первый пример. Без него у семи долгов без
-      // поглощённых примеров не было бы вовсе, а промпт печатает последний
+      // первым примером идёт живая запись ученика — та, что была до
+      // канонического текста. Иначе у семи долгов без поглощённых примеров
+      // не осталось бы вовсе, а промпт этапа 4 печатает последний
       if (!keep.examples.length) {
         keep.examples.push({
           lesson: keep.createdIn || null,
-          text: row.text,
+          text: keep.text,
           date: lessonDate(keep.createdIn) || 'migration'
         });
       }
+      keep.text = row.text;
+      if (row.track) keep.track = row.track;
 
       (row.absorbs || []).forEach(function (did) {
         var gone = byDid[did];
@@ -1519,6 +1539,48 @@ window.State = (function () {
     return best;
   }
 
+
+  /* ---------- 2.7.0: разбор строк ИТОГа (ТЗ 2.2) ---------- */
+
+  /**
+   * Строка долга обязана начинаться с кода категории: «П3 — пример ошибки».
+   * Это и есть корень пакета: ИИ не изобретает, чем ученик болен, а выбирает
+   * из закрытого списка. Строка без валидного кода отбрасывается.
+   */
+  var DEBT_LINE_RE = /^\s*(П\d{1,2}|М\d|О\d)\s*[—–-]\s*(.+)$/;
+
+  /**
+   * Латинские двойники кириллицы в кодах. «M2» и «М2» неотличимы на глаз,
+   * и написанный латиницей код стоил бы ученику потерянного долга.
+   */
+  function normCode(line) {
+    return String(line || '')
+      .replace(/^(\s*)M(?=\d)/, '$1М')
+      .replace(/^(\s*)O(?=\d)/, '$1О')
+      .replace(/^(\s*)P(?=\d)/, '$1П');
+  }
+
+  /** Разбор строки долга → { code, example } или null. */
+  function parseDebtLine(line) {
+    var m = DEBT_LINE_RE.exec(normCode(U.stripDebtId(line)));
+    if (!m) return null;
+    var example = String(m[2]).trim();
+    return example ? { code: m[1], example: example } : null;
+  }
+
+  /** Пять пунктов чек-листа языка: правка статистики на +1 или −1. */
+  function applyChecklist(marks, sign) {
+    if (!Array.isArray(marks) || !marks.length) return;
+    var st = s.checklist.stats;
+    marks.forEach(function (clean, i) {
+      var rec = st[i] || (st[i] = { clean: 0, total: 0 });
+      rec.total += sign;
+      if (clean) rec.clean += sign;
+      if (rec.total < 0) rec.total = 0;
+      if (rec.clean < 0) rec.clean = 0;
+    });
+  }
+
   /** Прогресс погашения долга: сколько разных уроков из нужных двух. */
   function debtProgress(d) {
     return Math.min(2, uniqueLessons((d && d.clearedIn) || []).length);
@@ -1561,7 +1623,8 @@ window.State = (function () {
       parsed: {
         score: parsed.score, level: parsed.level, topics: parsed.topics,
         words: parsed.words || [], debts: parsed.debts || [],
-        warmup: parsed.warmup || [], writing: parsed.writing || ''
+        warmup: parsed.warmup || [], writing: parsed.writing || '',
+        checklist: parsed.checklist || null
       }
     };
     var at = -1;
@@ -1569,22 +1632,54 @@ window.State = (function () {
       if (s.summaries[i].lessonId === lessonId && s.summaries[i].date === date) { at = i; break; }
     }
     var replaced = at >= 0;
+    // повторная вставка не должна удваивать статистику чек-листа:
+    // сначала снимаем вклад прежней записи, потом кладём новый
+    if (replaced) applyChecklist(((s.summaries[at] || {}).parsed || {}).checklist, -1);
+    applyChecklist(parsed.checklist, 1);
     if (replaced) s.summaries[at] = record;
     else s.summaries.push(record);
 
     if (!wasDone) s.stats.lessonsDone = (s.stats.lessonsDone || 0) + 1;
 
-    // долг заводим только новый: тот же текст из того же урока — уже в банке
-    var created = [];
-    (parsed.debts || []).forEach(function (text) {
-      var key = normText(text);
-      var dup = s.debts.some(function (x) {
-        return x.createdIn === lessonId && normText(x.text) === key;
-      });
-      if (dup) return;
+    // 2.7.0 (ТЗ 2.2). Долг приходит только с кодом категории; категория,
+    // у которой уже есть открытый долг, даёт повтор, а не второй долг —
+    // так дубли и умирают. Строка без валидного кода отбрасывается.
+    var created = [], repeated = [], dropped = [], cutNew = 0;
+    var NEW_CAP = 3;
+    (parsed.debts || []).forEach(function (line) {
+      var parsedLine = parseDebtLine(line);
+      if (!parsedLine) { dropped.push({ line: line, why: 'нет кода категории' }); return; }
+      var code = parsedLine.code, example = parsedLine.example;
+      if (!catFitsTrack(code, trackId)) {
+        dropped.push({ line: line, why: debtCat(code) ? 'код чужой дорожки' : 'кода нет в таксономии' });
+        return;
+      }
+
+      var open = null;
+      s.debts.forEach(function (d) { if (d.status === 'open' && d.cat === code) open = d; });
+      if (open) {
+        // тот же урок его и завёл, или повтор уже учтён — это повторная
+        // вставка того же итога, а не вторая ошибка
+        if (open.createdIn === lessonId || open.failedIn.indexOf(lessonId) >= 0) return;
+        open.clearedIn = [];
+        open.failedIn.push(lessonId);
+        open.examples.push({ lesson: lessonId, text: example, date: date });
+        repeated.push(open);
+        return;
+      }
+
+      if (created.length >= NEW_CAP) { cutNew++; return; }
+      var cat = debtCat(code);
       var debt = {
-        id: U.uid(), did: nextDebtId(), track: trackId, text: text,
-        createdIn: lessonId, clearedIn: [], status: 'open'
+        id: U.uid(), did: nextDebtId(), cat: code,
+        // где у дорожки своих категорий нет (all, biz), дорожку долга задаёт
+        // префикс кода: П → письмо, М/О → математика
+        track: trackHasCats(trackId) ? trackId : cat.track,
+        text: cat.name + ' — ' + example,
+        createdIn: lessonId, clearedIn: [],
+        examples: [{ lesson: lessonId, text: example, date: date }],
+        failedIn: [], lastInjected: null, shownCount: 0,
+        status: 'open'
       };
       s.debts.push(debt);
       created.push(debt);
@@ -1606,6 +1701,9 @@ window.State = (function () {
         else unmatched.push(text);
         return;
       }
+      // повтор побеждает: категория, названная в «Долгах» этого же итога,
+      // не может быть тут же и засчитана
+      if (repeated.indexOf(debt) >= 0) { unmatched.push(text); return; }
       if (debt.clearedIn.indexOf(lessonId) < 0) debt.clearedIn.push(lessonId);
       // две строки итога могли смэтчиться в один долг — считаем его один раз
       if (cleared.indexOf(debt) < 0) cleared.push(debt);
@@ -1625,11 +1723,75 @@ window.State = (function () {
     bumpBestStreak();
     touch();
 
+    // строки событий для уведомления (ТЗ 2.2). Порядок как в ТЗ:
+    // засчитанное → повторы → новые → отброшенное
+    var notices = [];
+    cleared.forEach(function (d) {
+      notices.push(d.did + ': ' + debtProgress(d) + '/2' +
+        (d.status === 'closed' ? ' → закрыт' : ''));
+    });
+    repeated.forEach(function (d) {
+      notices.push('повтор ' + d.did + ' (' + d.cat + ') — прогресс сброшен');
+    });
+    created.forEach(function (d) { notices.push('новый долг ' + d.did + ' (' + d.cat + ')'); });
+    dropped.forEach(function (x) {
+      notices.push('долг без категории отброшен: ' + x.line + ' (' + x.why + ')');
+    });
+    if (cutNew) notices.push('сверх трёх новых долгов за урок отрезано: ' + cutNew);
+
     return {
       ok: true, lessonId: lessonId, score: parsed.score, replaced: replaced,
       words: (parsed.words || []).length,
       created: created.length, cleared: cleared.length, closed: closed.length,
-      unmatched: unmatched, foreign: foreign
+      repeated: repeated.length, dropped: dropped, cutNew: cutNew,
+      unmatched: unmatched, foreign: foreign, notices: notices
+    };
+  }
+
+  /**
+   * Разминка пишет в приложение (ТЗ 2.3). Строка вида
+   * «РАЗМИНКА: D-1 ✓ D-10 ✗ · слова 15/15».
+   *  ✓ — только ПЕРВОЕ касание и только если долг был в промпте разминки:
+   *      закрывающее касание даёт лишь урок;
+   *  ✗ — уходит в failedIn с пометкой warmup, прогресс не сбрасывает.
+   * Слова не трогаем — их ведёт SRS.
+   */
+  function applyWarmup(parsed, opts) {
+    opts = opts || {};
+    var date = opts.date || today();
+    var stamp = 'warmup:' + date;
+    var pool = s.injected.min || [];
+    var touched = [], failed = [], skipped = [], notices = [];
+
+    (parsed.marks || []).forEach(function (mk) {
+      var debt = null;
+      s.debts.forEach(function (d) { if (d.did === mk.did && d.status === 'open') debt = d; });
+      if (!debt) { skipped.push(mk.did); notices.push(mk.did + ': открытого долга с таким id нет'); return; }
+
+      if (!mk.ok) {
+        if (debt.failedIn.indexOf(stamp) < 0) debt.failedIn.push(stamp);
+        failed.push(debt.did);
+        notices.push(debt.did + ': не отработан в разминке — прогресс остался ' + debtProgress(debt) + '/2');
+        return;
+      }
+      if (pool.indexOf(mk.did) < 0) {
+        skipped.push(debt.did);
+        notices.push(debt.did + ': его не было в промпте разминки — не засчитан');
+        return;
+      }
+      if (uniqueLessons(debt.clearedIn).length) {
+        notices.push(debt.did + ': касание уже есть — закрыть может только урок');
+        return;
+      }
+      debt.clearedIn = [stamp];
+      touched.push(debt.did);
+      notices.push(debt.did + ': 1/2 (разминка)');
+    });
+
+    touch();
+    return {
+      ok: true, date: date, touched: touched, failed: failed,
+      skipped: skipped, words: parsed.words || null, notices: notices
     };
   }
 
@@ -1650,7 +1812,7 @@ window.State = (function () {
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
     migrate: migrate, repairDebts: repairDebts, validateImport: validateImport,
     DEBT_CATS: DEBT_CATS, debtCat: debtCat, catsForTrack: catsForTrack,
-    catTrack: catTrack, catFitsTrack: catFitsTrack,
+    catTrack: catTrack, catFitsTrack: catFitsTrack, trackHasCats: trackHasCats,
     migrationReport: function () { return lastV3; },
     holdsStreak: holdsStreak, streakPoints: streakPoints,
     subscribe: subscribe, emit: emit,
@@ -1671,6 +1833,7 @@ window.State = (function () {
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
     warmupWords: warmupWords,
+    applyWarmup: applyWarmup, parseDebtLine: parseDebtLine,
     recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,

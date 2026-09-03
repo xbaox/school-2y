@@ -152,9 +152,10 @@ window.PROMPTS = (function () {
       'Пройдено: <темы одной строкой>',
       'Уровень: L1|L2|L3',
       'Счёт: N/10',
-      'Слова (8–12): слово — перевод; ...',
-      'Долги: <новые слабые места, каждый с новой строки, или «нет»>',
-      'Погашено: <долги, отработанные в этом уроке (два верных подряд), или «нет»>',
+      'Слова (6–8): слово — перевод; слово — перевод; ...',
+      'Долги: <код категории — короткий пример ошибки, каждый с новой строки, или «нет»>',
+      'Засчитано: <[D-…] через «;» — только показанные в этом промпте, или «нет»>',
+      'Чек-лист: 1✓ 2✓ 3✗ 4✓ 5✓',
       'В разогрев: <3 вопроса>',
       'Письмо: <одна строка оценки чистовика>',
       '=== КОНЕЦ ===',
@@ -313,7 +314,9 @@ window.PROMPTS = (function () {
     { key: 'score', re: /^\s*Сч[ёе]т\s*:?\s*/i },
     { key: 'words', re: /^\s*Слова\s*(\([^)]*\))?\s*:?\s*/i },
     { key: 'debts', re: /^\s*Долги\s*:?\s*/i },
-    { key: 'cleared', re: /^\s*Погашено\s*:?\s*/i },
+    // «Погашено» — имя поля до 2.7.0; принимаем ещё два релиза (ТЗ 2.2)
+    { key: 'cleared', re: /^\s*(?:Засчитано|Погашено)\s*:?\s*/i },
+    { key: 'checklist', re: /^\s*Чек-?\s*лист\s*(?:языка)?\s*:?\s*/i },
     { key: 'warmup', re: /^\s*В\s*разогрев\s*:?\s*/i },
     { key: 'writing', re: /^\s*Письмо\s*:?\s*/i }
   ];
@@ -356,10 +359,10 @@ window.PROMPTS = (function () {
    * («слово — перевод; слово — перевод», «что такое slope?; как найти y-intercept?»),
    * и внутри формулы её не бывает — математике она не вредит.
    */
-  function toList(raw) {
+  function toList(raw, byLinesOnly) {
     if (!raw) return [];
     return String(raw)
-      .split(/\r?\n|;/)
+      .split(byLinesOnly ? /\r?\n/ : /\r?\n|;/)
       .map(function (x) {
         return x
           // маркер списка требует пробела после себя, иначе «-3 < x < 5»
@@ -371,9 +374,71 @@ window.PROMPTS = (function () {
       .filter(function (x) { return x && !isEmptyWord(x); });
   }
 
+  var TICK_RE = /[\u2713\u2714+]/;          // ✓ ✔ +
+  var CROSS_RE = /[\u2717\u2718\u00d7xX-]/;  // ✗ ✘ × x -
+
+  /**
+   * «Чек-лист: 1✓ 2✓ 3✗ 4✓ 5✓» → [true,true,false,true,true].
+   * Номера пунктов фиксированы (ТЗ 4.3), по ним и считается статистика,
+   * поэтому читаем именно «номер + знак», а не порядок знаков в строке.
+   * Строки нет или знаков нет — возвращаем null: ничего не пишем.
+   */
+  function parseChecklist(raw) {
+    if (!raw) return null;
+    var out = [], found = 0;
+    var re = /([1-5])\s*([\u2713\u2714+\u2717\u2718\u00d7xX-])/g;
+    var m;
+    while ((m = re.exec(String(raw)))) {
+      var i = parseInt(m[1], 10) - 1;
+      if (out[i] !== undefined) continue;      // повтор номера — берём первый
+      out[i] = TICK_RE.test(m[2]);
+      found++;
+    }
+    if (!found) return null;
+    for (var j = 0; j < 5; j++) if (out[j] === undefined) out[j] = false;
+    return out.slice(0, 5);
+  }
+
+  var WARMUP_RE = /^\s*РАЗМИНКА\s*:/i;
+
+  /** Вставленный текст — отчёт разминки, а не итог урока? */
+  function isWarmup(text) { return WARMUP_RE.test(String(text || '')); }
+
+  /**
+   * «РАЗМИНКА: D-1 ✓ D-10 ✗ · слова 15/15» (ТЗ 2.3).
+   * → { ok, error, marks:[{did, ok}], words:{done,total}|null, raw }
+   */
+  function parseWarmup(text) {
+    var src = String(text || '').trim();
+    if (!isWarmup(src)) {
+      return { ok: false, error: 'Строка разминки начинается с «РАЗМИНКА:».', marks: [] };
+    }
+    var body = src.replace(WARMUP_RE, '');
+    var marks = [], seen = {};
+    var re = /\bD-(\d+)\s*([\u2713\u2714+\u2717\u2718\u00d7xX])/gi;
+    var m;
+    while ((m = re.exec(body))) {
+      var did = 'D-' + m[1];
+      if (seen[did]) continue;                 // первый знак по долгу и решает
+      seen[did] = true;
+      marks.push({ did: did, ok: TICK_RE.test(m[2]) });
+    }
+    var w = /слова\s*(\d+)\s*\/\s*(\d+)/i.exec(body);
+    if (!marks.length) {
+      return {
+        ok: false, marks: [],
+        error: 'В строке разминки нет ни одного долга вида «D-1 ✓» или «D-1 ✗».'
+      };
+    }
+    return {
+      ok: true, marks: marks, raw: src,
+      words: w ? { done: parseInt(w[1], 10), total: parseInt(w[2], 10) } : null
+    };
+  }
+
   /**
    * parse(text) → { ok, error, lessonId, topics, level, score, words:[{en,ru}],
-   *                 debts:[], cleared:[], warmup:[], writing, raw }
+   *                 debts:[], cleared:[], warmup:[], checklist:[bool]|null, writing, raw }
    */
   function parse(text) {
     var src = String(text || '');
@@ -393,7 +458,7 @@ window.PROMPTS = (function () {
       ok: false, error: null,
       lessonId: (m[1] || '').trim().replace(/^Б/i, 'B') || null,
       topics: '', level: null, score: null,
-      words: [], debts: [], cleared: [], warmup: [], writing: '',
+      words: [], debts: [], cleared: [], warmup: [], checklist: null, writing: '',
       raw: (em ? src.slice(m.index, from + em.index + em[0].length) : src.slice(m.index)).trim()
     };
 
@@ -438,9 +503,13 @@ window.PROMPTS = (function () {
 
     // ведущий [D-…] в тексте нового долга — выдумка ИИ, а не часть формулировки;
     // в «Погашено» id наоборот якорь — там строка остаётся как есть
-    out.debts = toList(buf.debts).map(U.stripDebtId).filter(Boolean);
+    // 2.7.0 (ТЗ 2.2): долг — одна строка целиком. Точка с запятой внутри
+    // примера ошибки («метод; язык ответа») больше не рвёт его надвое.
+    // «Засчитано» и остальные списки точку с запятой по-прежнему держат.
+    out.debts = toList(buf.debts, true).map(U.stripDebtId).filter(Boolean);
     out.cleared = toList(buf.cleared);
     out.warmup = toList(buf.warmup);
+    out.checklist = parseChecklist(buf.checklist);
 
     if (out.score == null || !out.level) {
       out.error = 'В итоге не хватает ' +
@@ -455,6 +524,7 @@ window.PROMPTS = (function () {
 
   return {
     lesson: lessonPrompt, minimal: minimalPrompt, parse: parse, video: videoQuery,
+    parseWarmup: parseWarmup, isWarmup: isWarmup, parseChecklist: parseChecklist,
     stagesBlock: stagesBlock, contestStages: contestStages, isContest: isContest,
     contractBlock: contractBlock, finalBlock: finalBlock,
     sprintPlan: sprintPlan
