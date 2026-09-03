@@ -250,7 +250,8 @@ window.State = (function () {
       // seen — ключи карточек, показанных сегодня. Считаем уникальные:
       // «сегодня 151» при колоде 80 означало число нажатий на «дальше»,
       // а не сколько карточек человек посмотрел.
-      cards: { lastDay: null, viewedToday: 0, seen: [] },
+      // cursor/cursorDay — где остановились сегодня, doneDay — очередь пройдена
+      cards: { lastDay: null, viewedToday: 0, seen: [], cursor: 0, cursorDay: null, doneDay: null },
       // SRS-накладка на банк слов: ключ — слово в нижнем регистре.
       // Сами слова живут в итогах уроков, здесь только их судьба.
       srs: {},
@@ -1367,6 +1368,110 @@ window.State = (function () {
     };
   }
 
+
+  /* ---------- 2.7.0: колода дня (ТЗ 6) ---------- */
+
+  var DECK_CAP = 20;        // столько карточек в дне — минималка не растёт
+  var DECK_DEBTS = 3;       // столько открытых долгов, ротацией по дню
+
+  /** Число из даты — сид для шафла: колода дня стабильна в пределах дня. */
+  function daySeed(iso) {
+    var n = 0, s2 = String(iso || '');
+    for (var i = 0; i < s2.length; i++) n = (n * 31 + s2.charCodeAt(i)) % 1000000;
+    return n + 1;
+  }
+
+  /**
+   * Колода дня (ТЗ 6). Порядок групп, а не свалка:
+   *  1) подошедшие повторы — выученное, чей срок наступил;
+   *  2) в работе, и первыми те, где последний ответ был «не знал»
+   *     (ошибка обнуляет streak, поэтому streak 0 у learning и значит это);
+   *  3) слова последнего урока — их проходят по свежим следам;
+   *  4) остальные активные — добор до кэпа.
+   * Внутри каждой группы порядок перемешан сидом от даты: в пределах дня
+   * колода стабильна, назавтра — другая.
+   * Долги идут отдельной группой: до трёх открытых, ротацией по дню.
+   */
+  function deckPlan(todayIso) {
+    var t = todayIso || today();
+    var seed = daySeed(t);
+    var lastLesson = null;
+    var sums = s.summaries.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (sums.length) lastLesson = sums[sums.length - 1].lessonId;
+
+    var lastKeys = {};
+    if (lastLesson) {
+      lessonWords(lastLesson).forEach(function (w) { lastKeys[wordKey(w.en)] = true; });
+    }
+
+    var due = [], learning = [], recent = [], rest = [];
+    activeWords(t).forEach(function (w) {
+      var r = srsRec(w.en);
+      var st = (r && r.status) || 'new';
+      if (st === 'known') due.push(w);
+      else if (st === 'learning') learning.push(w);
+      else if (lastKeys[wordKey(w.en)]) recent.push(w);
+      else rest.push(w);
+    });
+
+    // «не знал» последним ответом — вперёд всей группы
+    learning.sort(function (a, b) {
+      var sa = (srsRec(a.en) || {}).streak || 0, sb = (srsRec(b.en) || {}).streak || 0;
+      return sa - sb;
+    });
+
+    var words = U.shuffle(due, seed)
+      .concat(U.shuffle(learning, seed + 1))
+      .concat(U.shuffle(recent, seed + 2))
+      .concat(U.shuffle(rest, seed + 3));
+
+    // долги ротацией по дню: каждый день своя тройка, порядок не случайный
+    var open = openDebts();
+    var debts = [];
+    if (open.length) {
+      var off = seed % open.length;
+      for (var i = 0; i < Math.min(DECK_DEBTS, open.length); i++) {
+        debts.push(open[(off + i) % open.length]);
+      }
+    }
+
+    return {
+      words: words.slice(0, Math.max(0, DECK_CAP - debts.length)),
+      debts: debts,
+      cap: DECK_CAP
+    };
+  }
+
+  /* ---------- курсор колоды: очередь пройдена — сессия закрыта ---------- */
+
+  /** Колода сегодня уже пройдена целиком? */
+  function deckDone(todayIso) {
+    var t = todayIso || today();
+    return !!(s.cards && s.cards.doneDay === t);
+  }
+
+  /** Где остановились сегодня: 0, если день новый. */
+  function deckCursor(todayIso) {
+    var t = todayIso || today();
+    if (!s.cards || s.cards.cursorDay !== t) return 0;
+    return s.cards.cursor || 0;
+  }
+
+  /**
+   * Запомнить позицию в колоде дня. opts.done — очередь пройдена целиком:
+   * это отдельный признак, а не «курсор доехал до конца», потому что колода
+   * кольцевая и по ней можно ходить сколько угодно.
+   */
+  function setDeckCursor(i, opts) {
+    opts = opts || {};
+    var t = opts.date || today();
+    s.cards.cursorDay = t;
+    s.cards.cursor = Math.max(0, i);
+    if (opts.done) s.cards.doneDay = t;
+    touch(true);
+    return s.cards.cursor;
+  }
+
   /** Слова конкретного урока из его итога, со статусами. */
   function lessonWords(lessonId) {
     var out = [], seen = {};
@@ -1995,6 +2100,8 @@ window.State = (function () {
     applyWarmup: applyWarmup, parseDebtLine: parseDebtLine,
     debtBoard: debtBoard, priorityDebts: priorityDebts, lastExample: lastExample,
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
+    deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,
+    setDeckCursor: setDeckCursor, DECK_CAP: DECK_CAP, DECK_DEBTS: DECK_DEBTS,
     recentWords: recentWords, openDebts: openDebts, debtsCount: debtsCount,
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,
