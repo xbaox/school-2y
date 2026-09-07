@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 3;
-  var APP_VERSION = '2.7.1';
+  var APP_VERSION = '2.7.2';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';
@@ -102,6 +102,16 @@ window.State = (function () {
 
   /** Карточки-мусор из B3.1: выдуманные или бессмысленные термины (ТЗ 1.2). */
   var JUNK_WORDS_V3 = ['coverage test', 'approximate fact', 'conclusion drawn from'];
+
+  /**
+   * Точечные правки переводов в банке слов (2.7.2). Карточка живёт в итоге
+   * урока, поэтому чинится ремонтом данных, а не файлом контента.
+   * Условие — точное совпадение старого перевода: чинится ровно та карточка,
+   * которую правил Архитектор, и повторный прогон уже ничего не меняет.
+   */
+  var WORD_FIXES = [
+    { en: 'to explain', from: 'показать механизм, а не назвать', to: 'показать, как или почему, по шагам' }
+  ];
 
   /** Категория по коду или null. */
   function debtCat(code) {
@@ -389,6 +399,7 @@ window.State = (function () {
     });
 
     repairDebts(out);
+    repairWords(out);
 
     // 2.7.0: ремонт банка долгов, источник дедлайнов, чистка слов и достройка
     // минималки у импортированных дней. Разовая правка состояния — отсюда версия.
@@ -403,6 +414,28 @@ window.State = (function () {
   }
 
   /* ---------- 2.6.5: ремонт банка долгов ---------- */
+
+  /**
+   * Правит переводы карточек по таблице WORD_FIXES. Не привязана к версии
+   * схемы: правка мелкая, а условие точное — второй раз она не срабатывает.
+   * → сколько карточек поправлено
+   */
+  function repairWords(out) {
+    var n = 0;
+    (out.summaries || []).forEach(function (sum) {
+      var list = (sum && sum.parsed && sum.parsed.words) || null;
+      if (!Array.isArray(list)) return;
+      list.forEach(function (w) {
+        WORD_FIXES.forEach(function (fix) {
+          if (!w || String(w.en).toLowerCase().trim() !== fix.en) return;
+          if (w.ru !== fix.from) return;
+          w.ru = fix.to;
+          n++;
+        });
+      });
+    });
+    return n;
+  }
 
   /**
    * Чинит три следа от того, что ИИ сам придумывал номера долгов, и один след
@@ -1550,16 +1583,23 @@ window.State = (function () {
    * Добор тянул в математику «main idea» и «to explain» из урока чтения:
    * повторы по расписанию — дело разминки и колоды, а не разогрева урока.
    */
+  var WARM_WORDS = 5;      // столько невыученных слов нужно разогреву
+
   function lastLessonWords(trackId, excludeLessonId) {
-    var sums = recentSummaries(trackId, 1, excludeLessonId);
-    if (!sums.length) return [];
+    // отступаем по урокам дорожки назад, пока не наберётся пять невыученных:
+    // на математике все слова прошлого урока могли быть уже выучены, и блок
+    // разогрева оставался пустым
+    var sums = recentSummaries(trackId, 12, excludeLessonId);
     var out = [], seen = {};
-    (((sums[0].parsed) || {}).words || []).forEach(function (w) {
-      var k = wordKey(w.en);
-      if (!k || seen[k] || wordStatus(w.en) === 'known') return;
-      seen[k] = true;
-      out.push({ en: w.en, ru: w.ru });
-    });
+    for (var i = 0; i < sums.length && out.length < WARM_WORDS; i++) {
+      (((sums[i].parsed) || {}).words || []).forEach(function (w) {
+        if (out.length >= WARM_WORDS) return;
+        var k = wordKey(w.en);
+        if (!k || seen[k] || wordStatus(w.en) === 'known') return;
+        seen[k] = true;
+        out.push({ en: w.en, ru: w.ru });
+      });
+    }
     return out;
   }
 
@@ -2099,7 +2139,8 @@ window.State = (function () {
     P0_DEADLINES: P0_DEADLINES,
     isSkipped: isSkipped, activeLessons: activeLessons,
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
-    migrate: migrate, repairDebts: repairDebts, validateImport: validateImport,
+    migrate: migrate, repairDebts: repairDebts, repairWords: repairWords,
+    WORD_FIXES: WORD_FIXES, validateImport: validateImport,
     DEBT_CATS: DEBT_CATS, debtCat: debtCat, catsForTrack: catsForTrack,
     catTrack: catTrack, catFitsTrack: catFitsTrack, trackHasCats: trackHasCats,
     migrationReport: function () { return lastV3; },

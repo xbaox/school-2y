@@ -252,14 +252,22 @@ window.Radar = (function () {
     return c.length === CHECKLIST.length && c.every(Boolean);
   }
 
+  /** Радар-день — воскресенье. В будни чек-лист только просмотр (2.7.2). */
+  function radarDay(dateIso) { return U.weekday(dateIso || State.today()) === 7; }
+
   function toggleCheck(i, dateIso) {
     var date = dateIso || State.today();
+    if (!radarDay(date)) {
+      UI.toast('Чек-лист радара закрывается в воскресенье — сегодня только посмотреть', '', 3600);
+      return;
+    }
     var d = State.day(date, true);
     d.checklist = d.checklist || [];
     while (d.checklist.length < CHECKLIST.length) d.checklist.push(false);
     d.checklist[i] = !d.checklist[i];
 
-    // закрытие чек-листа даёт добавку +1 (раздел 6.3)
+    // закрытие чек-листа даёт добавку +1 (раздел 6.3) — только в воскресенье:
+    // «воскресный радар» в среду давал очки и был лазейкой мимо учёбы
     var full = d.checklist.every(Boolean);
     var has = d.addons.indexOf('radar') >= 0;
     if (full && !has) {
@@ -279,6 +287,7 @@ window.Radar = (function () {
    */
   function setChecklistAll(on, dateIso) {
     var date = dateIso || State.today();
+    if (!radarDay(date)) return;
     var d = State.day(date, true);
     d.checklist = CHECKLIST.map(function () { return !!on; });
     var has = d.addons.indexOf('radar') >= 0;
@@ -295,10 +304,12 @@ window.Radar = (function () {
     var done = c.filter(Boolean).length;
     return '<section class="block"><h2>Воскресный чек-лист' +
       (isSunday ? ' <span class="tag on">сегодня</span>' : '') + '</h2>' +
-      '<p class="lead">Пять пунктов. Закрыл все — добавка +1 к дню.</p>' +
+      '<p class="lead">Пять пунктов. Закрыл все в воскресенье — добавка +1 к дню. ' +
+      'В будни список только для просмотра.</p>' +
       '<div class="card">' + CHECKLIST.map(function (text, i) {
         return '<label class="check"><input type="checkbox" data-check="' + U.esc(i) + '"' +
-          (c[i] ? ' checked' : '') + '><span>' + U.esc(text) + '</span></label>';
+          (c[i] ? ' checked' : '') + (isSunday ? '' : ' disabled') +
+          '><span>' + U.esc(text) + '</span></label>';
       }).join('') +
       '<div class="tiny dim center" style="margin-top:8px">' + done + ' из ' + CHECKLIST.length +
       (checklistDone(t) ? ' · добавка засчитана' : '') + '</div>' +
@@ -313,10 +324,158 @@ window.Radar = (function () {
     }, 60);
   }
 
+
+  /* ---------- 2.7.2: карточка «Вопросы в школе» ---------- */
+
+  /**
+   * Событие типа 'questions' — список вопросов, которые надо задать живому
+   * человеку в школе. Живёт в радаре как обычное событие, но показывается
+   * карточкой с чекбоксом и полем ответа у каждого пункта: ответ записывается
+   * на месте, иначе к вечеру он забыт.
+   * Сеется один раз по id; уже добавленное владельцем не трогаем.
+   */
+  var QUESTIONS_SEED = {
+    id: 'q-2026-09-08',
+    date: '2026-09-08',
+    type: 'questions',
+    title: 'Утро 8.09 — шесть вопросов',
+    items: [
+      {
+        who: 'консультанту (guidance)',
+        en: 'I have an online e-learning computer science course on my timetable. Could you tell me the exact course code, which platform it runs on and how I log in, who the teacher is, and when I am expected to work on it — during a school period or at home?',
+        ru: 'У меня в расписании онлайн-курс информатики (e-learning). Подскажите точный код курса, на какой платформе он идёт и как войти, кто учитель и когда его делать — в школьный период или дома?',
+        done: false, note: ''
+      },
+      {
+        who: 'консультанту (guidance)',
+        en: 'Does this online course count toward the two online learning credits required for the diploma? And does that requirement apply to me as a student who transferred from another country?',
+        ru: 'Засчитывается ли этот курс в два обязательных онлайн-кредита для диплома? И касается ли это требование меня как переведённого из другой страны?',
+        done: false, note: ''
+      },
+      {
+        who: 'консультанту (guidance)',
+        en: 'Which compulsory credits am I still missing for the OSSD? I don\'t see Canadian History (CHC2D) on my timetable. How were my Russian school years counted, and which grade am I officially in?',
+        ru: 'Каких обязательных кредитов для диплома OSSD мне ещё не хватает? В расписании нет истории Канады (CHC2D). Как зачтены мои российские годы и в каком классе я официально?',
+        done: false, note: ''
+      },
+      {
+        who: 'консультанту (guidance)',
+        en: 'Could I please get a copy of my Credit Counselling Summary and my Ontario Student Transcript?',
+        ru: 'Можно получить копию Credit Counselling Summary (сводки зачтённых кредитов) и Ontario Student Transcript (официального транскрипта)?',
+        done: false, note: ''
+      },
+      {
+        who: 'консультанту (guidance)',
+        en: 'When will I write the OSSLT — this November or in the spring? And should I already take the form for the 40 community involvement hours?',
+        ru: 'Когда я пишу OSSLT — в ноябре или весной? И нужно ли уже сейчас взять форму на 40 часов общественной работы?',
+        done: false, note: ''
+      },
+      {
+        who: 'учителю MHF4U',
+        en: 'I would like to write the CSMC math contest in November — how do I register through the school? Could I also get the course outline with the order of units and the test dates?',
+        ru: 'Я хочу писать математический конкурс CSMC в ноябре — как зарегистрироваться через школу? И можно получить план курса (course outline) с порядком тем и датами тестов?',
+        done: false, note: ''
+      }
+    ]
+  };
+
+  /** До этого дня карточка висит на «Сегодня», даже если не всё отмечено. */
+  var QUESTIONS_UNTIL = '2026-09-11';
+
+  /** Сеется один раз: событие с этим id уже есть — ничего не делаем. */
+  function seedQuestions() {
+    var list = State.s.radar || (State.s.radar = []);
+    if (list.some(function (e) { return e && e.id === QUESTIONS_SEED.id; })) return 0;
+    list.push(JSON.parse(JSON.stringify(QUESTIONS_SEED)));
+    State.touch(true);
+    return 1;
+  }
+
+  function questionEvents() {
+    return (State.s.radar || []).filter(function (e) {
+      return e && e.type === 'questions' && Array.isArray(e.items) && e.items.length;
+    });
+  }
+
+  function questionsAllDone(e) {
+    return (e.items || []).every(function (q) { return !!q.done; });
+  }
+
+  /**
+   * Показывать ли карточку на «Сегодня»: с даты события и пока не отмечены
+   * все пункты, но не дольше срока — иначе она висела бы вечно.
+   */
+  function questionsOnToday(todayIso) {
+    var t = todayIso || State.today();
+    return questionEvents().filter(function (e) {
+      if (t < e.date) return false;
+      if (questionsAllDone(e)) return false;
+      return t <= (e.until || QUESTIONS_UNTIL);
+    });
+  }
+
+  function questionItem(eventId, q, i) {
+    return '<div class="qitem">' +
+      '<div class="qwho tiny dim">' + U.esc(q.who || '') + '</div>' +
+      '<label class="check qcheck">' +
+      '<input type="checkbox" data-q="' + U.esc(eventId + '|' + i) + '"' + (q.done ? ' checked' : '') + '>' +
+      '<span class="qen">' + U.esc(q.en) + '</span></label>' +
+      '<div class="qru">' + U.esc(q.ru) + '</div>' +
+      '<input class="txt qnote" type="text" data-qnote="' + U.esc(eventId + '|' + i) + '" ' +
+      'placeholder="ответ одной строкой" value="' + U.esc(q.note || '') + '">' +
+      '</div>';
+  }
+
+  function questionsCard(e) {
+    var done = (e.items || []).filter(function (q) { return q.done; }).length;
+    return '<section class="block"><h2>' + U.esc(e.title) + '</h2>' +
+      '<p class="lead">Спроси и запиши ответ сразу — одной строкой, своими словами. ' +
+      'Английский текст читается вслух как есть.</p>' +
+      '<div class="card qcard">' +
+      (e.items || []).map(function (q, i) { return questionItem(e.id, q, i); }).join('') +
+      '<div class="tiny dim center" style="margin-top:8px">' + done + ' из ' + e.items.length +
+      (questionsAllDone(e) ? ' · всё спрошено' : '') + '</div>' +
+      '</div></section>';
+  }
+
+  /** Блок для «Сегодня»: пусто, если спрашивать нечего. */
+  function questionsBlock(todayIso) {
+    return questionsOnToday(todayIso).map(questionsCard).join('');
+  }
+
+  /** Секция для «Радара»: там карточка видна всегда. */
+  function questionsSection() {
+    return questionEvents().map(questionsCard).join('');
+  }
+
+  /** Обработчики карточки — одни и те же на «Сегодня» и в «Радаре». */
+  function mountQuestions(host) {
+    function pick(key) {
+      var p = String(key).split('|');
+      var e = (State.s.radar || []).filter(function (x) { return x.id === p[0]; })[0];
+      var q = e && e.items && e.items[+p[1]];
+      return q ? { e: e, q: q } : null;
+    }
+    U.on(host, 'change', '[data-q]', function (ev, el) {
+      var hit = pick(el.dataset.q);
+      if (!hit) return;
+      hit.q.done = !!el.checked;
+      if (questionsAllDone(hit.e)) hit.e.done = true;
+      State.touch();
+    });
+    U.on(host, 'change', '[data-qnote]', function (ev, el) {
+      var hit = pick(el.dataset.qnote);
+      if (!hit) return;
+      hit.q.note = String(el.value || '').trim();
+      State.touch(true);         // тихо: перерисовка стёрла бы фокус в поле
+    });
+  }
+
   /* ---------- экран ---------- */
 
   function render() {
     return '<h1>Радар и дела</h1>' +
+      questionsSection() +
       checklistCard() +
       eventsSection() +
       todosSection();
@@ -575,6 +734,7 @@ window.Radar = (function () {
   /* ---------- события экрана ---------- */
 
   function mount(host) {
+    mountQuestions(host);
     U.on(host, 'change', '[data-check]', function (e, el) { toggleCheck(+el.dataset.check); });
     U.on(host, 'click', '[data-add-event]', function () { addEvent(); });
     U.on(host, 'click', '[data-add-todo]', function () { addTodo(); });
@@ -620,6 +780,7 @@ window.Radar = (function () {
 
   /** Бейдж «дела: N горят» на «Сегодня». */
   function mountToday(host) {
+    mountQuestions(host);
     U.on(host, 'click', '[data-goto-radar]', function () { App.go('radar'); });
   }
 
@@ -627,6 +788,10 @@ window.Radar = (function () {
 
   return {
     CHECKLIST: CHECKLIST, SEED_TODOS: SEED_TODOS, TYPES: TYPES,
+    QUESTIONS_SEED: QUESTIONS_SEED, QUESTIONS_UNTIL: QUESTIONS_UNTIL,
+    seedQuestions: seedQuestions, questionsBlock: questionsBlock,
+    questionsOnToday: questionsOnToday, questionsSection: questionsSection,
+    radarDay: radarDay,
     todoRow: todoRow, whyFirstLine: whyFirstLine, migrateTodos: migrateTodos,
     isOpen: function (id) { return !!openTodos[id]; },
     setOpen: function (id, on) { openTodos[id] = !!on; },
