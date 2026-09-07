@@ -150,6 +150,10 @@ window.Lesson = (function () {
     var last = State.recentSummaries(b.track, 1, lessonId)[0];
     var lastScore = last && last.parsed && last.parsed.score != null
       ? 'прошлый урок дорожки: ' + last.parsed.score + '/10' : 'прошлых уроков дорожки нет';
+    // ⭐N — взятые стретчи: в счёт урока они не идут, и это единственное место,
+    // где их видно
+    var stars = State.stretchCount();
+    if (stars) lastScore += ' · ⭐' + stars;
 
     return '<div class="lesson' + (bare ? ' bare' : '') + '">' +
       '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) +
