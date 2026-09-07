@@ -831,7 +831,8 @@ window.App = (function () {
   var V270 = [
     ['State', 'stageName'], ['State', 'deckPlan'], ['State', 'debtBoard'],
     ['State', 'applyWarmup'], ['PROMPTS', 'contractV3'], ['PROMPTS', 'parseWarmup'],
-    ['CONTENT', 'registerGlossary'], ['STEPS', 'stage'], ['Waterfall', 'ruleSaturday']
+    ['CONTENT', 'registerGlossary'], ['STEPS', 'stage'], ['Waterfall', 'ruleSaturday'],
+    ['PROMPTS', 'parseStretch'], ['State', 'stretchCount']
   ];
 
   function mixedBundle() {

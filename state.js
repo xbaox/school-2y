@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 3;
-  var APP_VERSION = '2.7.0';
+  var APP_VERSION = '2.7.1';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';
@@ -265,7 +265,9 @@ window.State = (function () {
       // Чек-лист языка (ТЗ 2.2, 4.3): пять пунктов, номера фиксированы.
       // stats[i] = { clean, total } — сколько раз пункт был чист из скольких уроков.
       checklist: { stats: [] },
-      stats: { wordsTotal: 0, lessonsDone: 0, bestStreak: 0 },
+      // stretchDone — сколько ⭐⭐ взято за всё время: их не считает счёт урока,
+      // и без отдельного счётчика взятый стретч нигде не остаётся
+      stats: { wordsTotal: 0, lessonsDone: 0, bestStreak: 0, stretchDone: 0 },
       onboarded: false
     };
   }
@@ -1903,7 +1905,8 @@ window.State = (function () {
         score: parsed.score, level: parsed.level, topics: parsed.topics,
         words: parsed.words || [], debts: parsed.debts || [],
         warmup: parsed.warmup || [], writing: parsed.writing || '',
-        checklist: parsed.checklist || null
+        checklist: parsed.checklist || null,
+        stretch: parsed.stretch == null ? null : !!parsed.stretch
       }
     };
     var at = -1;
@@ -1915,6 +1918,10 @@ window.State = (function () {
     // сначала снимаем вклад прежней записи, потом кладём новый
     if (replaced) applyChecklist(((s.summaries[at] || {}).parsed || {}).checklist, -1);
     applyChecklist(parsed.checklist, 1);
+    // тот же приём для стретча: повторная вставка итога счётчик не двигает
+    if (replaced && ((s.summaries[at] || {}).parsed || {}).stretch === true) s.stats.stretchDone--;
+    if (parsed.stretch === true) s.stats.stretchDone = (s.stats.stretchDone || 0) + 1;
+    if (s.stats.stretchDone < 0) s.stats.stretchDone = 0;
     if (replaced) s.summaries[at] = record;
     else s.summaries.push(record);
 
@@ -2074,6 +2081,9 @@ window.State = (function () {
     };
   }
 
+  /** Сколько ⭐⭐ взято за всё время. */
+  function stretchCount() { return (s.stats && s.stats.stretchDone) || 0; }
+
   /* ---------- если-то правило дня (раздел 7.6) ---------- */
 
   function ifThenOfDay(iso) {
@@ -2115,7 +2125,7 @@ window.State = (function () {
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
     warmupWords: warmupWords,
-    applyWarmup: applyWarmup, parseDebtLine: parseDebtLine,
+    applyWarmup: applyWarmup, parseDebtLine: parseDebtLine, stretchCount: stretchCount,
     debtBoard: debtBoard, priorityDebts: priorityDebts, lastExample: lastExample,
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,
