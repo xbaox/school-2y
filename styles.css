@@ -771,3 +771,13 @@ textarea.txt-why{min-height:132px;resize:vertical;line-height:1.5;font-size:13px
   margin-top:14px;padding:12px 13px;
   border:1px solid var(--fire);border-radius:12px;text-align:center;
 }
+
+/* 2.7.2: карточка «Вопросы в школе» */
+.qcard{padding:12px 13px}
+.qitem{padding:12px 0;border-bottom:1px solid var(--line)}
+.qitem:last-of-type{border-bottom:0}
+.qwho{margin-bottom:6px}
+.qcheck{align-items:flex-start}
+.qen{font-size:14.5px;line-height:1.45;font-weight:500}
+.qru{margin:6px 0 8px 28px;font-size:12.5px;color:var(--dim);line-height:1.5}
+.qnote{width:100%;min-height:40px;margin-left:0}

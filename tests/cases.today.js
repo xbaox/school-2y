@@ -255,7 +255,8 @@
     eq(State.points(t), 3, 'очки по-прежнему от уровня');
   }); });
 
-  describe('план: полный чек-лист радара ставит добавку сам', function () {
+  // чек-лист радара закрывается только в воскресенье (2.7.2) — день фиксируем
+  describe('план: полный чек-лист радара ставит добавку сам', function () { withToday('2026-08-23', function () {
     fresh();
     var t = State.today();          // tick всегда работает по «сегодня»
     State.setLevel('min');
@@ -279,7 +280,29 @@
     var sd = State.day(SUN, true);
     sd.level = 'min';
     eq(App.planItems(SUN, sd)[0].done, true, 'пункт плана зелёный');
-  });
+  }); });
+
+  describe('2.7.2 радар: в будни чек-лист только просмотр', function () { withToday(MON, function () {
+    fresh();
+    var t = State.today();
+    State.setLevel('min');
+    var before = State.points(t);
+
+    Radar.toggleCheck(0, t);
+    eq(Radar.checklistState(t).length, 0, 'в понедельник отметка не ставится');
+    Radar.setChecklistAll(true, t);
+    eq(Radar.checklistDone(t), false, 'и разом тоже нельзя');
+    eq(State.day(t).addons.indexOf('radar'), -1, 'добавки нет');
+    eq(State.points(t), before, 'и очков за неё тоже');
+
+    // чекбоксы на экране выключены
+    ok(App.screen('radar').render().indexOf('disabled') > 0, 'в будни чекбоксы неактивны');
+
+    // а в воскресенье всё работает
+    Radar.setChecklistAll(true, SUN);
+    eq(Radar.checklistDone(SUN), true, 'воскресенье закрывается');
+    ok(State.day(SUN).addons.indexOf('radar') >= 0, 'и даёт добавку');
+  }); });
 
   describe('добавки: «Воскресный радар» из чипов убран навсегда', function () {
     fresh();

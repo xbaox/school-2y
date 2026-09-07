@@ -94,7 +94,9 @@ window.App = (function () {
     render: function () {
       var t = State.today();
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
-      return cloudAlert() + topRow(t) + weekStrip(t) + badges() + stepCard() +
+      return cloudAlert() + topRow(t) + weekStrip(t) + badges() +
+        (window.Radar && Radar.questionsBlock ? Radar.questionsBlock(t) : '') +
+        stepCard() +
         levelSeg(d) + planBlock(t, d) + addonChips(d) +
         freshBars() + ifThenLine(t) + nextUpBlock(t);
     },
@@ -832,7 +834,8 @@ window.App = (function () {
     ['State', 'stageName'], ['State', 'deckPlan'], ['State', 'debtBoard'],
     ['State', 'applyWarmup'], ['PROMPTS', 'contractV3'], ['PROMPTS', 'parseWarmup'],
     ['CONTENT', 'registerGlossary'], ['STEPS', 'stage'], ['Waterfall', 'ruleSaturday'],
-    ['PROMPTS', 'parseStretch'], ['State', 'stretchCount']
+    ['PROMPTS', 'parseStretch'], ['State', 'stretchCount'],
+    ['Radar', 'seedQuestions'], ['State', 'repairWords']
   ];
 
   function mixedBundle() {
@@ -866,6 +869,7 @@ window.App = (function () {
     // проверка на функцию, а не только на модуль: service worker умеет
     // отдать смесь версий, и один отсутствующий метод не должен ронять boot
     if (window.Radar && Radar.migrateTodos) Radar.migrateTodos();
+    if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
     register('today', Today);
     buildShell();
     booted = true;
