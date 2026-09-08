@@ -138,6 +138,114 @@
       'в «Радаре» новые вопросы тоже есть');
   });
 
+  /* ============ карточке вопросов нельзя сменить тип ============ */
+
+  /**
+   * Шторка живёт в UI.sheet, которому в наборе не на чем строить DOM.
+   * Подменяем sheet, ловим opts и катаем onMount по кукольному корню:
+   * ему нужны querySelector и addEventListener, больше ничего.
+   */
+  function openSheet(existing) {
+    var real = UI.sheet, got = null;
+    UI.sheet = function (o) { got = o; };
+    try { Radar.addEvent(existing); } finally { UI.sheet = real; }
+
+    var fields = {};
+    function field(sel, value) { return (fields[sel] = { value: value, textContent: '', focus: function () {} }); }
+    field('[data-title]', (existing && existing.title) || '');
+    field('[data-date]', (existing && existing.date) || '');
+    field('[data-note]', (existing && existing.note) || '');
+    field('.ev-err', '');
+    field('[data-cancel]', '');
+    field('[data-save]', '');
+    field('[data-other]', '');
+    var root = {
+      addEventListener: function () {},
+      querySelector: function (sel) { return fields[sel] || null; }
+    };
+    var closed = false;
+    got.onMount(root, function () { closed = true; });
+    return {
+      opts: got, body: got.body, fields: fields,
+      save: function () { fields['[data-save]'].onclick(); },
+      closed: function () { return closed; },
+      err: function () { return fields['.ev-err'].textContent; }
+    };
+  }
+
+  describe('карточка вопросов: тип сменить нельзя', function () {
+    fresh();
+    Radar.seedQuestions();
+    var sh = openSheet(ev());
+
+    eq(sh.opts.title, 'Карточка вопросов', 'шторка называет себя карточкой вопросов');
+    ok(sh.opts.sub.indexOf('Тип у карточки вопросов не меняется') > 0, 'и объясняет почему');
+
+    // все чипы типа заблокированы
+    var chips = sh.body.match(/<button class="chip[^>]*data-type="[^"]*"[^>]*>/g) || [];
+    eq(chips.length, Radar.TYPES.length, 'чипы типов на месте');
+    ok(chips.every(function (c) { return c.indexOf('disabled') > 0; }), 'и все неактивны');
+    ok(sh.body.indexOf('<button class="chip on" disabled aria-pressed="true">вопросы</button>') > 0,
+      'текущий тип показан отдельным неактивным чипом');
+    ok(sh.body.indexOf('Тип карточки вопросов не меняется.') > 0, 'подпись под чипами');
+
+    // курса у такого события нет — вместо чипов курса поле заголовка
+    ok(sh.body.indexOf('data-title') > 0, 'заголовок редактируется');
+    eq(sh.body.indexOf('data-course'), -1, 'чипов курса нет');
+    ok(sh.body.indexOf('value="Утро 8.09 — восемь вопросов"') > 0, 'и в поле стоит текущий заголовок');
+    ok(sh.body.indexOf('type="date" data-date') > 0, 'дата редактируется');
+  });
+
+  describe('карточка вопросов: сохранение правит заголовок и дату, не тип', function () {
+    fresh();
+    Radar.seedQuestions();
+    var e = ev();
+    e.items[0].done = true;
+    e.items[0].note = 'ответил консультант';
+
+    var sh = openSheet(e);
+    sh.fields['[data-title]'].value = 'Вопросы в школе — понедельник';
+    sh.fields['[data-date]'].value = '2026-09-09';
+    sh.save();
+
+    var after = ev();
+    eq(after.type, 'questions', 'тип остался questions');
+    eq(after.title, 'Вопросы в школе — понедельник', 'заголовок обновлён');
+    eq(after.date, '2026-09-09', 'и дата тоже');
+    eq(after.course, undefined, 'курс такому событию не приписывается');
+    eq(after.items.length, 8, 'пункты на месте');
+    eq(after.items[0].done, true, 'отметка цела');
+    eq(after.items[0].note, 'ответил консультант', 'и записанный ответ');
+    ok(sh.closed(), 'шторка закрылась');
+
+    // карточка никуда не делась — ради этого всё и затевалось
+    eq(Radar.questionsOnToday('2026-09-09').length, 1, 'и осталась на «Сегодня»');
+    ok(Radar.questionsSection().indexOf('Вопросы в школе — понедельник') > 0, 'и в «Радаре»');
+  });
+
+  describe('карточка вопросов: пустой заголовок не сохраняется', function () {
+    fresh();
+    Radar.seedQuestions();
+    var sh = openSheet(ev());
+    sh.fields['[data-title]'].value = '   ';
+    sh.save();
+    ok(sh.err().indexOf('Заголовок нужен') === 0, 'шторка объясняет, чего не хватает');
+    ok(!sh.closed(), 'и не закрывается');
+    eq(ev().title, 'Утро 8.09 — восемь вопросов', 'заголовок не тронут');
+  });
+
+  describe('обычному событию радара тип по-прежнему меняется', function () {
+    fresh();
+    State.s.radar.push({ id: 'ev-1', course: 'MHF4U', type: 'test', date: '2026-10-01', note: '', done: false });
+    var sh = openSheet(State.s.radar[0]);
+
+    eq(sh.opts.title, 'Событие радара', 'обычная шторка');
+    ok(sh.body.indexOf('data-course') > 0, 'чипы курса на месте');
+    var chips = sh.body.match(/<button class="chip[^>]*data-type="[^"]*"[^>]*>/g) || [];
+    ok(chips.every(function (c) { return c.indexOf('disabled') < 0; }), 'и чипы типа активны');
+    eq(sh.body.indexOf('Тип карточки вопросов не меняется.'), -1, 'подписи про вопросы нет');
+  });
+
   /* ============ ступень: один источник на всех экранах ============ */
 
   describe('2.7.5 ступень: Настройки, карточка и промпт называют одну ступень', function () {

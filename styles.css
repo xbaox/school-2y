@@ -226,6 +226,8 @@ section.block:first-of-type{margin-top:0}
   transition:background .12s,color .12s,border-color .12s;
 }
 .chip.on{background:var(--fire);color:#12151c;font-weight:600;border-color:var(--fire)}
+/* заблокированный чип: тип карточки вопросов не меняется */
+.chip[disabled]{opacity:.45;cursor:default}
 .chip.addon.on{background:var(--fire-soft);color:var(--fire);border-color:var(--fire)}
 
 /* подтверждение выбора: чип коротко вспыхивает заливкой fire.
