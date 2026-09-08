@@ -22,6 +22,12 @@
     State.setStage(stage || 'S1');
   }
 
+  /** Как это делает App.openHw: переехавший урок берётся из выбора дня. */
+  function takeHw(course, iso) {
+    var cur = (window.Lesson && Lesson.current(iso)) || {};
+    return State.startHw(course, iso, cur.lessonId);
+  }
+
   function summary(over) {
     return Object.assign({
       score: 8, level: 'L2', topics: 'производные',
@@ -60,15 +66,15 @@
     eq(State.hwWeekCount(TUE), 0, 'неделя пустая');
     ok(State.hwAvailable(TUE), 'во вторник урок по ДЗ доступен');
 
-    var res = State.startHw('MHF4U', TUE);
+    var res = takeHw('MHF4U', TUE);
     eq([res.id, res.course, res.track], [HW_TUE, 'MHF4U', 'math'], 'id несёт дату и дорожку');
     eq(State.day(TUE).hw, HW_TUE, 'день помечен');
     eq(State.day(TUE).hwCourse, 'MHF4U', 'и курс записан');
     eq(State.day(TUE).pick, undefined, 'выбор программного урока кнопка не трогает');
     eq(State.hwWeekCount(TUE), 1, 'счётчик недели вырос сразу, не дожидаясь ИТОГа');
 
-    State.startHw('ENG2D', WED);
-    State.startHw('GLC2O', THU);
+    takeHw('ENG2D', WED);
+    takeHw('GLC2O', THU);
     eq(State.hwWeekCount(FRI), 3, 'три взятых дня на неделе');
     ok(!State.hwAvailable(FRI), 'четвёртый на этой неделе не даётся');
     eq(State.hwWeekCount(NEXT_MON), 0, 'следующая неделя считается заново');
@@ -95,7 +101,7 @@
     ok(free.indexOf('ДЗ-уроков на неделе: 0/3') > 0, 'счётчик виден');
     eq(free.indexOf('disabled'), -1, 'и она активна');
 
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     var taken = App.hwOffer(TUE);
     ok(taken.indexOf('MHF4U') > 0, 'взятый урок называет курс');
     ok(taken.indexOf('data-copy="' + HW_TUE + '"') > 0, 'кнопка промпта на месте');
@@ -112,16 +118,16 @@
 
     // счёт 0 — такой же закрытый урок, как и любой другой
     fresh();
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     State.applySummary(HW_TUE, summary({ score: 0, level: 'L1' }), { date: TUE });
     var zero = App.hwOffer(TUE);
     ok(zero.indexOf('итог принят · 0/10') > 0, 'урок, закрытый нулём, тоже закрыт');
     eq(zero.indexOf('data-summary'), -1, 'и повторного итога не просит');
 
     fresh();
-    State.startHw('MHF4U', TUE);
-    State.startHw('ENG2D', WED);
-    State.startHw('GLC2O', THU);
+    takeHw('MHF4U', TUE);
+    takeHw('ENG2D', WED);
+    takeHw('GLC2O', THU);
     var full = App.hwOffer(FRI);
     ok(full.indexOf('disabled') > 0, 'на четвёртом дне кнопка неактивна');
     ok(full.indexOf('на этой неделе больше нельзя') > 0, 'и объясняет почему');
@@ -131,7 +137,7 @@
 
   describe('ДЗ-урок: промпт собран из блока [ДЗ]', function () {
     fresh('S1');
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     var p = PROMPTS.lesson(HW_TUE, { today: TUE });
 
     ok(p.indexOf('Формат: урок по домашнему заданию школы — курс MHF4U ' +
@@ -166,7 +172,7 @@
     State.applySummary('B2.1', summary({ debts: ['М1 — путает знак наклона'] }), { date: MON });
     State.applySummary('B1.1', summary({ debts: ['П3 — путает however и therefore'] }), { date: MON });
 
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     var p = PROMPTS.lesson(HW_TUE, { today: TUE });
     ok(p.indexOf('путает знак наклона') > 0, 'долг математики в промпте ДЗ');
     eq(p.indexOf('however и therefore'), -1, 'долг письма не подмешан');
@@ -176,7 +182,7 @@
 
   describe('ДЗ-урок: разбор ИТОГа', function () {
     fresh('S1');
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     var res = State.applySummary(HW_TUE, summary({
       score: 9, level: 'L3',
       words: [{ en: 'derivative', ru: 'производная' }],
@@ -205,7 +211,7 @@
   describe('ДЗ-урок: программный урок остаётся непройденным', function () {
     fresh('S1');
     var planned = State.nextLessonInTrack('math');
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     State.applySummary(HW_TUE, summary(), { date: TUE });
 
     ok(!(State.s.lessons[planned] || {}).done, 'программный урок математики не помечен пройденным');
@@ -217,7 +223,7 @@
 
   describe('ДЗ-урок: критерии письма в конце промпта', function () {
     fresh('S1');
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     var p = PROMPTS.lesson(HW_TUE, { today: TUE });
 
     var MATH = 'Письмо (3): 1 — все требуемые термины использованы верно; ' +
@@ -231,14 +237,14 @@
 
     // дорожка решает, какие три балла печатать — точно так же, как в [КЛЮЧИ]
     fresh('S1');
-    State.startHw('ENG2D', WED);
+    takeHw('ENG2D', WED);
     var w = PROMPTS.lesson('HW-2026-09-16-write', { today: WED });
     ok(w.indexOf('1 — содержание точно по заданию и по тексту') > 0,
       'у письма — свои три балла');
     eq(w.indexOf('математически верно'), -1, 'и математический критерий туда не попал');
 
     fresh('S1');
-    State.startHw('GLC2O', THU);
+    takeHw('GLC2O', THU);
     var b = PROMPTS.lesson('HW-2026-09-17-biz', { today: THU });
     ok(b.indexOf('1 — содержание точно по заданию и по тексту') > 0,
       'у бизнеса своей строки нет — берётся запасная, как и в [КЛЮЧИ]');
@@ -253,7 +259,7 @@
       var prog = PROMPTS.lesson('B2.1', { today: WED });
       ok(prog.indexOf(MUST) > 0, 'в программном уроке ' + stage + ' стретч обязателен');
 
-      State.startHw('MHF4U', WED);
+      takeHw('MHF4U', WED);
       var hw = PROMPTS.lesson('HW-2026-09-16-math', { today: WED });
       ok(hw.indexOf(FREE) > 0, 'а в ДЗ-уроке ' + stage + ' — по желанию');
       eq(hw.indexOf(MUST), -1, 'и требования в этапах нет');
@@ -264,44 +270,154 @@
     });
 
     fresh('S2');
-    State.startHw('MHF4U', WED);
+    takeHw('MHF4U', WED);
     ok(PROMPTS.lesson('HW-2026-09-16-math', { today: WED }).indexOf(FREE) > 0,
       'на нижних ступенях ничего не меняется');
   });
 
   /* ============ ДЗ-урок и остальной экран ============ */
 
-  describe('ДЗ-урок не выдаёт себя за программный урок дня', function () {
+  describe('пункт «Урок» гаснет на дне с ДЗ-уроком', function () {
     fresh('S1');
     State.day(TUE, true).level = 'norm';       // без уровня пунктов урока в плане нет
     var planned = App.planItems(TUE, State.day(TUE)).filter(function (i) {
       return i.tick === 'lesson';
     })[0];
 
-    State.startHw('MHF4U', TUE);
+    takeHw('MHF4U', TUE);
     State.applySummary(HW_TUE, summary({ score: 8 }), { date: TUE });
 
     var items = App.planItems(TUE, State.day(TUE) || {});
     var l1 = items.filter(function (i) { return i.tick === 'lesson'; })[0];
-    eq(l1.title, planned.title, 'пункт «Урок» по-прежнему называет программный урок');
+
+    // 2.7.4: пункт гаснет — норму закрыл ДЗ-урок, программный переехал
+    eq(l1.sub, 'норма закрыта ДЗ-уроком · программный урок Б2.1 — завтра',
+      'подпись называет и причину, и переехавший урок');
+    ok(l1.done, 'пункт закрыт: норма дня выполнена');
+    eq(l1.body, '', 'тела у пункта нет');
+    eq(l1.body.indexOf('data-copy='), -1, 'кнопки промпта программного урока нет');
+    ok(planned.title.indexOf('Б2.1') > 0, 'а до ДЗ-урока пункт называл именно этот урок');
+
     eq(l1.title.indexOf('HW-'), -1, 'сырой id ДЗ-урока в заголовок не попадает');
     eq(String(l1.sub).indexOf('undefined'), -1, 'и подпись не «undefined»');
     eq(l1.body.indexOf('Уроки текущих фаз закрыты'), -1,
       'и тело пункта не врёт, что уроки кончились');
-    ok(l1.body.indexOf('data-copy=') > 0, 'промпт программного урока с экрана не пропал');
 
     // норма дня при этом закрыта — ради этого id и кладётся в day.lessons
     ok(State.day(TUE).lessons.indexOf(HW_TUE) >= 0, 'ДЗ-урок остаётся в дне');
     ok(!State.hwAvailable(TUE), 'и второй ДЗ-урок в этот день не даётся');
 
     eq(Lesson.current(TUE).lessonId.indexOf('HW-'), -1,
-      'карточка урока тоже показывает программный урок');
+      'карточка урока по-прежнему знает программный урок');
+
+    // «Полная / Второй урок» — единственный путь к уроку в такой день,
+    // и ДЗ-урок снимает с него замок «после урока 1»
+    State.day(TUE).level = 'full';
+    var l2 = App.planItems(TUE, State.day(TUE)).filter(function (i) {
+      return i.tick === 'lesson';
+    })[1];
+    ok(!l2.locked, 'второй урок разблокирован: первый урок дня уже был');
+    eq(String(l2.sub).indexOf('после урока 1'), -1, 'и замок про него не пишет');
+  });
+
+  describe('пункт «Урок»: ДЗ взят, но итога ещё нет', function () {
+    fresh('S1');
+    State.day(TUE, true).level = 'norm';
+    takeHw('MHF4U', TUE);
+
+    var l1 = App.planItems(TUE, State.day(TUE)).filter(function (i) {
+      return i.tick === 'lesson';
+    })[0];
+    ok(l1.sub.indexOf('норма закрыта ДЗ-уроком') === 0, 'пункт гаснет с самого выбора курса');
+    ok(l1.sub.indexOf('программный урок Б2.1 — завтра') > 0, 'и называет переехавший урок');
+    ok(!l1.done, 'но галочки нет: итог ещё не вставлен');
+    eq(l1.body, '', 'и промпт программного урока не предлагается');
+  });
+
+  describe('пункт «Урок»: имя переехавшего урока не дрейфует', function () {
+    // подпись «— завтра» называется в момент заявки и дальше не пересчитывается:
+    // к вечеру выбор дня успевает поменяться, и она начинала называть урок,
+    // сделанный сегодня или ведущийся прямо сейчас
+    function sub(iso) {
+      return App.planItems(iso, State.day(iso)).filter(function (i) {
+        return i.tick === 'lesson';
+      })[0].sub;
+    }
+
+    fresh('S1');
+    var d = State.day(TUE, true);
+    d.level = 'full';
+    var planned = Lesson.current(TUE).lessonId;
+    takeHw('MHF4U', TUE);
+    State.applySummary(HW_TUE, summary({ score: 8 }), { date: TUE });
+    ok(sub(TUE).indexOf('программный урок Б2.1 — завтра') > 0, 'сразу после ИТОГа ДЗ — Б2.1');
+
+    // ученик копирует промпт второго урока: выбор дня переехал на B1.1
+    Lesson.remember('B1.1', { kind: 'plan', text: 'второй урок полной' }, TUE);
+    eq(State.day(TUE).pick, 'B1.1', 'выбор дня действительно сменился');
+    ok(sub(TUE).indexOf('программный урок Б2.1 — завтра') > 0,
+      'подпись по-прежнему называет Б2.1, а не урок, который ведётся сейчас');
+    eq(sub(TUE).indexOf('Б1.1'), -1, 'ведущийся урок в «— завтра» не попадает');
+
+    // а если переехавший урок всё-таки сделан сегодня — обещать его нечестно
+    State.applySummary(planned, summary(), { date: TUE });
+    eq(sub(TUE), 'норма закрыта ДЗ-уроком', 'хвост «— завтра» исчезает: урок сделан сегодня');
+
+    // смена курса на том же дне переехавший урок не переписывает
+    fresh('S1');
+    State.day(WED, true).level = 'norm';
+    takeHw('MHF4U', WED);
+    var first = State.hwOfDay(WED).moved;
+    Lesson.remember('B1.1', { kind: 'plan', text: 'другой' }, WED);
+    takeHw('ENG2D', WED);
+    eq(State.hwOfDay(WED).moved, first, 'переехавший урок остался прежним');
+  });
+
+  /* ============ 2.7.4: конкурсный урок и длина спринта ============ */
+
+  describe('конкурсный урок: контракт знает про три задачи', function () {
+    fresh('S1');
+    var p = PROMPTS.lesson('B53.1', { today: SAT });
+
+    ok(p.indexOf('Заголовок каждого задания: «Задание N/3 · L2 · 2 marks»') > 0,
+      'правило 2 печатает N/3, а не число ступени');
+    eq(p.indexOf('Задание N/12'), -1, 'раскладки ступени S1 в контракте нет');
+    ok(p.indexOf('[ЭТАПЫ КОНКУРСНОГО УРОКА]') > 0, 'этапы конкурсные');
+    ok(p.indexOf('три задачи (A, A, B)') > 0, 'и формат тот же — три задачи');
+
+    // у программного урока той же ступени число прежнее
+    var prog = PROMPTS.lesson('B2.1', { today: TUE });
+    ok(prog.indexOf('«Задание N/12 · L2 · 2 marks»') > 0, 'программный урок S1 — 12 заданий');
+  });
+
+  describe('длина спринта называется одинаково в обоих местах', function () {
+    [['S0', '~13–15 минут'], ['S1', '~17 минут'], ['S2', '~20 минут'],
+      ['S3', '~22 минуты'], ['S4', '~25 минут'], ['Г1', '~25 минут'],
+      ['Г2', '~25 минут'], ['Г3', '~25 минут']].forEach(function (pair) {
+      var stage = pair[0], label = pair[1];
+      eq(STEPS.stage(stage).sprintLabel, label, 'у ' + stage + ' своя длина спринта');
+
+      fresh(stage);
+      var p = PROMPTS.lesson('B2.1', { today: TUE });
+      ok(p.indexOf('спринты ' + label + '.') > 0,
+        stage + ': строка ступени называет ' + label);
+      ok(p.indexOf('Спринт 1 (' + label + ')') > 0,
+        stage + ': и «Спринт 1» называет то же самое');
+      ok(p.indexOf('Спринт 2 (' + label + ')') > 0,
+        stage + ': и «Спринт 2» тоже');
+    });
+
+    // до 2.7.4 строка ступени считала половину урока, а этапы брали запасное
+    fresh('S1');
+    var s1 = PROMPTS.lesson('B2.1', { today: TUE });
+    eq(s1.indexOf('спринты ~18 минут'), -1, 'старого расчёта «половина урока» больше нет');
+    eq(s1.indexOf('Спринт 1 (~13–15 минут)'), -1, 'и запасного значения на S1 тоже');
   });
 
   describe('долги дорожки без своих категорий (ДЗ по информатике)', function () {
     fresh('S1');
     var HW_CS = 'HW-2026-09-15-cs';
-    State.startHw('ICS3U', TUE);
+    takeHw('ICS3U', TUE);
     State.applySummary(HW_CS, summary({
       debts: ['М2 — не показывает ходы', 'П6 — ярлык вместо предложения']
     }), { date: TUE });
@@ -317,7 +433,7 @@
     eq(open, ['П6', 'М2'], 'доска информатики показывает оба долга');
     eq(State.priorityDebts('cs').length, 2, 'и оба получают ПРИОРИТЕТ');
 
-    State.startHw('ICS3U', WED);
+    takeHw('ICS3U', WED);
     var p = PROMPTS.lesson('HW-2026-09-16-cs', { today: WED });
     ok(p.indexOf('не показывает ходы') > 0, 'долг математики в промпте ДЗ по информатике');
     ok(p.indexOf('ярлык вместо предложения') > 0, 'и долг письма тоже');

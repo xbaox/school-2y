@@ -34,30 +34,35 @@ window.STEPS = (function () {
       pos: 1, name: 'S1', title: 'S1', norm: 45, full: 75, lesson: 35, qRange: '12',
       layout: '2 разогрев L1 · 7 основа L2 · 1 письмо · 2 стретч ⭐',
       slots: { warm: 2, base: 7, write: 1, stretch: 2 },
+      sprintLabel: '~17 минут',
       start: 'L1', transfer: '1', ru: '≤40%', note: 'шкала пошла', special: ''
     },
     {
       pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, qRange: '14',
       layout: '2 разогрев L1 · 9 основа L2 · 1 письмо · 2 стретч ⭐⭐',
       slots: { warm: 2, base: 9, write: 1, stretch: 2 },
+      sprintLabel: '~20 минут',
       start: 'L1', transfer: '1–2', ru: '≤30%', note: 'больше заданий', special: ''
     },
     {
       pos: 3, name: 'S3', norm: 65, full: 105, lesson: 45, qRange: '16',
       layout: '2 разогрев L1 · 11 основа L2 · 1 письмо · 2 стретч ⭐⭐',
       slots: { warm: 2, base: 11, write: 1, stretch: 2 },
+      sprintLabel: '~22 минуты',
       start: 'L2', transfer: '2', ru: '≤25%', note: 'старт с L2', special: ''
     },
     {
       pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, qRange: '18',
       layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
       slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      sprintLabel: '~25 минут',
       start: 'L2', transfer: '2–3', ru: '≤20%', note: 'потолок времени', special: ''
     },
     {
       pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, qRange: '18',
       layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
       slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      sprintLabel: '~25 минут',
       stretchRequired: true, ruStrict: true,
       start: 'L2', transfer: '3', ru: '≤10%', note: 'время стоит, растёт глубина',
       cemc: true,
@@ -67,6 +72,7 @@ window.STEPS = (function () {
       pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, qRange: '18',
       layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
       slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      sprintLabel: '~25 минут',
       stretchRequired: true, ruStrict: true,
       start: 'L2', transfer: '3', ru: '≤30%', note: 'разборы по-английски',
       cemc: true,
@@ -76,6 +82,7 @@ window.STEPS = (function () {
       pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, qRange: '18',
       layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
       slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      sprintLabel: '~25 минут',
       stretchRequired: true, examFriday: true, ruStrict: true,
       start: 'L2', finish: 'L3', transfer: '3', ru: '≤30%', note: 'экзаменационный темп',
       cemc: true,

@@ -29,7 +29,7 @@ window.PROMPTS = (function () {
   function stagesBlock(p, youtube, saturday, lesson) {
     var L = p.slots || { warm: 2, base: 4, write: 1, stretch: 1 };
     var total = L.warm + L.base + L.write + L.stretch;
-    var sprint = p.sprintLabel || '~13–15 минут';
+    var sprint = p.sprintLabel || SPRINT_FALLBACK;
     var n = 0;
     function next() { return (++n) + '/' + total; }
 
@@ -205,6 +205,14 @@ window.PROMPTS = (function () {
     var total = slots ? (slots.warm + slots.base + slots.write + slots.stretch) : 8;
     return CONTRACT_V3.join('\n').replace('{tasks}', String(total));
   }
+
+  /**
+   * Длина спринта называется в промпте дважды — в строке ступени [КОНТЕКСТ]
+   * и в «Спринт 1/2» [ЭТАПЫ]. Значение берётся из ступени (sprintLabel есть
+   * у всех восьми); запасное — одно на оба места, иначе промпт называл
+   * две разные длины в трёх строках друг от друга.
+   */
+  var SPRINT_FALLBACK = '~13–15 минут';
 
   /* ---------- 4.3 Чек-лист языка ---------- */
 
@@ -465,7 +473,7 @@ window.PROMPTS = (function () {
     var layout = p.layout ? p.layout : p.qRange + ' заданий';
     return 'Ступень: ' + p.stepLabel + (p.title && p.title !== p.name ? ' «' + p.title + '»' : '') +
       ' — ' + total + ' ' + U.plural(total, 'задание', 'задания', 'заданий') +
-      ' = ' + layout + '; спринты ' + (p.sprintLabel || '~' + Math.round(p.lessonMin / 2) + ' минут') + '.';
+      ' = ' + layout + '; спринты ' + (p.sprintLabel || SPRINT_FALLBACK) + '.';
   }
 
   /** Конкурсный урок ступени не имеет: у него свой формат (ТЗ 4.6). */
@@ -511,7 +519,14 @@ window.PROMPTS = (function () {
     var contest = isContest(lesson);
     // в конкурсном уроке заданий ровно три — контракт должен говорить то же,
     // что этапы, иначе правило 2 будет спорить с шаблоном
-    if (contest) p = Object.assign({}, p, { qRange: '3' });
+    // подменяем и раскладку: правило 2 контракта берёт число заданий из slots,
+    // и без этого оно печатало «Задание N/8» на уроке из трёх задач
+    if (contest) {
+      p = Object.assign({}, p, {
+        qRange: '3',
+        slots: { warm: 0, base: 3, write: 0, stretch: 0 }
+      });
+    }
     if (hw) p = hwParams(p);
     var videoDone = State.videoWatched(lessonId, todayIso) ? 'да' : 'нет';
     var saturday = U.weekday(todayIso) === 6;

@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 3;
-  var APP_VERSION = '2.7.3';
+  var APP_VERSION = '2.7.4';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';
@@ -1080,8 +1080,14 @@ window.State = (function () {
     return hwWeekCount(t) < HW_WEEK_CAP;
   }
 
-  /** Заявка на ДЗ-урок: помечаем день и отдаём id. Выбор урока не трогаем. */
-  function startHw(courseCode, todayIso) {
+  /**
+   * Заявка на ДЗ-урок: помечаем день и отдаём id. Выбор урока не трогаем.
+   * movedLessonId — программный урок, который этим днём переехал на завтра.
+   * Он запоминается ЗДЕСЬ и больше не пересчитывается: к вечеру выбор дня
+   * успевает поменяться (закрыт второй урок, скопирован другой промпт), и
+   * подпись «— завтра» начинала называть урок, сделанный сегодня.
+   */
+  function startHw(courseCode, todayIso, movedLessonId) {
     var t = todayIso || today();
     var c = schoolCourse(courseCode);
     if (!c) return null;
@@ -1089,8 +1095,10 @@ window.State = (function () {
     var d = day(t, true);
     d.hw = id;
     d.hwCourse = c.code;
+    // смена курса на том же дне переехавший урок не переписывает
+    if (!d.hwMoved && movedLessonId && !isHw(movedLessonId)) d.hwMoved = movedLessonId;
     touch();
-    return { id: id, course: c.code, track: c.track, name: c.name };
+    return { id: id, course: c.code, track: c.track, name: c.name, moved: d.hwMoved || null };
   }
 
   /** Курс сегодняшнего ДЗ-урока или null. */
@@ -1099,7 +1107,13 @@ window.State = (function () {
     if (!d || !d.hw) return null;
     var p = parseHwId(d.hw);
     if (!p) return null;
-    return { id: d.hw, course: d.hwCourse || null, track: p.track };
+    // переехавший урок отдаём, только пока он и правда не сделан сегодня
+    var moved = d.hwMoved || null;
+    if (moved && ((d.lessons || []).indexOf(moved) >= 0 ||
+      ((s.lessons[moved] || {}).done && (s.lessons[moved] || {}).date === (todayIso || today())))) {
+      moved = null;
+    }
+    return { id: d.hw, course: d.hwCourse || null, track: p.track, moved: moved };
   }
 
   /* ---------- дорожки ---------- */

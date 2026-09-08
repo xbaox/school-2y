@@ -466,7 +466,10 @@ window.App = (function () {
             UI.toast('Сегодняшний ДЗ-урок уже закрыт итогом — курс не меняется', '', 4200);
             return;
           }
-          var res = State.startHw(el.dataset.hwCourse, iso);
+          // урок, который этот день уступает школьному ДЗ, — тот, что
+          // приложение выбрало на сегодня до нажатия кнопки
+          var moved = (window.Lesson && Lesson.current(iso)) || null;
+          var res = State.startHw(el.dataset.hwCourse, iso, moved && moved.lessonId);
           close();
           if (!res) { UI.toast('Курс не найден', ''); return; }
           // промпт кладём в буфер сразу: иначе после выбора курса
@@ -658,12 +661,20 @@ window.App = (function () {
    * Урок. Галочка ставится только валидным «ИТОГОМ УРОКА»: тап по кружку
    * об этом и говорит. Второй урок ждёт, пока закрыт первый.
    */
+  /** Короткое имя урока для плана: «Б7.1». У чужого id — сам id. */
+  function lessonCode(lessonId) {
+    var l = CONTENT.lesson(lessonId);
+    return l ? State.blockLabel(l.blockId) + '.' + State.lessonNum(lessonId) : lessonId;
+  }
+
   function lessonItem(n, t, d, full) {
     // ДЗ-урок норму дня закрывает, но пунктом «Урок» не является: у него
     // своя карточка ниже, а контента для Lesson.card у него нет
     var lessons = (d.lessons || []).filter(function (id) { return !State.isHw(id); });
     var done = lessons.length >= n;
-    var locked = n === 2 && lessons.length < 1;
+    // «после урока 1» — про любой урок дня: ДЗ-урок тоже снимает замок,
+    // иначе путь «Полная / Второй урок» в день с ДЗ был бы закрыт навсегда
+    var locked = n === 2 && (d.lessons || []).length < 1;
     var head = full ? 'Урок ' + n : 'Урок';
 
     if (locked) {
@@ -674,6 +685,22 @@ window.App = (function () {
     }
 
     var sel = Lesson.dayLesson(n, t);
+
+    // день отдан школьному ДЗ: промпт программного урока сегодня не
+    // предлагается, но имя урока называется — иначе непонятно, что переехало.
+    // Второй урок в такой день — только через «Полная / Второй урок»
+    var hw = n === 1 ? State.hwOfDay(t) : null;
+    if (hw) {
+      var moved = hw.moved ? lessonCode(hw.moved) : null;
+      return {
+        id: 'l1', tick: 'lesson', title: head,
+        sub: 'норма закрыта ДЗ-уроком' +
+          (moved ? ' · программный урок ' + moved + ' — завтра' : ''),
+        done: (d.lessons || []).indexOf(hw.id) >= 0,
+        body: ''
+      };
+    }
+
     if (!sel) {
       return {
         id: 'l' + n, tick: 'lesson', title: head, sub: 'уроков в контенте не осталось',
@@ -684,7 +711,7 @@ window.App = (function () {
 
     var l = CONTENT.lesson(sel.lessonId);
     var b = (l && State.block(l.blockId)) || {};
-    var code = l ? State.blockLabel(l.blockId) + '.' + State.lessonNum(sel.lessonId) : sel.lessonId;
+    var code = lessonCode(sel.lessonId);
 
     return {
       id: 'l' + n, tick: 'lesson',
