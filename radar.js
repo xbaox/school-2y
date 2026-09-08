@@ -668,26 +668,45 @@ window.Radar = (function () {
   /* ---------- шторки добавления ---------- */
 
   function addEvent(existing) {
+    // Карточка вопросов — тоже событие радара, но тип у неё не меняется:
+    // смена типа уводит её и с «Сегодня», и из раздела вопросов, а записанные
+    // ответы остаются внутри события, и достать их через интерфейс уже нечем.
+    // Редактируются заголовок и дата — курса у такого события нет.
+    var isQuestions = !!(existing && existing.type === 'questions');
     var courses = Object.keys(CONTENT.COURSE_TRACK).concat(CONTENT.COURSES_NO_TRACK);
     var def = existing ? existing.date : U.addDays(State.today(), 7);
     var known = existing ? courses.indexOf(existing.course) >= 0 : true;
     var startCourse = existing ? (known ? existing.course : 'other') : courses[0];
     var startType = existing ? existing.type : TYPES[0].id;
     UI.sheet({
-      title: existing ? 'Событие радара' : 'Новое событие',
-      sub: 'Код курса — как он записан в твоём расписании. Тип, дата. Заметка — по желанию.',
+      title: isQuestions ? 'Карточка вопросов' : (existing ? 'Событие радара' : 'Новое событие'),
+      sub: isQuestions
+        ? 'Заголовок и дата. Тип у карточки вопросов не меняется — иначе она уйдёт ' +
+        'с экрана вместе с записанными ответами.'
+        : 'Код курса — как он записан в твоём расписании. Тип, дата. Заметка — по желанию.',
       body:
-        '<div class="chips" data-courses>' + courses.map(function (c) {
-          return '<button class="chip' + (c === startCourse ? ' on' : '') + '" data-course="' + U.esc(c) +
-            '" aria-pressed="' + (c === startCourse) + '">' + U.esc(c) + '</button>';
-        }).join('') + '<button class="chip' + (startCourse === 'other' ? ' on' : '') +
-        '" data-course="other" aria-pressed="' + (startCourse === 'other') + '">свой…</button></div>' +
-        '<input class="txt' + (startCourse === 'other' ? '' : ' hidden') + '" data-other placeholder="код курса" value="' +
-        (startCourse === 'other' ? U.esc(existing.course) : '') + '">' +
-        '<div class="chips" data-types>' + TYPES.map(function (x) {
+        (isQuestions
+          ? '<input class="txt" data-title placeholder="заголовок карточки" value="' +
+          U.esc(existing.title || '') + '">'
+          : '<div class="chips" data-courses>' + courses.map(function (c) {
+            return '<button class="chip' + (c === startCourse ? ' on' : '') + '" data-course="' + U.esc(c) +
+              '" aria-pressed="' + (c === startCourse) + '">' + U.esc(c) + '</button>';
+          }).join('') + '<button class="chip' + (startCourse === 'other' ? ' on' : '') +
+          '" data-course="other" aria-pressed="' + (startCourse === 'other') + '">свой…</button></div>' +
+          '<input class="txt' + (startCourse === 'other' ? '' : ' hidden') + '" data-other placeholder="код курса" value="' +
+          (startCourse === 'other' ? U.esc(existing.course) : '') + '">') +
+        '<div class="chips" data-types>' +
+        (isQuestions
+          ? '<button class="chip on" disabled aria-pressed="true">вопросы</button>'
+          : '') +
+        TYPES.map(function (x) {
           return '<button class="chip' + (x.id === startType ? ' on' : '') + '" data-type="' + U.esc(x.id) +
-            '" aria-pressed="' + (x.id === startType) + '">' + U.esc(x.name) + '</button>';
+            '"' + (isQuestions ? ' disabled' : '') +
+            ' aria-pressed="' + (x.id === startType) + '">' + U.esc(x.name) + '</button>';
         }).join('') + '</div>' +
+        (isQuestions
+          ? '<div class="tiny dim" style="margin:-6px 0 12px">Тип карточки вопросов не меняется.</div>'
+          : '') +
         '<input class="txt" type="date" data-date value="' + U.esc(def) + '">' +
         '<input class="txt" style="margin-top:8px" data-note placeholder="заметка (не обязательно)" value="' +
         U.esc((existing && existing.note) || '') + '">' +
@@ -722,6 +741,22 @@ window.Radar = (function () {
         });
         root.querySelector('[data-cancel]').onclick = close;
         root.querySelector('[data-save]').onclick = function () {
+          if (isQuestions) {
+            // тип и пункты не трогаем — только заголовок, дата и заметка
+            var title = (root.querySelector('[data-title]').value || '').trim();
+            if (!title) {
+              err.textContent = 'Заголовок нужен — по нему карточка узнаётся на экране.';
+              root.querySelector('[data-title]').focus();
+              return;
+            }
+            existing.title = title;
+            existing.date = root.querySelector('[data-date]').value || def;
+            existing.note = (root.querySelector('[data-note]').value || '').trim();
+            State.touch();
+            close();
+            UI.toast('Карточка вопросов обновлена', 'ok');
+            return;
+          }
           var code = course === 'other' ? (other.value || '').trim().toUpperCase() : course;
           if (!code) {
             err.textContent = 'Впиши код курса — по нему приложение находит дорожку.';
