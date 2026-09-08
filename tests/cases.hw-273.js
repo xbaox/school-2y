@@ -102,10 +102,21 @@
     ok(taken.indexOf('data-summary="' + HW_TUE + '"') > 0, 'и приём итога тоже');
     ok(taken.indexOf('ДЗ-уроков на неделе: 1/3') > 0, 'счётчик обновился');
 
+    ok(taken.indexOf('Не тот курс? Сменить') > 0, 'до итога курс можно переиграть');
+
     State.applySummary(HW_TUE, summary({ score: 9 }), { date: TUE });
     var closed = App.hwOffer(TUE);
     ok(closed.indexOf('итог принят · 9/10') > 0, 'после ИТОГа карточка показывает счёт');
     eq(closed.indexOf('data-summary'), -1, 'и второй раз итог не просит');
+    eq(closed.indexOf('Не тот курс?'), -1, 'и курс уже не меняется');
+
+    // счёт 0 — такой же закрытый урок, как и любой другой
+    fresh();
+    State.startHw('MHF4U', TUE);
+    State.applySummary(HW_TUE, summary({ score: 0, level: 'L1' }), { date: TUE });
+    var zero = App.hwOffer(TUE);
+    ok(zero.indexOf('итог принят · 0/10') > 0, 'урок, закрытый нулём, тоже закрыт');
+    eq(zero.indexOf('data-summary'), -1, 'и повторного итога не просит');
 
     fresh();
     State.startHw('MHF4U', TUE);
@@ -139,7 +150,11 @@
     eq(body.indexOf('[КЛЮЧИ]'), -1, 'и ключей тоже: они в голове преподавателя');
     eq(body.indexOf('[ТЕКСТ]'), -1, 'и текста урока нет');
 
-    ok(p.indexOf('[ГЛОССАРИЙ]') > 0, 'глоссарий приходит запасной, по дорожке');
+    // имя блока стоит и в правиле 11 контракта, поэтому ищем в теле промпта
+    // и по содержимому: маркер сам по себе прошёл бы и с пустым глоссарием
+    ok(body.indexOf('[ГЛОССАРИЙ]') > 0, 'глоссарий приходит запасной, по дорожке');
+    ok(body.indexOf('domain — the set of all input values') > 0,
+      'и в нём настоящие термины математики, а не пустая шапка');
     ok(p.indexOf('[ЭТАПЫ УРОКА — ступень S1') > 0, 'этапы — как у ступени');
     ok(p.indexOf('=== ИТОГ УРОКА ' + HW_TUE + ' ===') > 0, 'в ИТОГе стоит id ДЗ-урока');
     ok(p.indexOf('КОНТРАКТ ПРЕПОДАВАТЕЛЯ v3') > 0, 'контракт на месте');
@@ -196,6 +211,117 @@
     ok(!(State.s.lessons[planned] || {}).done, 'программный урок математики не помечен пройденным');
     eq(State.nextLessonInTrack('math'), planned, 'и остаётся следующим на завтра');
     eq(State.day(TUE).pick, undefined, 'выбор урока дня не переписан');
+  });
+
+  /* ============ 2.1: критерии письма и стретч по желанию ============ */
+
+  describe('ДЗ-урок: критерии письма в конце промпта', function () {
+    fresh('S1');
+    State.startHw('MHF4U', TUE);
+    var p = PROMPTS.lesson(HW_TUE, { today: TUE });
+
+    var MATH = 'Письмо (3): 1 — все требуемые термины использованы верно; ' +
+      '1 — полные предложения, одно лицо, present simple, финал называет величину; ' +
+      '1 — математически верно';
+    ok(p.indexOf('=== КРИТЕРИИ ПИСЬМА ===') > 0, 'блок критериев есть');
+    ok(p.indexOf(MATH) > 0, 'три балла письма — те же, что в [КЛЮЧИ] обычного урока математики');
+    ok(p.indexOf('=== КРИТЕРИИ ПИСЬМА ===') > p.indexOf('=== КОНЕЦ ==='),
+      'и стоят в самом конце, после шаблона ИТОГа');
+    eq(p.indexOf('=== КЛЮЧИ'), -1, 'а ключей как не было, так и нет');
+
+    // дорожка решает, какие три балла печатать — точно так же, как в [КЛЮЧИ]
+    fresh('S1');
+    State.startHw('ENG2D', WED);
+    var w = PROMPTS.lesson('HW-2026-09-16-write', { today: WED });
+    ok(w.indexOf('1 — содержание точно по заданию и по тексту') > 0,
+      'у письма — свои три балла');
+    eq(w.indexOf('математически верно'), -1, 'и математический критерий туда не попал');
+
+    fresh('S1');
+    State.startHw('GLC2O', THU);
+    var b = PROMPTS.lesson('HW-2026-09-17-biz', { today: THU });
+    ok(b.indexOf('1 — содержание точно по заданию и по тексту') > 0,
+      'у бизнеса своей строки нет — берётся запасная, как и в [КЛЮЧИ]');
+  });
+
+  describe('ДЗ-урок: стретч ⭐⭐ всегда по желанию', function () {
+    var FREE = 'всегда предлагается: «⭐⭐ или закрываем?»';
+    var MUST = 'на этой ступени обязателен';
+
+    ['Г1', 'Г2', 'Г3'].forEach(function (stage) {
+      fresh(stage);
+      var prog = PROMPTS.lesson('B2.1', { today: WED });
+      ok(prog.indexOf(MUST) > 0, 'в программном уроке ' + stage + ' стретч обязателен');
+
+      State.startHw('MHF4U', WED);
+      var hw = PROMPTS.lesson('HW-2026-09-16-math', { today: WED });
+      ok(hw.indexOf(FREE) > 0, 'а в ДЗ-уроке ' + stage + ' — по желанию');
+      eq(hw.indexOf(MUST), -1, 'и требования в этапах нет');
+      eq(hw.indexOf('стретч ⭐⭐ обязателен'), -1, 'и в «Особом» ' + stage + ' тоже нет');
+      // остальное «Особое» ступени остаётся: снята только обязательность стретча
+      ok(hw.indexOf('одно задание основы — уровня CEMC ⭐') > 0,
+        'задание уровня CEMC на ' + stage + ' осталось');
+    });
+
+    fresh('S2');
+    State.startHw('MHF4U', WED);
+    ok(PROMPTS.lesson('HW-2026-09-16-math', { today: WED }).indexOf(FREE) > 0,
+      'на нижних ступенях ничего не меняется');
+  });
+
+  /* ============ ДЗ-урок и остальной экран ============ */
+
+  describe('ДЗ-урок не выдаёт себя за программный урок дня', function () {
+    fresh('S1');
+    State.day(TUE, true).level = 'norm';       // без уровня пунктов урока в плане нет
+    var planned = App.planItems(TUE, State.day(TUE)).filter(function (i) {
+      return i.tick === 'lesson';
+    })[0];
+
+    State.startHw('MHF4U', TUE);
+    State.applySummary(HW_TUE, summary({ score: 8 }), { date: TUE });
+
+    var items = App.planItems(TUE, State.day(TUE) || {});
+    var l1 = items.filter(function (i) { return i.tick === 'lesson'; })[0];
+    eq(l1.title, planned.title, 'пункт «Урок» по-прежнему называет программный урок');
+    eq(l1.title.indexOf('HW-'), -1, 'сырой id ДЗ-урока в заголовок не попадает');
+    eq(String(l1.sub).indexOf('undefined'), -1, 'и подпись не «undefined»');
+    eq(l1.body.indexOf('Уроки текущих фаз закрыты'), -1,
+      'и тело пункта не врёт, что уроки кончились');
+    ok(l1.body.indexOf('data-copy=') > 0, 'промпт программного урока с экрана не пропал');
+
+    // норма дня при этом закрыта — ради этого id и кладётся в day.lessons
+    ok(State.day(TUE).lessons.indexOf(HW_TUE) >= 0, 'ДЗ-урок остаётся в дне');
+    ok(!State.hwAvailable(TUE), 'и второй ДЗ-урок в этот день не даётся');
+
+    eq(Lesson.current(TUE).lessonId.indexOf('HW-'), -1,
+      'карточка урока тоже показывает программный урок');
+  });
+
+  describe('долги дорожки без своих категорий (ДЗ по информатике)', function () {
+    fresh('S1');
+    var HW_CS = 'HW-2026-09-15-cs';
+    State.startHw('ICS3U', TUE);
+    State.applySummary(HW_CS, summary({
+      debts: ['М2 — не показывает ходы', 'П6 — ярлык вместо предложения']
+    }), { date: TUE });
+
+    eq(State.openDebts().length, 2, 'долги с урока информатики заведены');
+    eq(State.openDebts('cs').length, 0,
+      'но своей дорожки у них нет: код решает, что М — математика, П — письмо');
+
+    // доска обязана их показать, иначе контракт требует ПРИОРИТЕТ-долгов,
+    // которых на экране нет
+    var board = State.debtBoard('cs');
+    var open = board.filter(function (r) { return r.debt; }).map(function (r) { return r.cat; });
+    eq(open, ['П6', 'М2'], 'доска информатики показывает оба долга');
+    eq(State.priorityDebts('cs').length, 2, 'и оба получают ПРИОРИТЕТ');
+
+    State.startHw('ICS3U', WED);
+    var p = PROMPTS.lesson('HW-2026-09-16-cs', { today: WED });
+    ok(p.indexOf('не показывает ходы') > 0, 'долг математики в промпте ДЗ по информатике');
+    ok(p.indexOf('ярлык вместо предложения') > 0, 'и долг письма тоже');
+    ok(p.indexOf('ПРИОРИТЕТ') > 0, 'пометка ПРИОРИТЕТ на месте — контракту есть что проверять');
   });
 
   /* ============ 2.2: категории долгов «Бизнес» ============ */

@@ -21,15 +21,26 @@ window.Lesson = (function () {
    * Закрытый урок остаётся на экране до конца дня (раздел 7.8:
    * «Урок закрыт ✓» / «Второй урок: скопировать промпт»).
    */
+  /**
+   * Программные уроки дня. ДЗ-урок норму дня закрывает и лежит в том же
+   * списке, но карточкой урока он не является: контента у него нет, а промпт и приём
+   * итога живут в своей карточке «Урок по ДЗ». Без фильтра пункт «Урок» показывал
+   * сырой id, подпись «undefined» и ложное «Уроки текущих фаз закрыты».
+   */
+  function programLessons(d) {
+    return ((d && d.lessons) || []).filter(function (id) { return !State.isHw(id); });
+  }
+
   function current(todayIso) {
     var date = todayIso || State.today();
     var d = State.day(date);
     if (d && d.pick) {
       return { lessonId: d.pick, reason: d.pickReason || { kind: 'plan', text: 'урок дня' } };
     }
-    if (d && d.lessons && d.lessons.length) {
+    var closed = programLessons(d);
+    if (closed.length) {
       return {
-        lessonId: d.lessons[d.lessons.length - 1],
+        lessonId: closed[closed.length - 1],
         reason: d.pickReason || { kind: 'plan', text: 'урок дня' }
       };
     }
@@ -64,7 +75,7 @@ window.Lesson = (function () {
    * закрытого — следующий по счёту.
    */
   function dayIndex(lessonId, d) {
-    var list = (d && d.lessons) || [];
+    var list = programLessons(d);
     var i = list.indexOf(lessonId);
     return (i >= 0 ? i : list.length) + 1;
   }
@@ -89,7 +100,7 @@ window.Lesson = (function () {
   function dayLesson(n, todayIso) {
     var t = todayIso || State.today();
     var d = State.day(t) || {};
-    var list = d.lessons || [];
+    var list = programLessons(d);
 
     if (list.length >= n) {
       var id = list[n - 1];
@@ -256,8 +267,11 @@ window.Lesson = (function () {
       var hasWords = State.lessonWords(lessonId).length > 0;
       var second = null;
       if (d.level === 'full' && d.lessons.length < 2) {
+        // Waterfall.second сам откатывается на State.nextLesson() и сам не берёт блок
+        // track:'all'. Свой запасной путь дублировал первое и обходил второе:
+        // отказ водопада возвращался кнопкой как «Второй урок»
         var res = window.Waterfall ? Waterfall.second(todayIso, lessonId) : null;
-        second = res ? res.lessonId : State.nextLesson();
+        second = res ? res.lessonId : null;
       }
       if (second && second !== lessonId) {
         html += '<button class="btn pr" data-second="' + U.esc(second) + '">Второй урок: скопировать промпт</button>';
@@ -383,8 +397,13 @@ window.Lesson = (function () {
     var text = PROMPTS.lesson(lessonId);
     if (!text) { UI.toast('Не нашёл этот урок в контенте', 'bad'); return; }
     if (State.isHw(lessonId)) {
-      UI.copy(text, 'Промпт ДЗ скопирован — пришли задание первым сообщением');
-      State.markInjectedDebts(lessonId, State.promptDebts(trackOf(lessonId)));
+      // отметка показа — только после удавшегося копирования, как и у
+      // программного урока: не скопировал — не показывал
+      Promise.resolve(UI.copy(text, 'Промпт ДЗ скопирован — пришли задание первым сообщением'))
+        .then(function (done) {
+          if (!done) return;
+          State.markInjectedDebts(lessonId, State.promptDebts(trackOf(lessonId)));
+        });
       return;
     }
     var sel = current();

@@ -376,6 +376,33 @@ window.PROMPTS = (function () {
     ].join('\n');
   }
 
+  /**
+   * Ступень ДЗ-урока: та же самая, но стретч ⭐⭐ всегда «по желанию» —
+   * на любой ступени, включая Г1–Г3 (решение владельца к 2.7.3). К школьному
+   * ДЗ конкурсной задачи по теме может просто не найтись, а обязательность
+   * тогда толкает преподавателя сочинять её из ничего. Обязательным стретч
+   * остаётся только в программных уроках.
+   */
+  function hwParams(p) {
+    return Object.assign({}, p, {
+      stretchRequired: false,
+      special: String(p.special || '').split(';')
+        .map(function (x) { return x.trim(); })
+        .filter(function (x) { return x && x.indexOf('стретч ⭐⭐ обязателен') !== 0; })
+        .join('; ')
+    });
+  }
+
+  /**
+   * Ключей у ДЗ-урока нет — задания приносит ученик. А критерии письма
+   * нужны всегда: без них три балла за письмо ставятся на глаз, а счёт
+   * урока из них складывается. Строка — та же, что в [КЛЮЧИ] обычного урока.
+   */
+  function hwWritingBlock(trackId) {
+    return ['=== КРИТЕРИИ ПИСЬМА ===',
+      WRITING_KEY[trackId] || WRITING_KEY.write].join('\n');
+  }
+
   /** Синтетический «урок» для ДЗ: контента у него нет и быть не может. */
   function hwLesson(hw) {
     var c = State.schoolCourse(hw.course) || { code: hw.course || '—', name: '' };
@@ -485,6 +512,7 @@ window.PROMPTS = (function () {
     // в конкурсном уроке заданий ровно три — контракт должен говорить то же,
     // что этапы, иначе правило 2 будет спорить с шаблоном
     if (contest) p = Object.assign({}, p, { qRange: '3' });
+    if (hw) p = hwParams(p);
     var videoDone = State.videoWatched(lessonId, todayIso) ? 'да' : 'нет';
     var saturday = U.weekday(todayIso) === 6;
     var youtube = videoQuery(lesson);
@@ -547,7 +575,7 @@ window.PROMPTS = (function () {
       '',
       finalBlock(lessonId, contest),
       '',
-      hw ? null : keysBlock(lesson, contest, trackId)
+      hw ? hwWritingBlock(trackId) : keysBlock(lesson, contest, trackId)
     ].filter(function (l) { return l !== null; }).join('\n');
   }
 
@@ -841,6 +869,7 @@ window.PROMPTS = (function () {
     contractV3: contractV3, finalBlock: finalBlock,
     glossaryBlock: glossaryBlock, textBlock: textBlock, tasksBlock: tasksBlock,
     contestTasksBlock: contestTasksBlock, keysBlock: keysBlock, hwBlock: hwBlock,
+    hwParams: hwParams, hwWritingBlock: hwWritingBlock,
     checklistBlock: checklistBlock, LANG_CHECKLIST: LANG_CHECKLIST,
     debtsBlock: debtsBlock, warmupBlock: warmupBlock, stageLine: stageLine
   };
