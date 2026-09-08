@@ -11,16 +11,25 @@ describe('шкала 7.2: цифры таблицы v2', function () {
   eq(STEPS.nextStage('S0'), 'S1', 'за S0 идёт S1');
   eq(STEPS.nextStage('Г3'), null, 'после Г3 шкала кончается');
   eq(STEPS.stages().length, 8, 'всего восемь ступеней');
-  eq([r(2).name, r(2).lesson, r(2).qRange, r(2).start, r(2).transfer], ['S2', 40, '14–16', 'L1', '1–2'], 'строка S2');
-  eq([r(3).name, r(3).lesson, r(3).qRange, r(3).start, r(3).transfer], ['S3', 45, '16–18', 'L2', '2'], 'строка S3');
-  eq([r(4).name, r(4).lesson, r(4).qRange, r(4).start, r(4).transfer], ['S4', 50, '18–20', 'L2', '2–3'], 'строка S4');
-  eq([r(5).name, r(5).lesson, r(5).qRange, r(5).start, r(5).transfer], ['Г1', 50, '18–20', 'L2', '3'], 'строка Г1 — время от S4');
-  eq([r(6).name, r(6).lesson, r(6).qRange, r(6).ru], ['Г2', 50, '18–20', '0'], 'строка Г2 — подача без русского');
-  eq([r(7).name, r(7).lesson, r(7).qRange, r(7).ru, r(7).finish], ['Г3', 50, '18–20', '0', 'L3'], 'строка Г3 — финиш L3');
+  // с 2.7.3 у каждой ступени точное число заданий и своя раскладка
+  eq([r(2).name, r(2).lesson, r(2).qRange, r(2).start, r(2).transfer], ['S2', 40, '14', 'L1', '1–2'], 'строка S2');
+  eq([r(3).name, r(3).lesson, r(3).qRange, r(3).start, r(3).transfer], ['S3', 45, '16', 'L2', '2'], 'строка S3');
+  eq([r(4).name, r(4).lesson, r(4).qRange, r(4).start, r(4).transfer], ['S4', 50, '18', 'L2', '2–3'], 'строка S4');
+  eq([r(5).name, r(5).lesson, r(5).qRange, r(5).start, r(5).transfer], ['Г1', 50, '18', 'L2', '3'], 'строка Г1 — время от S4');
+  eq([r(6).name, r(6).lesson, r(6).qRange, r(6).ru], ['Г2', 50, '18', '≤30%'], 'строка Г2 — разборы по-английски');
+  eq([r(7).name, r(7).lesson, r(7).qRange, r(7).ru, r(7).finish], ['Г3', 50, '18', '≤30%', 'L3'], 'строка Г3 — финиш L3');
+  [2, 3, 4, 5, 6, 7].forEach(function (i) {
+    var s = STEPS.slotsOf(r(i));
+    eq(s.warm + s.base + s.write + s.stretch, parseInt(r(i).qRange, 10),
+      'раскладка ' + r(i).name + ' сходится с числом заданий');
+  });
+  ok(r(5).stretchRequired && r(6).stretchRequired && r(7).stretchRequired,
+    'на Г1–Г3 стретч обязателен');
+  ok(r(7).examFriday, 'у Г3 экзаменационные пятницы');
   eq(r(4).note, 'потолок времени', 'S4 — потолок времени');
   eq([r(5).lesson, r(6).lesson, r(7).lesson], [r(4).lesson, r(4).lesson, r(4).lesson],
     'Г1–Г3 берут время от S4: растёт глубина, не часы');
-  ok(r(6).special.indexOf('перевод фидбека остаётся') > 0,
+  ok(r(6).special.indexOf('стретч ⭐⭐ обязателен') > 0,
     'на Г2 подача без русского, но перевод фидбека никуда не девается');
   // бюджет минут на день — доктрина, релизом не трогался
   eq([r(1).norm, r(1).full, r(4).norm, r(4).full], [45, 75, 75, 120], 'norm и full не менялись');
@@ -51,15 +60,15 @@ describe('шкала 7.2: параметры для промпта', function ()
   var summer = STEPS.params({ position: 1 }, '2026-09-10', 'summer');
   eq(summer.stepLabel, 'Лето', 'летом подпись без номера ступени: шкала ещё не идёт');
   eq([summer.lessonMin, summer.qRange, summer.startLevel, summer.transfer, summer.ru],
-    [40, '14–16', 'L1', '1–2', '≤30%'], 'летний пресет = строка S2');
+    [40, '14', 'L1', '1–2', '≤30%'], 'летний пресет = строка S2');
   eq(STEPS.cardLine(summer),
-    'Лето · ~40′ · 14–16 заданий · старт L1 · перенос ×1–2 · RU ≤30%',
+    'Лето · ~40′ · 14 заданий · старт L1 · перенос ×1–2 · RU ≤30%',
     'строка параметров для карточки');
   ok(STEPS.CARD_LEGEND.indexOf('задач на применение в новой ситуации') > 0,
     '«перенос» подписан по-человечески');
 
   var g1 = STEPS.params({ position: 5 }, '2026-11-01', 'school');
-  eq(STEPS.cardLine(g1), 'Г1 · ~50′ · 18–20 заданий · старт L2 · перенос ×3 · RU ≤10%', 'строка Г1');
+  eq(STEPS.cardLine(g1), 'Г1 · ~50′ · 18 заданий · старт L2 · перенос ×3 · RU ≤10%', 'строка Г1');
 });
 
 describe('разгон Ф0: до 07.09 урок короткий независимо от позиции', function () {
@@ -78,7 +87,7 @@ describe('разгон Ф0: до 07.09 урок короткий независ�
   eq(rampTop.startLevel, 'L2', 'а лестницу и перенос разгон не трогает');
 
   var after = STEPS.params({ position: 7 }, '2026-09-08', 'school');
-  eq([after.ramp, after.lessonLabel, after.qRange], [false, '50', '18–20'], 'после 08.09 — цифры ступени');
+  eq([after.ramp, after.lessonLabel, after.qRange], [false, '50', '18'], 'после 08.09 — цифры ступени');
 
   eq(STEPS.lessonLine(ramp), '~30–35′ · 10–12 заданий · по одному · фото-режим',
     'строка карточки урока синхронна промпту');

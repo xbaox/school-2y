@@ -95,15 +95,17 @@
   /* ============ 1.1 таксономия ============ */
 
   describe('2.7.0 таксономия: закрытый список категорий', function () {
-    eq(State.DEBT_CATS.length, 19, 'девятнадцать категорий');
+    // с 2.7.3 к письму и математике добавились пять категорий бизнеса
+    eq(State.DEBT_CATS.length, 24, 'двадцать четыре категории');
     var codes = State.DEBT_CATS.map(function (c) { return c.code; });
     var uniq = {};
     codes.forEach(function (c) { uniq[c] = true; });
-    eq(Object.keys(uniq).length, 19, 'коды не повторяются');
+    eq(Object.keys(uniq).length, 24, 'коды не повторяются');
     eq(State.catsForTrack('write').length, 10, 'на письме десять');
     eq(State.catsForTrack('math').length, 9, 'на математике девять');
-    eq(State.catsForTrack('all').length, 19, 'дорожка all берёт обе');
-    eq(State.catsForTrack().length, 19, 'без дорожки — тоже обе');
+    eq(State.catsForTrack('biz').length, 5, 'в бизнесе пять');
+    eq(State.catsForTrack('all').length, 24, 'дорожка all берёт все');
+    eq(State.catsForTrack().length, 24, 'без дорожки — тоже все');
     ok(State.DEBT_CATS.every(function (c) { return c.name && c.name.length > 10; }),
       'у каждой категории есть человеческое название');
   });

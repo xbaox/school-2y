@@ -9,7 +9,7 @@ window.State = (function () {
 
   var KEY = 'study-system-v2';
   var SCHEMA = 3;
-  var APP_VERSION = '2.7.2';
+  var APP_VERSION = '2.7.3';
 
   /** Дата автоматической смены режима Лето → Школа (раздел 5, 7.2). */
   var AUTO_SCHOOL_DATE = '2026-09-08';
@@ -59,7 +59,13 @@ window.State = (function () {
     { code: 'М6', track: 'math', name: 'Проверка ответа по условию — домен, здравый смысл, подстановка' },
     { code: 'М7', track: 'math', name: 'Определение термина (define) — категория + отличие, не пример и не число' },
     { code: 'М8', track: 'math', name: 'Полнота — все части вопроса, вторая половина не брошена' },
-    { code: 'О1', track: 'math', name: 'Вход — после видео задан свой вопрос по материалу' }
+    { code: 'О1', track: 'math', name: 'Вход — после видео задан свой вопрос по материалу' },
+    // дорожка biz — «Бизнес»: курсы GLC2O и BMI3C, речь в классе и питч
+    { code: 'Б1', track: 'biz', name: 'Регистр — формальная речь в классе и в письме: без сленга, полные формы' },
+    { code: 'Б2', track: 'biz', name: 'Структура ответа — термин → определение → пример из своего бизнеса' },
+    { code: 'Б3', track: 'biz', name: 'Термины точно — markup ≠ margin, revenue ≠ profit, fixed ≠ variable cost' },
+    { code: 'Б4', track: 'biz', name: 'Число в аргументе — бизнес-утверждение подкреплено проверяемой цифрой' },
+    { code: 'Б5', track: 'biz', name: 'Питч — структура hook → problem → solution → ask, время выдержано' }
   ];
 
   /**
@@ -132,7 +138,11 @@ window.State = (function () {
     return c ? c.track : null;
   }
 
-  /** У дорожки есть собственные категории? У biz и cs их в таксономии нет. */
+  /**
+   * У дорожки есть собственные категории? С 2.7.3 своих нет только у cs:
+   * информатика идёт онлайн-курсом, и её долги пока ложатся в письмо или
+   * математику по префиксу кода.
+   */
   function trackHasCats(trackId) {
     if (!trackId || trackId === 'all') return false;
     return DEBT_CATS.some(function (c) { return c.track === trackId; });
@@ -218,6 +228,18 @@ window.State = (function () {
     { id: 'B52', phase: 'p4', track: 'all', title: 'Финалы года' }
   ];
 
+  /**
+   * Курсы школы (ТЗ 2.1). Дорожка курса решает, чьи долги и чьи слова придут
+   * в промпт ДЗ-урока. Код онлайн-информатики владелец правит в Настройках:
+   * до разговора с консультантом он неизвестен, ICS3U — предположение.
+   */
+  var SCHOOL_COURSES = [
+    { code: 'MHF4U', name: 'Advanced Functions — продвинутые функции, 12 класс', track: 'math' },
+    { code: 'ENG2D', name: 'English — английский 10 класса, академический', track: 'write' },
+    { code: 'GLC2O', name: 'Career Studies — карьера и планирование', track: 'biz' },
+    { code: 'ICS3U', name: 'Computer Science онлайн — информатика, e-learning', track: 'cs', editable: true }
+  ];
+
   /** Если-то правила (раздел 7.6), дефолт. */
   var IF_THEN = [
     { id: 'it1', text: 'пришёл из школы и поел → открываю ДЗ' },
@@ -237,6 +259,7 @@ window.State = (function () {
         addons: clone(DOCTRINE.ADDONS),
         ranks: clone(DOCTRINE.RANKS),
         ifThen: clone(IF_THEN),
+        schoolCourses: clone(SCHOOL_COURSES),
         phaseDates: clone(PHASE_DATES)
       },
       step: {
@@ -272,6 +295,10 @@ window.State = (function () {
       // Ступень нагрузки по имени (ТЗ 4.4). Двигается только кнопкой владельца:
       // автоперехода нет ни вверх, ни по расписанию цикла.
       scale: { stage: null, since: null },
+      // Уроки по домашнему заданию школы (ТЗ 2.7.3): id → { date, course,
+      // track, score, level }. Отдельно от lessons: программный урок от
+      // разбора школьного ДЗ пройденным не становится.
+      hw: {},
       // Чек-лист языка (ТЗ 2.2, 4.3): пять пунктов, номера фиксированы.
       // stats[i] = { clean, total } — сколько раз пункт был чист из скольких уроков.
       checklist: { stats: [] },
@@ -357,10 +384,13 @@ window.State = (function () {
     });
     // правила «если — то» можно вычистить в ноль, но массивом они быть обязаны
     if (!Array.isArray(out.settings.ifThen)) out.settings.ifThen = clone(base.settings.ifThen);
+    if (!Array.isArray(out.settings.schoolCourses) || !out.settings.schoolCourses.length) {
+      out.settings.schoolCourses = clone(SCHOOL_COURSES);
+    }
     if (!out.settings.phaseDates || typeof out.settings.phaseDates !== 'object') out.settings.phaseDates = {};
     out.settings.phaseDates = Object.assign({}, base.settings.phaseDates, out.settings.phaseDates);
 
-    ['blocks', 'lessons', 'days'].forEach(function (k) { if (!out[k] || typeof out[k] !== 'object') out[k] = {}; });
+    ['blocks', 'lessons', 'days', 'hw'].forEach(function (k) { if (!out[k] || typeof out[k] !== 'object' || Array.isArray(out[k])) out[k] = {}; });
     ['debts', 'radar', 'todos', 'summaries', 'tracks'].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = clone(base[k]); });
     if (!out.tracks.length) out.tracks = clone(base.tracks);
     if (!Array.isArray(out.step.history)) out.step.history = [];
@@ -409,6 +439,10 @@ window.State = (function () {
     // у состояний, живших до этого поля, точкой отсчёта становится сегодня
     if (!out.meta.onboardedAt) out.meta.onboardedAt = today();
 
+    // последним: к этому моменту банк долгов уже починен,
+    // и в списках показанного останутся только живые открытые долги
+    cleanInjected(out);
+
     out.meta.version = SCHEMA;
     return out;
   }
@@ -435,6 +469,28 @@ window.State = (function () {
       });
     });
     return n;
+  }
+
+  /**
+   * Списки «что ушло в промпт» копятся с 2.6.5 и никогда не чистились:
+   * закрытые и поглощённые долги оставались в них навсегда. На матчинг это
+   * не влияло — injectedPool и так берёт только open, — но состояние росло.
+   * Ключи не удаляем: пустой список урока значит «гасить нечего»,
+   * а отсутствие ключа — «ограничения нет», и подмена одного другим
+   * разрешила бы «Погашено» больше, чем было показано. Идемпотентна.
+   */
+  function cleanInjected(out) {
+    var open = {};
+    (out.debts || []).forEach(function (d) {
+      if (d && d.status === 'open') { var k = debtKey(d); if (k) open[k] = true; }
+    });
+    function keep(list) {
+      return (Array.isArray(list) ? list : []).filter(function (id) { return open[id]; });
+    }
+    out.injected.min = keep(out.injected.min);
+    Object.keys(out.injected.lessons).forEach(function (lessonId) {
+      out.injected.lessons[lessonId] = keep(out.injected.lessons[lessonId]);
+    });
   }
 
   /**
@@ -960,6 +1016,92 @@ window.State = (function () {
     return true;
   }
 
+
+  /* ---------- 2.7.3: урок по домашнему заданию школы ---------- */
+
+  var HW_WEEK_CAP = 3;      // столько ДЗ-уроков в неделю: школа не заменяет программу
+  var HW_RE = /^HW-(\d{4}-\d{2}-\d{2})-([a-z]+)$/;
+
+  function schoolCourses() {
+    var list = s.settings.schoolCourses;
+    return Array.isArray(list) && list.length ? list : SCHOOL_COURSES;
+  }
+
+  function schoolCourse(code) {
+    var want = String(code || '').toUpperCase().trim();
+    var hit = null;
+    schoolCourses().forEach(function (c) { if (String(c.code).toUpperCase() === want) hit = c; });
+    return hit;
+  }
+
+  /** id ДЗ-урока: HW-ДАТА-дорожка. Дорожка в id — чтобы её знал парсер. */
+  function hwId(dateIso, trackId) {
+    return 'HW-' + (dateIso || today()) + '-' + trackId;
+  }
+
+  /** Разбор id ДЗ-урока → { id, date, track } или null. */
+  function parseHwId(id) {
+    var m = HW_RE.exec(String(id || ''));
+    return m ? { id: String(id), date: m[1], track: m[2] } : null;
+  }
+
+  function isHw(id) { return !!parseHwId(id); }
+
+  /**
+   * Сколько ДЗ-уроков взято на неделе этой даты (неделя с понедельника).
+   * Считаем дни, а не записи: взятый урок занимает день сразу, ещё до ИТОГа,
+   * иначе лимит обходится тремя незакрытыми уроками подряд.
+   */
+  function hwWeekCount(todayIso) {
+    var t = todayIso || today();
+    var from = U.weekStart(t), to = U.addDays(from, 6);
+    var days = {};
+    Object.keys(s.days || {}).forEach(function (iso) {
+      if (s.days[iso] && s.days[iso].hw && iso >= from && iso <= to) days[iso] = 1;
+    });
+    Object.keys(s.hw || {}).forEach(function (id) {
+      var rec = s.hw[id];
+      if (rec && rec.date >= from && rec.date <= to) days[rec.date] = 1;
+    });
+    return Object.keys(days).length;
+  }
+
+  /**
+   * Можно ли сегодня взять урок по ДЗ (ТЗ 2.1): будни, норма дня ещё не
+   * закрыта и на неделе меньше трёх. Школьное ДЗ помогает программе, а не
+   * заменяет её — отсюда и кэп, и будни.
+   */
+  function hwAvailable(todayIso) {
+    var t = todayIso || today();
+    var wd = U.weekday(t);
+    if (wd > 5) return false;
+    var d = s.days[t];
+    if (d && (d.lessons || []).length) return false;      // норма дня закрыта
+    return hwWeekCount(t) < HW_WEEK_CAP;
+  }
+
+  /** Заявка на ДЗ-урок: помечаем день и отдаём id. Выбор урока не трогаем. */
+  function startHw(courseCode, todayIso) {
+    var t = todayIso || today();
+    var c = schoolCourse(courseCode);
+    if (!c) return null;
+    var id = hwId(t, c.track);
+    var d = day(t, true);
+    d.hw = id;
+    d.hwCourse = c.code;
+    touch();
+    return { id: id, course: c.code, track: c.track, name: c.name };
+  }
+
+  /** Курс сегодняшнего ДЗ-урока или null. */
+  function hwOfDay(todayIso) {
+    var d = s.days[todayIso || today()];
+    if (!d || !d.hw) return null;
+    var p = parseHwId(d.hw);
+    if (!p) return null;
+    return { id: d.hw, course: d.hwCourse || null, track: p.track };
+  }
+
   /* ---------- дорожки ---------- */
 
   function track(id) {
@@ -1210,6 +1352,10 @@ window.State = (function () {
   /* ---------- уроки: очередь, свежесть, отметки дня ---------- */
 
   function lessonTrack(lessonId) {
+    // ДЗ-урок дорожку носит в самом id: иначе «Прошлый раз» и доска долгов
+    // его не увидят — урока-то в контенте нет
+    var hwp = parseHwId(lessonId);
+    if (hwp) return hwp.track;
     var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
     if (!l) return null;
     var b = s.blocks[l.blockId];
@@ -1868,7 +2014,7 @@ window.State = (function () {
    * Это и есть корень пакета: ИИ не изобретает, чем ученик болен, а выбирает
    * из закрытого списка. Строка без валидного кода отбрасывается.
    */
-  var DEBT_LINE_RE = /^\s*(П\d{1,2}|М\d|О\d)\s*[—–-]\s*(.+)$/;
+  var DEBT_LINE_RE = /^\s*(П\d{1,2}|М\d|О\d|Б\d)\s*[—–-]\s*(.+)$/;
 
   /**
    * Латинские двойники кириллицы в кодах. «M2» и «М2» неотличимы на глаз,
@@ -1878,7 +2024,8 @@ window.State = (function () {
     return String(line || '')
       .replace(/^(\s*)M(?=\d)/, '$1М')
       .replace(/^(\s*)O(?=\d)/, '$1О')
-      .replace(/^(\s*)P(?=\d)/, '$1П');
+      .replace(/^(\s*)P(?=\d)/, '$1П')
+      .replace(/^(\s*)B(?=\d)/, '$1Б');
   }
 
   /** Разбор строки долга → { code, example } или null. */
@@ -1925,15 +2072,28 @@ window.State = (function () {
   function applySummary(lessonId, parsed, opts) {
     opts = opts || {};
     var date = opts.date || today();
-    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
-    if (!l) return { ok: false, error: 'Урок не найден' };
+    var hwp = parseHwId(lessonId);
+    var l = hwp ? null : (window.CONTENT ? CONTENT.lesson(lessonId) : null);
+    if (!l && !hwp) return { ok: false, error: 'Урок не найден' };
     var trackId = lessonTrack(lessonId);
 
-    var L = s.lessons[lessonId] || (s.lessons[lessonId] = { done: false, score: null, date: null });
-    var wasDone = L.done;
-    L.done = true;
-    L.score = parsed.score;
-    L.date = date;
+    var wasDone;
+    if (hwp) {
+      // ДЗ-урок живёт в своём хранилище: программный урок он не закрывает
+      var H = s.hw[lessonId] || (s.hw[lessonId] = { date: date, course: null, track: hwp.track });
+      wasDone = !!H.score || H.score === 0;
+      H.date = date;
+      H.track = hwp.track;
+      H.course = opts.course || H.course || ((day(date) || {}).hwCourse || null);
+      H.score = parsed.score;
+      H.level = parsed.level;
+    } else {
+      var L = s.lessons[lessonId] || (s.lessons[lessonId] = { done: false, score: null, date: null });
+      wasDone = L.done;
+      L.done = true;
+      L.score = parsed.score;
+      L.date = date;
+    }
 
     var d = day(date, true);
     if (d.lessons.indexOf(lessonId) < 0) d.lessons.push(lessonId);
@@ -2045,7 +2205,7 @@ window.State = (function () {
     s.stats.wordsTotal = wordBank().length;
 
     touchTrack(trackId, date);
-    refreshBlockDone(l.blockId);
+    if (l) refreshBlockDone(l.blockId);
     bumpBestStreak();
     touch();
 
@@ -2167,6 +2327,10 @@ window.State = (function () {
     recentSummaries: recentSummaries, wordBank: wordBank, oldestWords: oldestWords,
     warmupWords: warmupWords,
     applyWarmup: applyWarmup, parseDebtLine: parseDebtLine, stretchCount: stretchCount,
+    SCHOOL_COURSES: SCHOOL_COURSES, HW_WEEK_CAP: HW_WEEK_CAP,
+    schoolCourses: schoolCourses, schoolCourse: schoolCourse,
+    hwId: hwId, parseHwId: parseHwId, isHw: isHw, hwWeekCount: hwWeekCount,
+    hwAvailable: hwAvailable, startHw: startHw, hwOfDay: hwOfDay,
     debtBoard: debtBoard, priorityDebts: priorityDebts, lastExample: lastExample,
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,

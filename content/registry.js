@@ -45,7 +45,6 @@ window.CONTENT = (function () {
     return null;
   }
 
-  var packs = {};          // phase → pack
   var blocks = {};         // blockId → block
   var lessons = {};        // lessonId → lesson
   var glossary = {};       // ключ → { en, ru, def, ex, non }
@@ -76,7 +75,6 @@ window.CONTENT = (function () {
   function register(pack) {
     if (!pack || !pack.phase) return;
     pack.blocks = pack.blocks || [];
-    packs[pack.phase] = pack;
     pack.blocks.forEach(function (b) {
       b.phase = pack.phase;
       b.lessons = b.lessons || [];
@@ -84,7 +82,6 @@ window.CONTENT = (function () {
       b.lessons.forEach(function (l, i) {
         l.blockId = b.id;
         if (!l.id) l.id = b.id + '.' + (i + 1);
-        if (!l.n) l.n = i + 1;
         lessons[l.id] = l;
       });
     });
@@ -108,11 +105,9 @@ window.CONTENT = (function () {
     return n;
   }
 
-  function pack(phase) { return packs[phase] || null; }
   function block(id) { return blocks[id] || null; }
   function lesson(id) { return lessons[id] || null; }
   function blockLessons(blockId) { return (blocks[blockId] && blocks[blockId].lessons) || []; }
-  function hasLessons(blockId) { return blockLessons(blockId).length > 0; }
   function allBlocks() { return Object.keys(blocks).map(function (k) { return blocks[k]; }); }
 
   /** Все блоки фазы в порядке номеров. */
@@ -134,9 +129,9 @@ window.CONTENT = (function () {
 
   return {
     register: register, registerGlossary: registerGlossary, drainQueue: drainQueue,
-    pack: pack, block: block, lesson: lesson, term: term, label: label,
+    block: block, lesson: lesson, term: term, label: label,
     get glossary() { return glossary; },
-    lessons: blockLessons, hasLessons: hasLessons,
+    lessons: blockLessons,
     allBlocks: allBlocks, phaseBlocks: phaseBlocks, num: num,
     COURSE_TRACK: COURSE_TRACK, COURSES_NO_TRACK: COURSES_NO_TRACK, trackForCourse: trackForCourse
   };

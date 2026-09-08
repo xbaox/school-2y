@@ -71,8 +71,11 @@ window.PROMPTS = (function () {
       ' — Письмо: сначала [ЧЕК-ЛИСТ ЯЗЫКА], затем «Письменная работа урока»; ' +
       'фидбек — одна главная правка, чистовик.',
       '6. ' + pair(stretchNums, 'Стретч ⭐⭐ — задача конкурсного уровня ' +
-        '(CSMC часть B / Euclid) по теме урока, всегда предлагается: «⭐⭐ или закрываем?» ' +
-        'Отказ ничего не снимает; решение — ⭐ в журнал. ' +
+        '(CSMC часть B / Euclid) по теме урока, ' +
+        (p.stretchRequired
+          ? 'на этой ступени обязателен: спрашивать не нужно, отказа нет; '
+          : 'всегда предлагается: «⭐⭐ или закрываем?» Отказ ничего не снимает; ') +
+        'решение — ⭐ в журнал. ' +
         'Если в опорных заданиях есть L3 — это база: усиль её до конкурсного уровня. ' +
         'Если опорных нет — составь сам, предварительно решив до конца; ' +
         'решение показываешь после попытки.'),
@@ -349,6 +352,43 @@ window.PROMPTS = (function () {
     return lines.join('\n');
   }
 
+  /* ---------- 2.7.3: урок по домашнему заданию школы ---------- */
+
+  /**
+   * [ДЗ] заменяет [ТЕКСТ] и [ОПОРНЫЕ ЗАДАНИЯ]: заданий тут нет заранее —
+   * их приносит ученик. Главное правило блока в пункте (2): преподаватель
+   * решает всё сам ДО выдачи, иначе разбор превращается в совместное
+   * блуждание, а ключей у школьного ДЗ не существует.
+   */
+  function hwBlock(p) {
+    var base = (p.slots || {}).base || 4;
+    return [
+      '[ДЗ]',
+      'Ученик присылает домашнее задание первым сообщением (фото или текст). Ты:',
+      '(1) перечисляешь задания списком с номерами;',
+      '(2) решаешь все сам до выдачи, про себя, ничего не показывая;',
+      '(3) ведёшь по одному по правилам 5–8; основа — задания ДЗ по счёту ступени ' +
+      '(' + base + ' ' + U.plural(base, 'штука', 'штуки', 'штук') + '), ' +
+      'остальное ученик делает сам после урока ' +
+      'с проверкой по ответам учебника;',
+      '(4) ключи — твои решения, показываются только после попытки; ' +
+      'усиление и ⭐⭐ — по правилам; письмо — объяснение одного решения по-английски.'
+    ].join('\n');
+  }
+
+  /** Синтетический «урок» для ДЗ: контента у него нет и быть не может. */
+  function hwLesson(hw) {
+    var c = State.schoolCourse(hw.course) || { code: hw.course || '—', name: '' };
+    return {
+      id: hw.id, blockId: null,
+      title: 'Домашнее задание школы · ' + c.code,
+      goal: 'разобрать сегодняшнее ДЗ так, чтобы ученик мог сдать его сам',
+      focus: null, youtube: null, text: null, tasks: null, terms: [],
+      writing: 'объяснение одного решения по-английски, 4–5 предложений',
+      course: c
+    };
+  }
+
   /* ---------- 4.2 блок 6: долги дорожки ---------- */
 
   /**
@@ -431,11 +471,14 @@ window.PROMPTS = (function () {
   function lessonPrompt(lessonId, opts) {
     opts = opts || {};
     var todayIso = opts.today || State.today();
-    var lesson = CONTENT.lesson(lessonId);
+    var hw = State.parseHwId(lessonId);
+    if (hw) hw.course = (State.hwOfDay(hw.date) || {}).course || null;
+    var lesson = hw ? hwLesson(hw) : CONTENT.lesson(lessonId);
     if (!lesson) return null;
 
     var blockId = lesson.blockId;
-    var block = State.block(blockId) || {};
+    var block = hw ? { phase: State.currentPhase(todayIso), track: hw.track, title: 'школьное ДЗ' }
+      : (State.block(blockId) || {});
     var trackId = block.track || 'eng';
     var p = STEPS.params(State.s.step, todayIso, State.mode(), State.stageName());
     var contest = isContest(lesson);
@@ -448,12 +491,12 @@ window.PROMPTS = (function () {
 
     // CEMC ⭐ — математическая олимпиадная задача: в письме и бизнесе ей нечего делать
     var isMath = trackId === 'math';
-    var cemcFlag = (p.cemc && isMath) ? ', плюс 1 задача уровня CEMC ⭐' : '';
     var specialText = specialFor(p, isMath);
     var special = specialText ? '\nОсобое на этой ступени: ' + specialText + '.' : '';
-    var ruLine = p.ru === '0'
-      ? 'Доля русского: 0 (русский выключен; включается только по явной просьбе).'
-      : 'Доля русского: ' + p.ru + ' (только для новых терминов и грамматики; остальное — английский).';
+    var ruLine = 'Доля русского ' + p.ru + ' — только под новыми терминами, разборы по-английски.';
+    // экзаменационная пятница Г3 (ТЗ 2.3): режим включается днём недели,
+    // поэтому и в промпт приходит только в пятницу
+    var examToday = p.examFriday && U.weekday(todayIso) === 5;
 
     // Порядок блоков — ТЗ 4.2, и он не случайный: контракт первым, ключи
     // последними. Ключ, увиденный раньше попытки, обесценивает урок.
@@ -466,15 +509,23 @@ window.PROMPTS = (function () {
       contractV3(p),
       '',
       '[КОНТЕКСТ]',
-      'Фаза: ' + State.phaseName(block.phase) + ' · Блок: ' + State.blockLabel(blockId) + ' «' + (block.title || '') +
-      '» · Урок: ' + State.lessonLabel(lessonId) + ' «' + lesson.title + '»',
+      hw
+        ? 'Фаза: ' + State.phaseName(block.phase) + ' · Урок: ' + lesson.title
+        : 'Фаза: ' + State.phaseName(block.phase) + ' · Блок: ' + State.blockLabel(blockId) + ' «' + (block.title || '') +
+        '» · Урок: ' + State.lessonLabel(lessonId) + ' «' + lesson.title + '»',
       'Дорожка: ' + State.trackName(trackId) + ' · Цель урока: ' + (lesson.goal || '—'),
+      hw ? 'Формат: урок по домашнему заданию школы — курс ' + lesson.course.code +
+        (lesson.course.name ? ' (' + lesson.course.name + ')' : '') : null,
       contest ? CONTEST_LINE : stageLine(p),
-      // «Доля русского» осталась только там, где она что-то меняет — на Г1+;
-      // на S0–S4 её место занял человеческий язык правила 1
-      contest ? null : (p.ru === '0' || p.ru === '≤10%'
+      // «Доля русского» осталась только там, где она что-то меняет — на Г1+
+      // (флаг ruStrict): на S0–S4 её место занял человеческий язык правила 1
+      contest ? null : (p.ruStrict
         ? ruLine + special
         : 'Язык: задания и образцы — по-английски, инструкции и разборы — по-русски (правило 1).' + special),
+      examToday && !contest
+        ? 'Сегодня пятница — экзаменационный режим: 8 заданий на время, ' +
+        'без подсказок и образцов; разбор после ИТОГа.'
+        : null,
       youtube && !contest ? 'Видео просмотрено: ' + videoDone + ' («' + youtube + '»)' : null,
       lesson.focus ? 'Фокус практики: ' + lesson.focus : null,
       lesson.writing && !contest ? 'Письменная работа урока: ' + lesson.writing : null,
@@ -484,7 +535,7 @@ window.PROMPTS = (function () {
       gloss ? '' : null,
       text,
       text ? '' : null,
-      contest ? contestTasksBlock(lesson) : tasksBlock(lesson),
+      hw ? hwBlock(p) : (contest ? contestTasksBlock(lesson) : tasksBlock(lesson)),
       '',
       debtsBlock(trackId),
       '',
@@ -496,7 +547,7 @@ window.PROMPTS = (function () {
       '',
       finalBlock(lessonId, contest),
       '',
-      keysBlock(lesson, contest, trackId)
+      hw ? null : keysBlock(lesson, contest, trackId)
     ].filter(function (l) { return l !== null; }).join('\n');
   }
 
@@ -789,7 +840,7 @@ window.PROMPTS = (function () {
     stagesBlock: stagesBlock, contestStages: contestStages, isContest: isContest,
     contractV3: contractV3, finalBlock: finalBlock,
     glossaryBlock: glossaryBlock, textBlock: textBlock, tasksBlock: tasksBlock,
-    contestTasksBlock: contestTasksBlock, keysBlock: keysBlock,
+    contestTasksBlock: contestTasksBlock, keysBlock: keysBlock, hwBlock: hwBlock,
     checklistBlock: checklistBlock, LANG_CHECKLIST: LANG_CHECKLIST,
     debtsBlock: debtsBlock, warmupBlock: warmupBlock, stageLine: stageLine
   };
