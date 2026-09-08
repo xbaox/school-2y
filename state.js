@@ -1800,7 +1800,7 @@ window.State = (function () {
    */
   function promptDebts(trackId) {
     var prio = priorityDebts(trackId);
-    var rest = openDebts(trackId).filter(function (d) { return prio.indexOf(d) < 0; });
+    var rest = openDebts(boardTrack(trackId)).filter(function (d) { return prio.indexOf(d) < 0; });
     return prio.concat(rest);
   }
 
@@ -1818,6 +1818,18 @@ window.State = (function () {
   }
 
   /**
+   * Дорожка для доски долгов. У дорожки без своих категорий (сейчас только cs)
+   * долги ложатся под префикс кода — в письмо и математику (см. создание долга
+   * в applySummary). Спросить доску по 'cs' значило бы всегда получить «чисто»:
+   * категории печатаются все, а долги к ним не приходят, и промпт требует
+   * два долга ПРИОРИТЕТ, которых нет. С 2.7.3 это стало достижимо: ДЗ-урок
+   * по ICS3U идёт по дорожке cs.
+   */
+  function boardTrack(trackId) {
+    return trackHasCats(trackId) ? trackId : 'all';
+  }
+
+  /**
    * Порядок внимания: сначала долги на «1/2» — им остался один урок до
    * закрытия, потом давно не показывавшиеся. Пометку получают первые три.
    */
@@ -1829,7 +1841,7 @@ window.State = (function () {
       if (sa !== sb) return sa - sb;
       return 0;
     }
-    var open = openDebts(trackId);
+    var open = openDebts(boardTrack(trackId));
     var half = open.filter(function (d) { return debtProgress(d) === 1; }).sort(older);
     var rest = open.filter(function (d) { return debtProgress(d) !== 1; }).sort(older);
     return half.concat(rest).slice(0, PROMPT_PRIORITY);
@@ -1842,7 +1854,7 @@ window.State = (function () {
    * → [{ cat, name, debt, priority }]
    */
   function debtBoard(trackId) {
-    var open = openDebts(trackId);
+    var open = openDebts(boardTrack(trackId));
     var byCat = {};
     open.forEach(function (d) { if (d.cat) byCat[d.cat] = d; });
     var prio = {};
@@ -2303,6 +2315,7 @@ window.State = (function () {
     WORD_FIXES: WORD_FIXES, validateImport: validateImport,
     DEBT_CATS: DEBT_CATS, debtCat: debtCat, catsForTrack: catsForTrack,
     catTrack: catTrack, catFitsTrack: catFitsTrack, trackHasCats: trackHasCats,
+    boardTrack: boardTrack,
     migrationReport: function () { return lastV3; },
     holdsStreak: holdsStreak, streakPoints: streakPoints,
     subscribe: subscribe, emit: emit,

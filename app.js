@@ -428,7 +428,11 @@ window.App = (function () {
           : '<div class="btn-row" style="margin-top:8px">' +
           '<button class="btn pr" data-copy="' + U.esc(taken.id) + '">Скопировать промпт ДЗ</button>' +
           '<button class="btn sec" data-summary="' + U.esc(taken.id) + '">Вставить итог урока</button>' +
-          '</div>') +
+          '</div>' +
+          // промах по соседнему пункту списка иначе запирал день на чужой
+          // дорожке и сжигал слот недели: до ИТОГа курс меняется
+          '<div class="center" style="margin-top:8px">' +
+          '<button class="linkbtn" data-hw>Не тот курс? Сменить</button></div>') +
         counter + '</div>';
     }
 
@@ -455,6 +459,13 @@ window.App = (function () {
       }).join('') + '</div>',
       onMount: function (root, close) {
         U.on(root, 'click', '[data-hw-course]', function (e, el) {
+          // закрытый ДЗ-урок переиграть нельзя: итог уже в журнале
+          var was = State.hwOfDay(iso);
+          if (was && (State.s.hw[was.id] || {}).score != null) {
+            close();
+            UI.toast('Сегодняшний ДЗ-урок уже закрыт итогом — курс не меняется', '', 4200);
+            return;
+          }
           var res = State.startHw(el.dataset.hwCourse, iso);
           close();
           if (!res) { UI.toast('Курс не найден', ''); return; }
@@ -648,7 +659,9 @@ window.App = (function () {
    * об этом и говорит. Второй урок ждёт, пока закрыт первый.
    */
   function lessonItem(n, t, d, full) {
-    var lessons = d.lessons || [];
+    // ДЗ-урок норму дня закрывает, но пунктом «Урок» не является: у него
+    // своя карточка ниже, а контента для Lesson.card у него нет
+    var lessons = (d.lessons || []).filter(function (id) { return !State.isHw(id); });
     var done = lessons.length >= n;
     var locked = n === 2 && lessons.length < 1;
     var head = full ? 'Урок ' + n : 'Урок';

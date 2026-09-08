@@ -52,6 +52,18 @@
 
     var res = Waterfall.second(WED, 'B2.1');
     ok(!res, 'вторым уроком общий блок не отдаётся — лучше ни одного');
+
+    // и кнопка на карточке идёт тем же путём: свой запасной State.nextLesson()
+    // возвращал ровно тот урок, который водопад только что отверг
+    var closed = all.lessons[0].id;
+    State.s.lessons[closed] = { done: false, score: null, date: null };
+    var d = State.day(WED, true);
+    d.level = 'full';
+    d.lessons = ['B2.1'];
+    State.s.lessons['B2.1'] = { done: true, score: 8, date: WED };
+    var html = Lesson.card({ lessonId: 'B2.1', today: WED, bare: true });
+    eq(html.indexOf('data-second='), -1, 'кнопки «Второй урок» на общий блок нет');
+    ok(html.indexOf('Урок закрыт ✓') > 0, 'вместо неё — честное «урок закрыт»');
   });
 
   /* ============ чистка injected при загрузке ============ */
