@@ -781,3 +781,9 @@ textarea.txt-why{min-height:132px;resize:vertical;line-height:1.5;font-size:13px
 .qen{font-size:14.5px;line-height:1.45;font-weight:500}
 .qru{margin:6px 0 8px 28px;font-size:12.5px;color:var(--dim);line-height:1.5}
 .qnote{width:100%;min-height:40px;margin-left:0}
+
+/* 2.7.3: кнопка «Урок по ДЗ» */
+.hw-offer{margin-top:12px;text-align:center}
+.hw-offer .btn{width:auto;min-height:44px;padding:0 18px}
+.hwc{display:block;width:100%;text-align:left;background:var(--card2);border:1px solid var(--line);
+  border-radius:12px;color:var(--txt);font:inherit;cursor:pointer;margin-bottom:8px}

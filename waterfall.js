@@ -268,15 +268,24 @@ window.Waterfall = (function () {
     var t = todayIso || State.today();
     var firstTrack = State.lessonTrack(firstLessonId);
     var res = pick(t, { exclude: firstTrack, force: true });
-    if (res && res.lessonId && res.lessonId !== firstLessonId) {
+    if (res && res.lessonId && res.lessonId !== firstLessonId && !isAll(res.lessonId)) {
       // водопад мог свалиться в запасной вариант и вернуть ту же дорожку —
       // бейдж обязан сказать это честно, а не «свободная дорожка»
       if (State.lessonTrack(res.lessonId) === firstTrack) res.reason = NO_OTHER;
       return res;
     }
     var same = State.nextLesson();
-    if (!same || same === firstLessonId) return null;
+    if (!same || same === firstLessonId || isAll(same)) return null;
     return { lessonId: same, reason: NO_OTHER };
+  }
+
+  /**
+   * Урок общего блока (track: 'all' — суббота К). Вторым уроком дня он
+   * не берётся: субботний блок сам занимает день целиком, а в полной норме
+   * будня «вторая дорожка» обязана быть другой дорожкой, а не общей.
+   */
+  function isAll(lessonId) {
+    return State.lessonTrack(lessonId) === 'all';
   }
 
   /* ---------- свежесть ---------- */

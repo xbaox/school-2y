@@ -370,17 +370,23 @@ window.Lesson = (function () {
    * а отметка «скопировано» не ставится — иначе на «Сегодня» появлялась
    * кнопка «Вставить итог» для урока, промпта которого нет.
    */
-  /** Дорожка урока — так же, как её берёт lessonPrompt: из блока урока. */
+  /**
+   * Дорожка урока — так же, как её берёт lessonPrompt. У ДЗ-урока блока нет,
+   * дорожка зашита в id, поэтому спрашиваем State, а не контент.
+   */
   function trackOf(lessonId) {
-    var l = CONTENT.lesson(lessonId);
-    var b = l ? State.block(l.blockId) : null;
-    return (b && b.track) || 'eng';
+    return State.lessonTrack(lessonId) || 'eng';
   }
 
   function copyPrompt(lessonId) {
     if (tooSoon()) return;
     var text = PROMPTS.lesson(lessonId);
     if (!text) { UI.toast('Не нашёл этот урок в контенте', 'bad'); return; }
+    if (State.isHw(lessonId)) {
+      UI.copy(text, 'Промпт ДЗ скопирован — пришли задание первым сообщением');
+      State.markInjectedDebts(lessonId, State.promptDebts(trackOf(lessonId)));
+      return;
+    }
     var sel = current();
     Promise.resolve(UI.copy(text, 'Промпт урока скопирован — вставь его в чат с ИИ'))
       .then(function (ok) {

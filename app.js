@@ -114,6 +114,7 @@ window.App = (function () {
         State.toggleAddon(el.dataset.addon);
       });
       U.on(host, 'click', '[data-step]', function () { StepsFlow.openDetails(); });
+      U.on(host, 'click', '[data-hw]', function () { openHw(State.today()); });
       U.on(host, 'click', '[data-stage-up]', function (e, el) {
         var to = el.dataset.stageUp;
         if (!State.setStage(to)) return;
@@ -397,7 +398,74 @@ window.App = (function () {
 
     return '<div class="plan' + (allDone ? ' done' : '') + '">' +
       body + sundayEscape(t, d) + planStatus(t, d, allDone) + '</div>' +
-      debtsLine() + stageOffer(t);
+      debtsLine() + hwOffer(t) + stageOffer(t);
+  }
+
+  /**
+   * Кнопка «Урок по ДЗ» (ТЗ 2.7.3). Будни, пока норма дня не закрыта,
+   * и не больше трёх на неделе: школьное ДЗ помогает программе, а не
+   * заменяет её. Программный урок остаётся на следующий день — выбор дня
+   * кнопка не трогает.
+   */
+  function hwOffer(t) {
+    var iso = t || State.today();
+    if (U.weekday(iso) > 5) return '';
+    var used = State.hwWeekCount(iso);
+    var cap = State.HW_WEEK_CAP;
+    var taken = State.hwOfDay(iso);
+    var counter = '<div class="tiny dim" style="margin-top:6px">ДЗ-уроков на неделе: ' +
+      used + '/' + cap + '</div>';
+
+    // урок уже взят: дальше нужны промпт и приём ИТОГа, а не второй выбор курса
+    if (taken) {
+      var rec = (State.s.hw || {})[taken.id] || null;
+      var closed = !!rec && (rec.score || rec.score === 0);
+      return '<div class="hw-offer" style="margin-top:10px">' +
+        '<div class="tiny">Урок по ДЗ · ' + U.esc(taken.course || '') + ' · ' +
+        U.esc(State.trackName(taken.track)) + '</div>' +
+        (closed
+          ? '<div class="tiny dim" style="margin-top:6px">итог принят · ' + rec.score + '/10</div>'
+          : '<div class="btn-row" style="margin-top:8px">' +
+          '<button class="btn pr" data-copy="' + U.esc(taken.id) + '">Скопировать промпт ДЗ</button>' +
+          '<button class="btn sec" data-summary="' + U.esc(taken.id) + '">Вставить итог урока</button>' +
+          '</div>') +
+        counter + '</div>';
+    }
+
+    var d = State.day(iso) || {};
+    if ((d.lessons || []).length) return '';        // норма дня закрыта — предлагать нечего
+    var can = State.hwAvailable(iso);
+    return '<div class="hw-offer" style="margin-top:10px">' +
+      '<button class="btn sec" data-hw' + (can ? '' : ' disabled') + '>Урок по ДЗ</button>' +
+      '<div class="tiny dim" style="margin-top:6px">ДЗ-уроков на неделе: ' + used + '/' + cap +
+      (used >= cap ? ' · на этой неделе больше нельзя' : '') + '</div></div>';
+  }
+
+  /** Шторка выбора школьного курса для ДЗ-урока. */
+  function openHw(t) {
+    var iso = t || State.today();
+    var courses = State.schoolCourses();
+    UI.sheet({
+      title: 'Урок по домашнему заданию',
+      sub: 'Выбери курс — промпт соберётся под его дорожку.',
+      body: '<div class="list">' + courses.map(function (c) {
+        return '<button class="item hwc" data-hw-course="' + U.esc(c.code) + '">' +
+          '<div class="t">' + UI.trackDot(c.track) + ' <span class="mono">' + U.esc(c.code) + '</span></div>' +
+          '<div class="s">' + U.esc(c.name) + '</div></button>';
+      }).join('') + '</div>',
+      onMount: function (root, close) {
+        U.on(root, 'click', '[data-hw-course]', function (e, el) {
+          var res = State.startHw(el.dataset.hwCourse, iso);
+          close();
+          if (!res) { UI.toast('Курс не найден', ''); return; }
+          // промпт кладём в буфер сразу: иначе после выбора курса
+          // ученик остаётся с тостом и без урока
+          if (window.Lesson) Lesson.copyPrompt(res.id);
+          else UI.toast('Урок по ДЗ · ' + res.course, 'ok', 4000);
+          render();
+        });
+      }
+    });
   }
 
   /**
@@ -835,7 +903,8 @@ window.App = (function () {
     ['State', 'applyWarmup'], ['PROMPTS', 'contractV3'], ['PROMPTS', 'parseWarmup'],
     ['CONTENT', 'registerGlossary'], ['STEPS', 'stage'], ['Waterfall', 'ruleSaturday'],
     ['PROMPTS', 'parseStretch'], ['State', 'stretchCount'],
-    ['Radar', 'seedQuestions'], ['State', 'repairWords']
+    ['Radar', 'seedQuestions'], ['State', 'repairWords'],
+    ['State', 'startHw'], ['PROMPTS', 'hwBlock']
   ];
 
   function mixedBundle() {
@@ -958,7 +1027,7 @@ window.App = (function () {
     // перерегистрировать, а проверять надо настоящий «Сегодня»
     Today: Today, nextUp: nextUp,
     minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
-    stageOffer: stageOffer, debtsLine: debtsLine,
+    stageOffer: stageOffer, debtsLine: debtsLine, hwOffer: hwOffer, openHw: openHw,
     mixedBundle: mixedBundle, warnMixed: warnMixed,
     resetOpen: function () { openItem = null; },
     setOpen: function (id) { openItem = id; },

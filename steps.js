@@ -37,36 +37,53 @@ window.STEPS = (function () {
       start: 'L1', transfer: '1', ru: '≤40%', note: 'шкала пошла', special: ''
     },
     {
-      pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, qRange: '14–16',
+      pos: 2, name: 'S2', norm: 55, full: 90, lesson: 40, qRange: '14',
+      layout: '2 разогрев L1 · 9 основа L2 · 1 письмо · 2 стретч ⭐⭐',
+      slots: { warm: 2, base: 9, write: 1, stretch: 2 },
       start: 'L1', transfer: '1–2', ru: '≤30%', note: 'больше заданий', special: ''
     },
     {
-      pos: 3, name: 'S3', norm: 65, full: 105, lesson: 45, qRange: '16–18',
+      pos: 3, name: 'S3', norm: 65, full: 105, lesson: 45, qRange: '16',
+      layout: '2 разогрев L1 · 11 основа L2 · 1 письмо · 2 стретч ⭐⭐',
+      slots: { warm: 2, base: 11, write: 1, stretch: 2 },
       start: 'L2', transfer: '2', ru: '≤25%', note: 'старт с L2', special: ''
     },
     {
-      pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, qRange: '18–20',
+      pos: 4, name: 'S4', norm: 75, full: 120, lesson: 50, qRange: '18',
+      layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
+      slots: { warm: 2, base: 13, write: 1, stretch: 2 },
       start: 'L2', transfer: '2–3', ru: '≤20%', note: 'потолок времени', special: ''
     },
     {
-      pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, qRange: '18–20',
+      pos: 5, name: 'Г1', norm: 75, full: 120, lesson: 50, qRange: '18',
+      layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
+      slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      stretchRequired: true, ruStrict: true,
       start: 'L2', transfer: '3', ru: '≤10%', note: 'время стоит, растёт глубина',
       cemc: true,
-      special: 'в математических уроках добавь 1 задачу уровня CEMC ⭐; «перевёртыш» («а что если…») обязателен в каждом уроке'
+      special: 'одно задание основы — уровня CEMC ⭐; стретч ⭐⭐ обязателен, не по желанию; «перевёртыш» («а что если…») обязателен в каждом уроке'
     },
     {
-      pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, qRange: '18–20',
-      start: 'L2', transfer: '3', ru: '0', note: 'без русского',
+      pos: 6, name: 'Г2', norm: 75, full: 120, lesson: 50, qRange: '18',
+      layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
+      slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      stretchRequired: true, ruStrict: true,
+      start: 'L2', transfer: '3', ru: '≤30%', note: 'разборы по-английски',
       cemc: true,
-      special: 'подача без русского (перевод фидбека остаётся!); задачи CEMC ⭐ и в тестах; письменная работа 8–10 предложений'
+      special: 'одно задание основы — уровня CEMC ⭐; стретч ⭐⭐ обязателен; задачи CEMC ⭐ и в тестах; письменная работа 8–10 предложений'
     },
     {
-      pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, qRange: '18–20',
-      start: 'L2', finish: 'L3', transfer: '3', ru: '0', note: 'экзаменационный темп',
+      pos: 7, name: 'Г3', norm: 75, full: 120, lesson: 50, qRange: '18',
+      layout: '2 разогрев L1 · 13 основа L2 · 1 письмо · 2 стретч ⭐⭐',
+      slots: { warm: 2, base: 13, write: 1, stretch: 2 },
+      stretchRequired: true, examFriday: true, ruStrict: true,
+      start: 'L2', finish: 'L3', transfer: '3', ru: '≤30%', note: 'экзаменационный темп',
       cemc: true,
-      // «финиш на L3» печатает сама строка старта практики — здесь его нет,
-      // чтобы требование не приезжало в промпт дважды
-      special: 'мини-тесты с таймером в экзаменационном темпе; задание «составь свою задачу и реши»'
+      // экзаменационный режим печатает отдельная строка [КОНТЕКСТ] и только
+      // в пятницу — в «Особом» он стоял бы все пять дней
+      special: 'одно задание основы — уровня CEMC ⭐; стретч ⭐⭐ обязателен; ' +
+        'мини-тесты с таймером в экзаменационном темпе; ' +
+        'задание «составь свою задачу и реши»'
     }
   ];
 
@@ -89,15 +106,9 @@ window.STEPS = (function () {
   function row(pos) { return TABLE[U.clamp(pos || 1, MIN, MAX) - 1]; }
 
   /** Ступень по имени: 'S0' → отдельная строка, остальные — из таблицы. */
-  /**
-   * Раскладка заданий ступени. У S0 и S1 она задана ТЗ; у S2–Г3 своей нет,
-   * и считается по тому же правилу: разогрев 2 · письмо 1 · стретч 2 ·
-   * остальное — основа, от нижней границы диапазона заданий.
-   */
+  /** Раскладка заданий ступени. С 2.7.3 задана у всех восьми явно. */
   function slotsOf(r) {
-    if (r.slots) return r.slots;
-    var total = parseInt(String(r.qRange).split('–')[0], 10) || 12;
-    return { warm: 2, base: Math.max(1, total - 5), write: 1, stretch: 2 };
+    return r.slots || { warm: 2, base: 4, write: 1, stretch: 1 };
   }
 
   function stage(name) {
@@ -156,6 +167,9 @@ window.STEPS = (function () {
       title: r.title || r.name,
       layout: r.layout || '',
       slots: slotsOf(r),
+      stretchRequired: !!r.stretchRequired,
+      examFriday: !!r.examFriday,
+      ruStrict: !!r.ruStrict,
       sprintLabel: r.sprintLabel || '',
       stepLabel: summer ? 'Лето' : r.name,
       summer: summer,
