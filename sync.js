@@ -301,6 +301,9 @@ window.Sync = (function () {
         State.replace(row.state);
         setLastPushedAt(cloudAt);          // ровно это состояние в облаке и лежит
         State.syncContent();               // новый пакет контента — уже локальная правка
+        // облако могло приехать с состоянием до посева карточки вопросов —
+        // достраиваем его тут же, иначе пункты вернутся только к следующей загрузке
+        if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
         lastSync = new Date().toISOString();
         setStatus('idle');
         if (window.App) App.render();

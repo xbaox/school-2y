@@ -128,6 +128,8 @@ const MODULES = [
   'sync.js',
   'lesson.js',
   'app.js',
+  // settings.js — ради экрана «Настройки»: строка ступени живёт там
+  'settings.js',
   'radar.js',
   // journal.js тянем ради window.Cards: колода и «Слова урока» — часть SRS,
   // program.js — ради счётчика шапки

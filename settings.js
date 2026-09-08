@@ -46,8 +46,10 @@
 
   function stepSection() {
     var s = State.s.step;
-    var pos = STEPS.effectivePos(s, State.today());
-    var p = STEPS.params(s, State.today(), State.mode());
+    // ступень берётся по имени, как в промпте и карточке урока: на S0
+    // позиция и имя расходятся (у S0 pos 0, а позиция ниже S1 не опускается),
+    // и без имени Настройки печатали числа чужой ступени
+    var p = STEPS.params(s, State.today(), State.mode(), State.stageName());
     // летом бейдж обязан говорить «Лето»: показывать S1 рядом со строкой
     // летних параметров — прямое противоречие на одном экране
     var summer = !State.isSchool();
@@ -60,7 +62,7 @@
       '<span>' + U.esc(STEPS.CARD_LEGEND) + '</span>' +
       (summer ? '<span>шкала стартует ' + U.fmtDayMonth(State.AUTO_SCHOOL_DATE) + ' — с S1</span>' : '') +
       '</div>' +
-      '<div class="mono">' + U.esc(summer ? 'Лето' : STEPS.label(pos)) + '</div></div>' +
+      '<div class="mono">' + U.esc(p.stepLabel) + '</div></div>' +
       '<div class="srow"><div class="k">День цикла<span>цикл 14 дней; стоит на паузе, ' +
       'пока действует «не сейчас» или разгрузочная неделя</span></div>' +
       '<div class="mono">' + (State.isSchool() ? StepsFlow.cycleDay() + '/14' : '—') + '</div></div>' +

@@ -376,7 +376,8 @@ window.StepsFlow = (function () {
   function openDetails() {
     var s = step();
     var t = State.today();
-    var p = STEPS.params(s, t, State.mode());
+    // та же ступень, что в промпте и в Настройках, — по имени, не по позиции
+    var p = STEPS.params(s, t, State.mode(), State.stageName());
     var c = State.isSchool() ? criteria(t) : null;
     var hist = (s.history || []).slice(-6).reverse();
 
