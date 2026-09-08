@@ -35,8 +35,8 @@
     ok(!!e, 'оно нашлось по id');
     eq(e.date, '2026-09-08', 'дата');
     eq(e.type, 'questions', 'тип');
-    eq(e.title, 'Утро 8.09 — шесть вопросов', 'заголовок');
-    eq(e.items.length, 6, 'шесть вопросов');
+    eq(e.title, 'Утро 8.09 — восемь вопросов', 'заголовок');
+    eq(e.items.length, 8, 'восемь вопросов: два добрались хотфиксом 2.7.5');
 
     eq(Radar.seedQuestions(), 0, 'повторный посев ничего не добавил');
     eq(State.s.radar.length, 1, 'событие по-прежнему одно');
@@ -94,14 +94,14 @@
     ok(html.indexOf('type="checkbox" data-q="q-2026-09-08|0"') > 0, 'чекбокс пункта');
     ok(html.indexOf('data-qnote="q-2026-09-08|0"') > 0, 'поле ответа');
     ok(html.indexOf('ответ одной строкой') > 0, 'подсказка в поле');
-    ok(html.indexOf('0 из 6') > 0, 'счётчик');
+    ok(html.indexOf('0 из 8') > 0, 'счётчик');
 
     // отмеченный пункт и записанный ответ видны в разметке
     ev().items[0].done = true;
     ev().items[0].note = 'ICS3U, Brightspace, дома';
     var html2 = Radar.questionsBlock('2026-09-08');
     ok(html2.indexOf('value="ICS3U, Brightspace, дома"') > 0, 'ответ в поле');
-    ok(html2.indexOf('1 из 6') > 0, 'счётчик вырос');
+    ok(html2.indexOf('1 из 8') > 0, 'счётчик вырос');
   });
 
   describe('2.7.2 вопросы: карточка стоит на экране «Сегодня»', function () {
@@ -110,7 +110,7 @@
     withToday('2026-09-08', function () {
       // берём сам экран, а не запись в реестре: она создаётся в boot()
       var html = App.Today.render();
-      ok(html.indexOf('Утро 8.09 — шесть вопросов') > 0, 'заголовок карточки на экране');
+      ok(html.indexOf('Утро 8.09 — восемь вопросов') > 0, 'заголовок карточки на экране');
       ok(html.indexOf('Could I please get a copy of my Credit Counselling Summary') > 0,
         'и вопросы целиком');
     });

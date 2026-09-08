@@ -304,12 +304,14 @@ window.App = (function () {
         '</button>';
     }
     var s = State.s.step;
-    var pos = STEPS.effectivePos(s, State.today());
+    // ступень по имени — та же, что в Настройках, в шторке ступени, в
+    // карточке урока и в промпте: на S0 позиция и имя расходятся
+    var stage = STEPS.params(s, State.today(), State.mode(), State.stageName());
     var dayN = StepsFlow.cycleDay(State.today());
     var pct = Math.round(dayN / STEPS.CYCLE_DAYS * 100);
     var paused = StepsFlow.isPaused();
     return '<button class="p-step" data-step>' +
-      '<span class="s">Ступень ' + U.esc(STEPS.label(pos)) +
+      '<span class="s">Ступень ' + U.esc(stage.stepLabel) +
       (StepsFlow.onDeload() ? ' · разгрузка' : '') + '</span>' +
       '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
       '<span class="s muted">день ' + dayN + '/' + STEPS.CYCLE_DAYS +

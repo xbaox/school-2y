@@ -334,11 +334,14 @@ window.Radar = (function () {
    * на месте, иначе к вечеру он забыт.
    * Сеется один раз по id; уже добавленное владельцем не трогаем.
    */
+  /** Пунктов стало восемь — добор 2.7.5; заголовок один на сид и на добор. */
+  var QUESTIONS_TITLE = 'Утро 8.09 — восемь вопросов';
+
   var QUESTIONS_SEED = {
     id: 'q-2026-09-08',
     date: '2026-09-08',
     type: 'questions',
-    title: 'Утро 8.09 — шесть вопросов',
+    title: QUESTIONS_TITLE,
     items: [
       {
         who: 'консультанту (guidance)',
@@ -379,16 +382,74 @@ window.Radar = (function () {
     ]
   };
 
+  /**
+   * Вопросы 7 и 8 пришли хотфиксом 2.7.5 — про активацию аккаунта TDSB и
+   * расписание онлайн-курса. Событие у владельца живёт с 8.09: пересевать
+   * его нельзя, потеряются отметки и записанные ответы, поэтому пункты
+   * дописываются в уже существующее.
+   */
+  var QUESTIONS_EXTRA = [
+    {
+      who: 'консультанту или в офис школы',
+      en: 'I already have my TDSB student number. How do I activate my student account — the TDSB email/Google account, the student portal, and Brightspace for the online course? Where do I set my password, and whom do I contact if I cannot log in?',
+      ru: 'У меня уже есть номер ученика TDSB. Как активировать учётную запись — почту/Google-аккаунт TDSB, портал ученика и Brightspace для онлайн-курса? Где задать пароль и к кому обращаться, если не получается войти?',
+      done: false, note: ''
+    },
+    {
+      who: 'консультанту',
+      en: 'For the online course: when does it start, what is the weekly workload and deadline schedule, are there live sessions at a set time or is it fully self-paced, and can I work on it in the school library during my spare period?',
+      ru: 'По онлайн-курсу: когда он начинается, какая нагрузка и дедлайны по неделям, есть ли занятия онлайн в назначенное время или всё в своём темпе, и можно ли делать его в школьной библиотеке в свободный период?',
+      done: false, note: ''
+    }
+  ];
+
+  /** Сколько пунктов должно быть в карточке после добора. */
+  var QUESTIONS_TOTAL = QUESTIONS_SEED.items.length + QUESTIONS_EXTRA.length;
+
   /** До этого дня карточка висит на «Сегодня», даже если не всё отмечено. */
   var QUESTIONS_UNTIL = '2026-09-11';
 
-  /** Сеется один раз: событие с этим id уже есть — ничего не делаем. */
+  /**
+   * Добор пунктов в уже посеянную карточку. Идемпотентен дважды: по числу
+   * пунктов и по английскому тексту — пункт с таким же en второй раз не
+   * добавляется, даже если счёт разошёлся. Отметки и ответы не трогаются.
+   */
+  function topUpQuestions(e) {
+    if (!e || !Array.isArray(e.items) || e.items.length >= QUESTIONS_TOTAL) return 0;
+    var have = {};
+    e.items.forEach(function (q) { if (q && q.en) have[q.en] = true; });
+    var added = 0;
+    QUESTIONS_EXTRA.forEach(function (q) {
+      if (have[q.en]) return;
+      e.items.push(JSON.parse(JSON.stringify(q)));
+      added++;
+    });
+    if (added) e.title = QUESTIONS_TITLE;
+    return added;
+  }
+
+  /**
+   * Сеется один раз; если событие уже есть — только добираются пункты.
+   *
+   * Пишем через State.save(), а НЕ через touch: touch поднимает
+   * meta.updatedAt, и синк на первой же загрузке считает отставшее
+   * устройство самым свежим — оно уходит в push и затирает облако работой
+   * недельной давности. Посев и добор детерминированы и пересчитываются
+   * при каждой загрузке, поэтому «сделать состояние новее» им не нужно.
+   */
   function seedQuestions() {
     var list = State.s.radar || (State.s.radar = []);
-    if (list.some(function (e) { return e && e.id === QUESTIONS_SEED.id; })) return 0;
-    list.push(JSON.parse(JSON.stringify(QUESTIONS_SEED)));
-    State.touch(true);
-    return 1;
+    var ev = null;
+    list.forEach(function (e) { if (e && e.id === QUESTIONS_SEED.id) ev = e; });
+    var seeded = 0;
+    if (!ev) {
+      ev = JSON.parse(JSON.stringify(QUESTIONS_SEED));
+      list.push(ev);
+      seeded = 1;
+    }
+    var added = topUpQuestions(ev);
+    if (seeded || added) State.save();
+    return seeded;
   }
 
   function questionEvents() {
