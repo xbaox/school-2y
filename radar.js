@@ -587,6 +587,9 @@ window.Radar = (function () {
     var cls = e.done ? 'dim' : (left <= 3 && left >= 0 ? 'r' : (left < 0 ? 'dim' : ''));
     var track = CONTENT.trackForCourse(e.course);
     var type = (TYPES.filter(function (x) { return x.id === e.type; })[0] || { name: e.type }).name;
+    // карточка вопросов в списке событий: с 14.09 (2.7.6, M3) она в ближайших,
+    // и сырой тип «questions» без заголовка ничего не говорил
+    if (e.type === 'questions') type = 'вопросы · ' + (e.title || '');
     return '<div class="item ' + (e.done ? 'off' : '') + '">' +
       '<div class="rowline">' +
       '<button class="rowbody" data-event-edit="' + U.esc(e.id) + '">' +

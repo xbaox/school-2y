@@ -245,6 +245,8 @@
       var html = App.screen('radar').render();
       ok(html.indexOf('Записаться к консультанту (Guidance, третий период)') > 0, 'текст события — в заметке');
       eq(html.indexOf('undefined'), -1, 'событие без курса не печатает «undefined»');
+      ok(html.indexOf('вопросы · Консультант, пн 14.09 — три вопроса') > 0, 'строка карточки в «Событиях школы» — с заголовком');
+      eq(html.indexOf(' questions</div>'), -1, 'сырого типа «questions» нет');
     });
   });
 
