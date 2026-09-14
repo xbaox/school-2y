@@ -8,6 +8,8 @@
    4. Светофор (красный блок) · 5. Долги (≥5 открытых)
    6. Шаблон недели. Воскресенье — радар-день, урок не назначается.
    Дорожка без доступных уроков пропускается всеми правилами.
+   Общий блок (track: 'all', финалы Б16) назначают только дедлайн и шаблон
+   недели: радар, свежесть, светофор и долги смотрят на свои блоки дорожки.
    ============================================================ */
 
 window.Waterfall = (function () {
@@ -35,6 +37,22 @@ window.Waterfall = (function () {
     return null;
   }
 
+  /**
+   * Первый незакрытый урок в блоках СВОЕЙ дорожки фазы — общий блок
+   * (track: 'all') сюда не входит (2.7.6, Э3). 10.09 информатика, у которой
+   * своих блоков в Ф1 нет, забрала день свежестью — и получила финалы Б16:
+   * State.nextLessonInTrack пускает блок 'all' в очередь любой дорожки.
+   */
+  function nextOwnLesson(trackId, phaseId) {
+    var ids = State.phaseBlocks(phaseId);
+    for (var i = 0; i < ids.length; i++) {
+      if (State.s.blocks[ids[i]].track !== trackId) continue;
+      var next = nextInBlock(ids[i]);
+      if (next) return next;
+    }
+    return null;
+  }
+
   function typeName(t) {
     return { test: 'тест', quiz: 'квиз', assignment: 'сдача', exam: 'экзамен' }[t] || 'событие';
   }
@@ -47,17 +65,21 @@ window.Waterfall = (function () {
 
   /* ---------- правила ---------- */
 
-  /** 1. Радар: школьное событие ≤3 дней. */
+  /** 1. Радар: школьное событие ≤3 дней. Урок — своей дорожки курса, не общий блок. */
   function ruleRadar(t, exclude) {
     var events = (State.s.radar || [])
       .filter(function (e) { return !e.done && e.date >= t && U.diffDays(t, e.date) <= 3; })
       .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var phase = State.currentPhase(t);
     for (var i = 0; i < events.length; i++) {
       var e = events[i];
       var track = CONTENT.trackForCourse(e.course);
-      if (!track || track === exclude || !available(track)) continue;
+      if (!track || track === exclude) continue;
+      var own = nextOwnLesson(track, phase);
+      if (!own) continue;
       return {
         track: track,
+        lessonId: own,
         reason: {
           kind: 'radar',
           text: 'радар: ' + typeName(e.type) + ' ' + e.course + ' ' + whenText(U.diffDays(t, e.date))
@@ -67,19 +89,27 @@ window.Waterfall = (function () {
     return null;
   }
 
-  /** 2. Свежесть: дорожка без урока ≥5 дней. */
+  /**
+   * 2. Свежесть: дорожка без урока ≥5 дней, у которой в фазе есть свой урок.
+   * Дорожка без своих блоков (информатика в Ф1) в счёт свежести не входит, а
+   * урок берётся из своего блока: иначе pick() ушёл бы в nextLessonInTrack,
+   * где общий блок стоит в очереди каждой дорожки.
+   */
   function ruleFreshness(t, exclude) {
-    var best = null, bestDays = -1;
+    var phase = State.currentPhase(t);
+    var best = null, bestDays = -1, bestLesson = null;
     State.s.tracks.forEach(function (tr) {
       if (tr.embedded || tr.id === exclude) return;
+      var own = nextOwnLesson(tr.id, phase);
+      if (!own) return;
       var f = State.freshness(tr.id, t);
       if (f == null || f < FRESH_RULE_DAYS) return;
-      if (!available(tr.id)) return;
-      if (f > bestDays) { bestDays = f; best = tr; }
+      if (f > bestDays) { bestDays = f; best = tr; bestLesson = own; }
     });
     if (!best) return null;
     return {
       track: best.id,
+      lessonId: bestLesson,
       reason: { kind: 'fresh', text: 'свежесть: ' + best.name + ' ' + U.days(bestDays) }
     };
   }
@@ -129,7 +159,8 @@ window.Waterfall = (function () {
     });
     for (var i = 0; i < ids.length; i++) {
       var b = State.s.blocks[ids[i]];
-      if (b.track === exclude) continue;
+      // общий блок светофор не назначает: его берут дедлайн и шаблон недели
+      if (b.track === exclude || b.track === 'all') continue;
       var st = State.blockPace(ids[i]);
       if (!st || st.color !== 'red' || st.done) continue;
       var next = nextInBlock(ids[i]);
@@ -144,19 +175,22 @@ window.Waterfall = (function () {
     return null;
   }
 
-  /** 4. Долги: дорожка с ≥5 открытыми долгами. */
+  /** 4. Долги: дорожка с ≥5 открытыми долгами и своим уроком в фазе. */
   function ruleDebts(t, exclude) {
     var counts = {};
     State.openDebts().forEach(function (d) { counts[d.track] = (counts[d.track] || 0) + 1; });
-    var best = null, bestN = 0;
+    var phase = State.currentPhase(t);
+    var best = null, bestN = 0, bestLesson = null;
     Object.keys(counts).forEach(function (id) {
       if (id === exclude || counts[id] < DEBTS_RULE_COUNT) return;
-      if (!available(id)) return;
-      if (counts[id] > bestN) { bestN = counts[id]; best = id; }
+      var own = nextOwnLesson(id, phase);
+      if (!own) return;
+      if (counts[id] > bestN) { bestN = counts[id]; best = id; bestLesson = own; }
     });
     if (!best) return null;
     return {
       track: best,
+      lessonId: bestLesson,
       reason: { kind: 'debts', text: 'долги: ' + State.trackName(best) + ' — ' + bestN + ' открытых' }
     };
   }
@@ -306,8 +340,10 @@ window.Waterfall = (function () {
    */
   function hasLessonsNow(trackId) {
     // именно в текущей фазе — так и написано в подписи. Сквозная очередь
-    // (nextLessonInTrack без фазы) ведёт дальше, но подпись говорит о фазе
-    return State.nextLessonInTrack(trackId, State.currentPhase()) != null;
+    // (nextLessonInTrack без фазы) ведёт дальше, но подпись говорит о фазе.
+    // 2.7.6: общий блок своим уроком дорожки не считается — тот же предикат,
+    // что у свежести, иначе полоска звала бы к дорожке, которую она не назначит
+    return nextOwnLesson(trackId, State.currentPhase()) != null;
   }
 
   function freshText(trackId, days) {
@@ -364,7 +400,7 @@ window.Waterfall = (function () {
       return '<button class="swap-row" ' + (next ? 'data-pick="' + U.esc(next) + '"' : 'disabled') + '>' +
         '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
         '<div class="s">' + (l ? U.esc(State.blockLabel(l.blockId) + ' · ' + l.title) : 'уроков в контенте нет') + '</div>' +
-        '<div class="tdays ' + (next ? freshColor(f) : 'none') + '">' +
+        '<div class="tdays ' + (next && hasLessonsNow(tr.id) ? freshColor(f) : 'none') + '">' +
         U.esc(freshText(tr.id, f)) + '</div>' +
         '</button>';
     }).join('');
@@ -395,7 +431,7 @@ window.Waterfall = (function () {
     { kind: 'contest', n: 1, name: 'Суббота ⭐', cond: 'суббота, и в фазе остался конкурсный урок', act: '→ блок К' },
     { kind: 'deadline', n: 2, name: 'Дедлайн', cond: 'срок блока сегодня или позади, урок в нём не закрыт', act: '→ этот блок' },
     { kind: 'radar', n: 3, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
-    { kind: 'fresh', n: 4, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней', act: '→ она' },
+    { kind: 'fresh', n: 4, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней, и у неё есть свои уроки в фазе', act: '→ она' },
     { kind: 'pace', n: 5, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
     { kind: 'debts', n: 6, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },
     {
@@ -431,7 +467,8 @@ window.Waterfall = (function () {
   return {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
-    hasLessonsNow: hasLessonsNow, ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday,
+    hasLessonsNow: hasLessonsNow, nextOwnLesson: nextOwnLesson,
+    ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday,
     EXPLAIN: EXPLAIN,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };
