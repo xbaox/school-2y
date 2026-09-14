@@ -1351,8 +1351,17 @@ window.State = (function () {
     return own || ('Б' + blockNum(id));
   }
 
-  /** Отображаемая подпись урока: B53.1 → К.1, B7.2 → Б7.2. */
+  /**
+   * Отображаемая подпись урока: B53.1 → К.1, B7.2 → Б7.2.
+   * ДЗ-урок — как на его карточке «Сегодня»: «Урок по ДЗ · MHF4U»
+   * (курс неизвестен — имя дорожки).
+   */
   function lessonLabel(lessonId) {
+    var hwp = parseHwId(lessonId);
+    if (hwp) {
+      var course = ((s.days || {})[hwp.date] || {}).hwCourse || ((s.hw || {})[hwp.id] || {}).course;
+      return 'Урок по ДЗ · ' + (course || trackName(hwp.track));
+    }
     var p = String(lessonId).split('.');
     return blockLabel(p[0]) + '.' + (p[1] || '1');
   }

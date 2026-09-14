@@ -149,8 +149,12 @@ window.PROMPTS = (function () {
   function finalBlock(lessonId, contest) {
     return [
       '[ФИНАЛ] — выдай «ИТОГ УРОКА» строго в этом формате, без лишнего текста внутри блока:',
+      // 2.7.6: ИИ подставлял в заголовок подпись урока (К.1) вместо id (B53.1),
+      // и окно вставки отвергало итог целиком
+      'Первую строку — заголовок — скопируй дословно: в нём id урока ' + lessonId +
+      '; подпись урока (' + labelOf(lessonId) + ') в заголовок не подставляй.',
       '',
-      '=== ИТОГ УРОКА ' + lessonId + ' ===',
+      headerLine(lessonId),
       'Пройдено: <темы одной строкой>',
       'Уровень: L1|L2|L3',
       'Счёт: N/10',
@@ -192,7 +196,7 @@ window.PROMPTS = (function () {
     '15. Долги решает приложение. В ИТОГе: «Засчитано: [D-…]» — только за верную демонстрацию долга из [ДОЛГИ] без подсказки; «Долги: П3 — пример» — только с кодом категории из [ДОЛГИ], не больше трёх; если категория уже открыта — это повтор, не новый долг. Слов «закрыт», «погашен» не писать. За урок проверить не меньше двух долгов с пометкой ПРИОРИТЕТ: один в разогреве, один внутри основы или письма.',
     '16. Визуалы (таблицы, схемы, графики) строит преподаватель; один визуал показывает одну связь; ученик не рисует ради иллюстрации.',
     '17. Финал: «Что взял» — три конкретных пункта; «Связка» — одно предложение к школе этой недели; счёт по правилу из [ЭТАПЫ УРОКА]; без нотаций.',
-    '18. ИТОГ — строго по шаблону из [ИТОГ], все строки; без ИТОГа урок не засчитан; слова 6–8 (конкурсный урок — 3–6), из них не больше двух понятий; долги с кодами; «Засчитано» по id. Перед ИТОГом самопроверка: коды есть, слова «закрыт» нет, долгов ≤3, слов в норме.',
+    '18. ИТОГ — строго по шаблону из [ФИНАЛ], все строки; заголовок скопировать дословно, подпись урока не подставлять; без ИТОГа урок не засчитан; слова 6–8 (конкурсный урок — 3–6), из них не больше двух понятий; долги с кодами; «Засчитано» по id. Перед ИТОГом самопроверка: коды есть, слова «закрыт» нет, долгов ≤3, слов в норме.',
     '19. После ИТОГа — ровно одна строка: «5–10 минут без экрана, потом 5 минут карточек — перед сном». Больше ничего.',
     '20. Приоритеты: сон > школа > урок. Если ученик пишет, что поздно или завтра тест — предложить минималку и закончить.',
     '21. Тон: спокойный требовательный тренер, не экзаменатор; ноль пустых похвал и придирок; лекций во время спринтов нет.',
@@ -789,16 +793,87 @@ window.PROMPTS = (function () {
     };
   }
 
+  /* ---------- 2.7.6: заголовок ИТОГа ---------- */
+
+  /** Строка заголовка ровно так, как её печатает шаблон [ФИНАЛ]. */
+  function headerLine(lessonId) { return '=== ИТОГ УРОКА ' + lessonId + ' ==='; }
+
+  /** Подпись урока, как её показывает приложение: К.1, Б7.1, «Урок по ДЗ · MHF4U». */
+  function labelOf(lessonId) {
+    return (window.State && State.lessonLabel) ? State.lessonLabel(lessonId) : String(lessonId);
+  }
+
   /**
-   * parse(text) → { ok, error, lessonId, topics, level, score, words:[{en,ru}],
-   *                 debts:[], cleared:[], warmup:[], checklist:[bool]|null, writing, raw }
+   * Токен заголовка в сравнимом виде: без markdown-обвеса, пробелы схлопнуты,
+   * регистр верхний, кириллические Б и К — латинские B и K. Обе стороны
+   * сравнения проходят через одну и ту же функцию, поэтому замена букв внутри
+   * русской подписи ДЗ-урока ничего не ломает.
    */
-  function parse(text) {
+  function headerKey(token) {
+    return String(token == null ? '' : token)
+      .replace(/[*_`]/g, '')
+      .trim().replace(/\s+/g, ' ')
+      .toUpperCase()
+      .replace(/Б/g, 'B').replace(/К/g, 'K');
+  }
+
+  /**
+   * Чем может называться урок в заголовке: id или подписью. У ДЗ-урока
+   * подписей две — с карточки «Сегодня» и из строки «Урок:» его промпта.
+   */
+  function headerNames(lessonId) {
+    var names = [String(lessonId), labelOf(lessonId)];
+    var hw = window.State && State.parseHwId ? State.parseHwId(lessonId) : null;
+    if (hw) {
+      var course = (State.hwOfDay(hw.date) || {}).course || ((State.s.hw || {})[lessonId] || {}).course;
+      if (course) names.push(hwLesson({ id: lessonId, course: course }).title);
+    }
+    return names;
+  }
+
+  /** Принимается ли токен заголовка для ожидаемого урока. */
+  function headerMatches(token, lessonId) {
+    var key = headerKey(token);
+    if (!key || !lessonId) return false;
+    return headerNames(lessonId).some(function (n) { return headerKey(n) === key; });
+  }
+
+  /** «Заголовок не совпадает: ожидается `=== ИТОГ УРОКА B53.1 ===` (урок К.1)». */
+  function headerError(lessonId) {
+    var label = labelOf(lessonId);
+    var isHwId = window.State && State.isHw && State.isHw(lessonId);
+    return 'Заголовок не совпадает: ожидается `' + headerLine(lessonId) + '` (' +
+      (isHwId ? label : 'урок ' + label) + ')';
+  }
+
+  /**
+   * Заголовок: «=== ИТОГ УРОКА <id или подпись> ===». Хвост «===» необязателен —
+   * тогда токен идёт до конца строки; markdown вокруг маркеров допускается.
+   */
+  var HEADER_RE = /===\s*ИТОГ\s+УРОКА[ \t]*([^\r\n=]*?)[ \t*_`\r]*(?:=+|$)/im;
+
+  /**
+   * parse(text, expectId) → { ok, error, lessonId, header, topics, level, score, words:[{en,ru}],
+   *                 debts:[], cleared:[], warmup:[], checklist:[bool]|null, writing, raw }
+   *
+   * expectId — урок, который закрывает окно вставки (выбор дня или ДЗ дня).
+   * С ним заголовок обязан назвать этот урок — id или подписью, иначе отказ;
+   * без него (разбор вне окна) заголовок только читается.
+   */
+  function parse(text, expectId) {
     var src = String(text || '');
-    var startRe = /===\s*ИТОГ\s+УРОКА\s*([^\s=]*)\s*===/i;
-    var m = startRe.exec(src);
+    var m = HEADER_RE.exec(src);
     if (!m) {
+      if (expectId) return { ok: false, error: headerError(expectId), lessonId: null, header: null };
       return { ok: false, error: 'Не вижу формата: нужен блок «=== ИТОГ УРОКА … ===». Попроси ИИ повторить итог по шаблону.' };
+    }
+    // «=== ИТОГ УРОКА: B53.1 ===» — двоеточие после маркера тоже не часть имени
+    var header = String(m[1] || '').replace(/[*_`]/g, '').replace(/^\s*:\s*/, '').trim().replace(/\s+/g, ' ');
+    if (expectId && !headerMatches(header, expectId)) {
+      return {
+        ok: false, error: headerError(expectId),
+        lessonId: header.replace(/^Б/i, 'B') || null, header: header || null
+      };
     }
 
     var from = m.index + m[0].length;
@@ -809,7 +884,8 @@ window.PROMPTS = (function () {
 
     var out = {
       ok: false, error: null,
-      lessonId: (m[1] || '').trim().replace(/^Б/i, 'B') || null,
+      lessonId: expectId ? String(expectId) : (header.replace(/^Б/i, 'B') || null),
+      header: header || null,
       topics: '', level: null, score: null,
       words: [], debts: [], cleared: [], warmup: [], checklist: null, stretch: null, writing: '',
       raw: (em ? src.slice(m.index, from + em.index + em[0].length) : src.slice(m.index)).trim()
@@ -878,6 +954,7 @@ window.PROMPTS = (function () {
 
   return {
     lesson: lessonPrompt, minimal: minimalPrompt, parse: parse, video: videoQuery,
+    headerLine: headerLine, headerMatches: headerMatches, headerError: headerError,
     parseWarmup: parseWarmup, isWarmup: isWarmup, parseChecklist: parseChecklist,
     parseStretch: parseStretch,
     stagesBlock: stagesBlock, contestStages: contestStages, isContest: isContest,
