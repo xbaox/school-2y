@@ -204,7 +204,9 @@
     State.s.tracks.forEach(function (tr) { if (!tr.embedded) tr.lastLessonDate = tr.id === 'write' ? '2026-11-10' : '2026-11-15'; });
     withToday('2026-11-17', function () {
       var p = Waterfall.pick('2026-11-17');
-      eq([p.lessonId, p.reason.kind], ['B14.1', 'fresh'], 'свежесть письма — Б14.1, пока Б14 красный');
+      // 2.7.7 (Э1): четыре урока Б14 на четыре будня — раньше свежести срабатывает дедлайн
+      eq([p.lessonId, p.reason.text], ['B14.1', 'дедлайн: Б14 через 5 дней, осталось 4 урока'],
+        '17.11 — Б14.1, дедлайном заранее');
     });
   });
 

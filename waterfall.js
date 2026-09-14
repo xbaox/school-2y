@@ -60,6 +60,23 @@ window.Waterfall = (function () {
     return null;
   }
 
+  /**
+   * Учебные дни от from до to включительно: пн–пт. Суббота — день К,
+   * воскресенье — радар-день: обычный урок блока в них не планируется.
+   */
+  function schoolDays(from, to) {
+    var total = U.diffDays(from, to) + 1;
+    if (total <= 0) return 0;
+    var n = Math.floor(total / 7) * 5, wd = U.weekday(from);
+    for (var i = 0; i < total % 7; i++) if ((wd - 1 + i) % 7 < 5) n++;
+    return n;
+  }
+
+  /** «остался 1 урок» · «осталось 3 урока» · «осталось 5 уроков». */
+  function leftText(n) {
+    return U.plural(n, 'остался', 'осталось', 'осталось') + ' ' + n + ' ' + U.plural(n, 'урок', 'урока', 'уроков');
+  }
+
   function typeName(t) {
     return { test: 'тест', quiz: 'квиз', assignment: 'сдача', exam: 'экзамен' }[t] || 'событие';
   }
@@ -123,7 +140,11 @@ window.Waterfall = (function () {
 
   /**
    * Правило 1: у блока дедлайн сегодня или уже позади, а незакрытый урок
-   * в нём остался.
+   * в нём остался. 2.7.7 (Э1): и заранее — когда незакрытых уроков не меньше,
+   * чем учебных дней (пн–пт) от сегодня до срока включительно: 16.09 у Б7
+   * (срок вс 20.09) три урока на три будня — ждать просрочки уже поздно.
+   * Несколько блоков — ранний срок первым; общий блок (Б16) правило тоже
+   * берёт, но не вторым уроком полной.
    *
    * Раньше горящий дедлайн влиял на выбор только через светофор (правило 3),
    * а тот ловит лишь красный. Блок с одним оставшимся уроком и дедлайном
@@ -140,20 +161,27 @@ window.Waterfall = (function () {
     });
     for (var i = 0; i < ids.length; i++) {
       var b = State.s.blocks[ids[i]];
-      if (!b.deadline || b.deadline > t) continue;
+      if (!b.deadline) continue;
       if (b.track === exclude) continue;
+      // общий блок вторым уроком не берётся (second): горящий заранее, он
+      // обрывал бы перебор, и второй урок оставался бы пустым
+      if (exclude && b.track === 'all') continue;
+      var when;
+      if (b.deadline <= t) {
+        var over = U.diffDays(b.deadline, t);
+        when = over > 0 ? ' просрочен на ' + U.days(over) : ' сегодня';
+      } else {
+        var left = State.blockProgress(ids[i]).remaining;
+        if (!left || left < schoolDays(t, b.deadline)) continue;
+        when = ' через ' + U.days(U.diffDays(t, b.deadline)) + ', ' + leftText(left);
+      }
       var next = nextInBlock(ids[i]);
       if (!next) continue;
-      var over = U.diffDays(b.deadline, t);
       return {
         track: b.track,
         blockId: ids[i],
         lessonId: next,
-        reason: {
-          kind: 'deadline',
-          text: 'дедлайн: ' + State.blockLabel(ids[i]) +
-            (over > 0 ? ' просрочен на ' + U.days(over) : ' сегодня')
-        }
+        reason: { kind: 'deadline', text: 'дедлайн: ' + State.blockLabel(ids[i]) + when }
       };
     }
     return null;
@@ -439,7 +467,11 @@ window.Waterfall = (function () {
 
   var EXPLAIN = [
     { kind: 'contest', n: 1, name: 'Суббота ⭐', cond: 'суббота, и в фазе остался конкурсный урок', act: '→ блок К' },
-    { kind: 'deadline', n: 2, name: 'Дедлайн', cond: 'срок блока сегодня или позади, урок в нём не закрыт', act: '→ этот блок' },
+    {
+      kind: 'deadline', n: 2, name: 'Дедлайн',
+      cond: 'срок блока сегодня или позади, урок в нём не закрыт — или незакрытых уроков не меньше, чем будних дней до срока',
+      act: '→ этот блок'
+    },
     { kind: 'radar', n: 3, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
     { kind: 'fresh', n: 4, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней, и у неё есть свои уроки в фазе', act: '→ она' },
     { kind: 'pace', n: 5, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
@@ -478,7 +510,7 @@ window.Waterfall = (function () {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
     hasLessonsNow: hasLessonsNow, nextOwnLesson: nextOwnLesson,
-    ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday,
+    ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday, schoolDays: schoolDays,
     EXPLAIN: EXPLAIN,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };

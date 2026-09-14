@@ -71,14 +71,18 @@
     ok(pick.reason.kind !== 'deadline', 'выбор делают прежние правила: ' + pick.reason.kind);
 
     // блок без дедлайна правило тоже не трогает
+    // 2.7.7 (Э1): 27.08 у Б1 (письмо, срок сб 29.08) два урока на два будня —
+    // дедлайн горит заранее; проверка про Б2, поэтому письмо исключаем
     var keep = State.block('B2').deadline;
     State.setDeadline('B2', null);
-    eq(Waterfall.ruleDeadline(T), null, 'блок без дедлайна не горит');
+    eq(Waterfall.ruleDeadline(T, 'write'), null, 'блок без дедлайна не горит');
     State.setDeadline('B2', keep);
 
     // закрытый блок не поднимает тревогу, даже если срок прошёл
     State.applySummary('B2.4', summary(), { date: T });
-    eq(Waterfall.ruleDeadline(T), null, 'все уроки блока закрыты — правило молчит');
+    eq(Waterfall.ruleDeadline(T, 'write'), null, 'все уроки блока закрыты — правило молчит');
+    eq(Waterfall.ruleDeadline(T).reason.text, 'дедлайн: Б1 через 2 дня, осталось 2 урока',
+      '2.7.7: Б1 — два урока на два будня до срока');
   });
 
   describe('2.6.4: два блока с дедлайном сегодня', function () {

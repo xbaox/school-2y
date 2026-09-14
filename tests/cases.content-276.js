@@ -70,7 +70,15 @@
       State.activeLessons(id).forEach(function (l) { State.s.lessons[l.id] = { done: true, score: 8, date: '2026-11-01' }; });
       State.refreshBlockDone(id);
     });
-    withToday('2026-11-21', function () { eq(Waterfall.ruleDeadline('2026-11-21'), null, '21.11 — срок ещё не наступил'); });
+    // 2.7.7 (Э1): дедлайн заранее — четыре урока Б14 на четыре будня с 17.11
+    withToday('2026-11-16', function () { eq(Waterfall.ruleDeadline('2026-11-16'), null, '16.11 — пять будней на четыре урока'); });
+    withToday('2026-11-17', function () {
+      eq(Waterfall.ruleDeadline('2026-11-17').reason.text, 'дедлайн: Б14 через 5 дней, осталось 4 урока', '17.11 — горит заранее');
+    });
+    withToday('2026-11-21', function () {
+      eq(Waterfall.ruleDeadline('2026-11-21').reason.text, 'дедлайн: Б14 через 1 день, осталось 4 урока',
+        '21.11 (сб) — будней до срока нет, правило горит');
+    });
     withToday('2026-11-22', function () {
       eq(Waterfall.ruleDeadline('2026-11-22').reason.text, 'дедлайн: Б14 сегодня', '22.11 — срок Б14');
     });
