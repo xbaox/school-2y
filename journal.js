@@ -78,31 +78,67 @@
       '</div></section>';
   }
 
+  /**
+   * 2.7.6 (Э2): ДЗ-уроки, взятые кнопкой и оставшиеся без ИТОГа. Проведённым
+   * такой день не показывается, но и пропасть из ленты не должен: слот недели
+   * он занял, а программный урок из-за него переехал. Прошедший день такой
+   * урок уже не закроет — карточка «Урок по ДЗ» живёт только в свой день,
+   * поэтому сегодняшний (ещё в работе) здесь не показывается.
+   */
+  function openHwDays() {
+    var t = State.today(), hw = State.s.hw || {}, had = {};
+    State.s.summaries.forEach(function (x) { had[x.lessonId] = true; });
+    return Object.keys(State.s.days).filter(function (iso) {
+      var d = State.s.days[iso], id = d && d.hw, rec = id ? hw[id] : null;
+      return !!id && iso < t && !had[id] && !(rec && rec.score != null);
+    }).sort().reverse();
+  }
+
+  function openHwRow(iso) {
+    var d = State.s.days[iso];
+    var who = d.hwCourse || State.trackName((State.parseHwId(d.hw) || {}).track);
+    return '<div class="item hw-open"><div class="rowline"><div style="min-width:0">' +
+      '<div class="t">ДЗ-урок не закрыт · ' + U.esc(who) + '</div>' +
+      '<div class="s"><span class="mono">' + U.fmtShort(iso) + '</span> · итога нет' +
+      (d.hwMoved ? ' · ' + U.esc(State.lessonLabel(d.hwMoved)) + ' вернулся в очередь' : '') +
+      '</div></div><div class="mono dim">—</div></div></div>';
+  }
+
+  function summaryRow(s, i) {
+    var p = s.parsed || {};
+    var open = openSummaries[i];
+    return '<div class="item" data-sum="' + U.esc(i) + '">' +
+      '<div class="rowline"><div style="min-width:0">' +
+      '<div class="t">' + U.esc(s.lessonId) + ' · ' + U.esc(p.topics || '—') + '</div>' +
+      '<div class="s"><span class="mono">' + U.fmtShort(s.date) + '</span> · ' + (p.level || '—') + ' · ' +
+      ((p.words || []).length) + ' ' + U.plural((p.words || []).length, 'слово', 'слова', 'слов') +
+      ((p.debts || []).length ? ' · +' + p.debts.length + ' ' +
+        U.plural(p.debts.length, 'долг', 'долга', 'долгов') : '') + '</div>' +
+      '</div><div class="mono ' + scoreClass(p.score) + '">' + (p.score != null ? p.score + '/10' : '—') + '</div></div>' +
+      (open ? detail(p) : '') +
+      ((open && (p.words || []).length)
+        ? '<div class="btn-row" style="margin-top:10px">' +
+        '<button class="btn ghost" data-words="' + U.esc(s.lessonId) + '">Слова урока</button></div>'
+        : '') +
+      '</div>';
+  }
+
   function summariesSection() {
     var list = State.s.summaries.slice().reverse();
-    if (!list.length) {
+    var hwDays = openHwDays();
+    if (!list.length && !hwDays.length) {
       return '<section class="block"><h2>Итоги уроков</h2>' +
         UI.empty('📓', 'Пока пусто. Закрой первый урок — итог придёт сюда.') + '</section>';
     }
+    // строки незакрытых ДЗ встают по дате между итогами; индекс итога (data-sum) прежний
+    function before(date) {
+      var out = '';
+      while (hwDays.length && hwDays[0] > date) out += openHwRow(hwDays.shift());
+      return out;
+    }
     return '<section class="block"><h2>Итоги уроков</h2><div class="list">' +
-      list.map(function (s, i) {
-        var p = s.parsed || {};
-        var open = openSummaries[i];
-        return '<div class="item" data-sum="' + U.esc(i) + '">' +
-          '<div class="rowline"><div style="min-width:0">' +
-          '<div class="t">' + U.esc(s.lessonId) + ' · ' + U.esc(p.topics || '—') + '</div>' +
-          '<div class="s"><span class="mono">' + U.fmtShort(s.date) + '</span> · ' + (p.level || '—') + ' · ' +
-          ((p.words || []).length) + ' ' + U.plural((p.words || []).length, 'слово', 'слова', 'слов') +
-          ((p.debts || []).length ? ' · +' + p.debts.length + ' ' +
-            U.plural(p.debts.length, 'долг', 'долга', 'долгов') : '') + '</div>' +
-          '</div><div class="mono ' + scoreClass(p.score) + '">' + (p.score != null ? p.score + '/10' : '—') + '</div></div>' +
-          (open ? detail(p) : '') +
-          ((open && (p.words || []).length)
-            ? '<div class="btn-row" style="margin-top:10px">' +
-            '<button class="btn ghost" data-words="' + U.esc(s.lessonId) + '">Слова урока</button></div>'
-            : '') +
-          '</div>';
-      }).join('') + '</div></section>';
+      list.map(function (s, i) { return before(s.date) + summaryRow(s, i); }).join('') +
+      hwDays.map(openHwRow).join('') + '</div></section>';
   }
 
   function scoreClass(score) {
