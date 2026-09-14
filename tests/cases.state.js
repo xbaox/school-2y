@@ -60,7 +60,7 @@
     State.setMode('summer');
   });
 
-  describe('итог A-21: wordsTotal — размер банка уникальных слов', function () {
+  describe('итог A-21: wordsTotal — число ключей SRS (2.7.6), повтор слова не считается', function () {
     fresh();
     State.applySummary('B1.1', summary({
       words: [{ en: 'rubric', ru: 'критерии' }, { en: 'submit', ru: 'сдать' }]
@@ -71,6 +71,7 @@
 
     eq(State.s.stats.wordsTotal, 3, 'повтор «rubric» в банк второй раз не идёт');
     eq(State.wordBank().length, 3, 'счётчик совпал с банком');
+    eq(Object.keys(State.s.srs).length, 3, 'и с числом ключей SRS');
   });
 
   describe('долги A-08: частичное совпадение требует длины и доли', function () {

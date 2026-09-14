@@ -1495,13 +1495,47 @@ window.State = (function () {
 
   function wordKey(en) { return String(en || '').toLowerCase().trim(); }
 
-  /** Запись SRS слова; создаётся лениво, чтобы не плодить мусор. */
+  /** Форма новой записи SRS — одна на весь код. */
+  function newSrsRec() { return { status: 'new', streak: 0, step: 0, due: null }; }
+
+  /**
+   * Запись SRS слова. С 2.7.6 слова итога заводятся при разборе ИТОГа
+   * (enrollWords); create здесь — страховка для слова без итога.
+   */
   function srsRec(en, create) {
     var k = wordKey(en);
     if (!k) return null;
-    if (!s.srs[k] && create) s.srs[k] = { status: 'new', streak: 0, step: 0, due: null };
+    if (!s.srs[k] && create) { s.srs[k] = newSrsRec(); countWords(s); }
     return s.srs[k] || null;
   }
+
+  /**
+   * 2.7.6 (Э4): каждое слово принятого ИТОГа — в SRS ровно один раз, ключ —
+   * нормализованный en. До 2.7.6 запись появлялась только при оценке
+   * карточки, а колода дня с 2.7.0 режется до 20 карточек, и новые слова
+   * стоят в ней последними — 17 слов из итогов так и не завелись.
+   * Нагрузку ограничивает колода дня (DECK_CAP), а не вход в SRS.
+   * make — фабрика записи (по умолчанию newSrsRec). → сколько ключей добавлено
+   */
+  function enrollWords(srs, words, make) {
+    var n = 0;
+    (words || []).forEach(function (w) {
+      var k = wordKey(w && w.en);
+      if (!k || Object.prototype.hasOwnProperty.call(srs, k)) return;
+      srs[k] = (make || newSrsRec)();
+      n++;
+    });
+    return n;
+  }
+
+  /** Счётчик слов = число ключей SRS: единственный источник, отдельного счёта нет. */
+  function countWords(st) {
+    if (!st.stats) st.stats = {};
+    st.stats.wordsTotal = Object.keys(st.srs || {}).length;
+    return st.stats.wordsTotal;
+  }
+
+  function wordsTotal() { return Object.keys(s.srs || {}).length; }
 
   function wordStatus(en) {
     var r = srsRec(en);
@@ -2159,6 +2193,7 @@ window.State = (function () {
     if (s.stats.stretchDone < 0) s.stats.stretchDone = 0;
     if (replaced) s.summaries[at] = record;
     else s.summaries.push(record);
+    var wordsAdded = enrollWords(s.srs, record.parsed.words);
 
     if (!wasDone) s.stats.lessonsDone = (s.stats.lessonsDone || 0) + 1;
 
@@ -2235,9 +2270,9 @@ window.State = (function () {
       }
     });
 
-    // A-21: счётчик слов — это размер банка уникальных en, а не сумма приходов;
-    // пересчёт здесь держит его честным при повторной вставке и правках
-    s.stats.wordsTotal = wordBank().length;
+    // 2.7.6 (Э4): счётчик слов — число ключей SRS; повторная вставка того же
+    // итога ключей не плодит, поэтому и счётчик не удваивается
+    countWords(s);
 
     touchTrack(trackId, date);
     if (l) refreshBlockDone(l.blockId);
@@ -2262,7 +2297,7 @@ window.State = (function () {
 
     return {
       ok: true, lessonId: lessonId, score: parsed.score, replaced: replaced,
-      words: (parsed.words || []).length,
+      words: (parsed.words || []).length, wordsAdded: wordsAdded,
       created: created.length, cleared: cleared.length, closed: closed.length,
       repeated: repeated.length, dropped: dropped, cutNew: cutNew,
       unmatched: unmatched, foreign: foreign, notices: notices
@@ -2376,6 +2411,7 @@ window.State = (function () {
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
     wordStatus: wordStatus, wordResting: wordResting, gradeWord: gradeWord,
     activeWords: activeWords, wordCounts: wordCounts, lessonWords: lessonWords,
+    enrollWords: enrollWords, countWords: countWords, wordsTotal: wordsTotal,
     matchDebt: matchDebt, matchDebtIn: matchDebtIn,
     debtProgress: debtProgress, similarity: similarity,
     promptDebts: promptDebts, warmupDebts: warmupDebts,
