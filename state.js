@@ -1688,6 +1688,28 @@ window.State = (function () {
     return !!(s.cards && s.cards.doneDay === t);
   }
 
+  /**
+   * 2.7.6 (Э5): шаг «Карточки» минималки засчитывается колодой, а не галочкой.
+   * doneDay — последний день, когда очередь колоды пройдена до конца;
+   * minimalSteps[0] — шаг «Карточки» в плане дня. До 2.7.6 шаг был свободной
+   * галочкой. Теперь: сегодня показано ≥10 разных карточек или колода
+   * добита (doneDay === сегодня). Колода короче десяти — нужна вся; пустая
+   * колода шаг не держит: вместо неё видео (так план и пишет).
+   * → { ok, seen, need }
+   */
+  var CARDS_STEP = 10;
+
+  function cardsStep(todayIso) {
+    var t = todayIso || today();
+    var plan = deckPlan(t);
+    var size = plan.words.length + plan.debts.length;
+    var c = s.cards || {};
+    // вчерашний счёт не считается: viewedToday обнуляется лениво, при первом показе
+    var seen = c.lastDay === t ? (c.viewedToday || 0) : 0;
+    var need = Math.min(CARDS_STEP, size);
+    return { ok: need === 0 || deckDone(t) || seen >= need, seen: seen, need: need };
+  }
+
   /** Где остановились сегодня: 0, если день новый. */
   function deckCursor(todayIso) {
     var t = todayIso || today();
@@ -2405,6 +2427,7 @@ window.State = (function () {
     debtBoard: debtBoard, priorityDebts: priorityDebts, lastExample: lastExample,
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,
+    cardsStep: cardsStep, CARDS_STEP: CARDS_STEP,
     setDeckCursor: setDeckCursor, DECK_CAP: DECK_CAP, DECK_DEBTS: DECK_DEBTS,
     recentWords: recentWords, lastLessonWords: lastLessonWords,
     openDebts: openDebts, debtsCount: debtsCount,
