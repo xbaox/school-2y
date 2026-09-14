@@ -22,7 +22,8 @@
 
   function statsRow() {
     var st = State.s.stats || {};
-    var words = State.wordBank().length;
+    // 2.7.6 (Э4): слов в колоде = ключей SRS — тот же счёт, что stats.wordsTotal
+    var words = State.wordsTotal();
     return '<div class="card"><div class="stats3">' +
       stat(words, U.plural(words, 'слово', 'слова', 'слов')) +
       stat(st.lessonsDone || 0,
