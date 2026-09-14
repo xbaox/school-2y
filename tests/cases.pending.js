@@ -18,9 +18,11 @@
     ['B1.1', 'B1.2', 'B2.1', 'B2.2', 'B2.3'].forEach(function (id) {
       State.applySummary(id, sum, { date: '2026-08-25' });
     });
-    // и в этот день выбран уровень «норма» — очко за него уже начислено
+    // в этот день выбран уровень «норма» и сделана минималка. С 2.7.6 очки
+    // даёт достигнутый уровень: урок не закрыт — день набрал минималку
     var d = State.day(COPIED, true);
     d.level = 'norm';
+    d.minimalSteps = [true, true];
     State.recount(COPIED);
     State.markPromptCopied('B2.4', COPIED);
     return d;
@@ -46,7 +48,7 @@
   describe('брошенный урок: «Урок не состоялся» возвращает его в очередь без штрафа', function () {
     scene();
     var before = State.points(COPIED);
-    eq(before, 2, 'за выбранный уровень «норма» — два очка доктрины');
+    eq(before, 1, 'норма в плане, урок не закрыт — очко за сделанную минималку');
 
     Lesson.dropLesson('B2.4', COPIED);
 
