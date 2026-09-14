@@ -981,7 +981,10 @@ window.App = (function () {
     ['CONTENT', 'registerGlossary'], ['STEPS', 'stage'], ['Waterfall', 'ruleSaturday'],
     ['PROMPTS', 'parseStretch'], ['State', 'stretchCount'],
     ['Radar', 'seedQuestions'], ['State', 'repairWords'],
-    ['State', 'startHw'], ['PROMPTS', 'hwBlock']
+    ['State', 'startHw'], ['PROMPTS', 'hwBlock'],
+    // 2.7.6: заголовок ИТОГа, свои уроки дорожки, колода и план дня, миграция
+    ['PROMPTS', 'headerMatches'], ['Waterfall', 'nextOwnLesson'], ['State', 'enrollWords'],
+    ['State', 'cardsStep'], ['State', 'planOf'], ['State', 'isM3Card']
   ];
 
   function mixedBundle() {

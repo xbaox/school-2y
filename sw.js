@@ -5,7 +5,7 @@
    Пути относительные — приложение живёт в подпапке GitHub Pages.
    ============================================================ */
 
-var VERSION = 'v2.7.5';
+var VERSION = 'v2.7.6';
 var SHELL = 'shell-' + VERSION;
 var FONTS = 'fonts-v1';
 
