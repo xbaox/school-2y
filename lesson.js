@@ -97,18 +97,35 @@ window.Lesson = (function () {
    * Урок дня по номеру: закрытый берётся из дня, будущий — у водопада.
    * → { lessonId, reason } | null
    */
+  /**
+   * Какой по счёту программный урок стоит в пункте n. В день ДЗ-урока первым
+   * уроком дня был он сам (ДЗ берётся, только пока уроков нет), поэтому пункт
+   * «Урок 2» — первый программный.
+   */
+  function programSlot(n, d) {
+    var hwDay = !!(d && d.hw && (d.lessons || []).some(function (id) { return State.isHw(id); }));
+    return hwDay && n === 2 ? 1 : n;
+  }
+
   function dayLesson(n, todayIso) {
     var t = todayIso || State.today();
     var d = State.day(t) || {};
     var list = programLessons(d);
+    var k = programSlot(n, d);
 
-    if (list.length >= n) {
-      var id = list[n - 1];
+    if (list.length >= k) {
+      var id = list[k - 1];
       return { lessonId: id, reason: d.pickReason || { kind: 'plan', text: 'урок дня' } };
     }
     if (n === 1) {
       var sel = current(t);
       return sel && sel.lessonId ? sel : null;
+    }
+    // 2.7.6 (ревью): день ДЗ-урока, программного урока ещё нет, а промпт пункта 2
+    // уже скопирован — пункт держит этот урок. Иначе remember() делал его уроком
+    // дня, second() уводил пункт на другую дорожку, и окно вставки ждало чужой урок
+    if (!list.length && d.pick && State.promptCopied(d.pick, t)) {
+      return { lessonId: d.pick, reason: d.pickReason || { kind: 'plan', text: 'урок дня' } };
     }
     var first = list[0] || (current(t) || {}).lessonId;
     if (!first) return null;
@@ -534,7 +551,7 @@ window.Lesson = (function () {
 
   return {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
-    openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone,
+    openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone, programSlot: programSlot,
     findPending: findPending, dropLesson: dropLesson,
     PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
     ofDayLine: ofDayLine, dayIndex: dayIndex, pendingCard: unfinished, dayLesson: dayLesson

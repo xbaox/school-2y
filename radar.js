@@ -770,7 +770,9 @@ window.Radar = (function () {
             return;
           }
           var code = course === 'other' ? (other.value || '').trim().toUpperCase() : course;
-          if (!code) {
+          // событие без курса (2.7.6: запись к консультанту, письмо) так и сохраняется
+          var courseless = !!existing && !existing.course && course === 'other';
+          if (!code && !courseless) {
             err.textContent = 'Впиши код курса — по нему приложение находит дорожку.';
             other.focus();
             return;

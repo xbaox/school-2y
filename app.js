@@ -212,9 +212,10 @@ window.App = (function () {
     var justDone = done && !ringWasDone;
     ringWasDone = done;
 
-    var plan = State.planOf(d);
-    var stroke = plan === 'min' ? 'var(--warn)'
-      : (plan === 'full' ? 'url(#ringgrad)' : 'var(--fire)');
+    // цвет — по плану дня; plan выше — числовая цель кольца, её имя не трогаем
+    var planId = State.planOf(d);
+    var stroke = planId === 'min' ? 'var(--warn)'
+      : (planId === 'full' ? 'url(#ringgrad)' : 'var(--fire)');
 
     return '<div class="ring' + (done ? ' done' : '') + (justDone ? ' pulse' : '') +
       '" title="' + U.esc('очки дня: ' + have + ' из ' + plan) + '">' +
@@ -685,7 +686,8 @@ window.App = (function () {
     // ДЗ-урок норму дня закрывает, но пунктом «Урок» не является: у него
     // своя карточка ниже, а контента для Lesson.card у него нет
     var lessons = (d.lessons || []).filter(function (id) { return !State.isHw(id); });
-    var done = lessons.length >= n;
+    // в день ДЗ-урока первым уроком дня был он, и пункт 2 — первый программный
+    var done = lessons.length >= Lesson.programSlot(n, d);
     // «после урока 1» — про любой урок дня: ДЗ-урок тоже снимает замок,
     // иначе путь «Полная / Второй урок» в день с ДЗ был бы закрыт навсегда
     var locked = n === 2 && (d.lessons || []).length < 1;
