@@ -588,13 +588,23 @@ window.App = (function () {
       (w.known ? ' · выучено ' + w.known : '');
   }
 
+  /** «карточки: 3/10» — пока шаг «Карточки» не набран (2.7.6, Э5). */
+  function cardsProgress(d) {
+    if ((d.minimalSteps || [])[0]) return '';
+    var cs = State.cardsStep();
+    return cs.ok ? '' : 'карточки: ' + cs.seen + '/' + cs.need;
+  }
+
   function cardsItem(d) {
     var ms = d.minimalSteps || [];
     var c = deckCounts();
+    var prog = cardsProgress(d);
     return {
       id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(), done: !!ms[0],
       body: (c.words || c.debts)
-        ? '<p class="pnote">Колода дня: повторы, слова в работе, слова последнего урока ' +
+        ? (prog ? '<p class="pnote"><b class="mono">' + U.esc(prog) + '</b> — шаг засчитается, ' +
+          'когда просмотришь ' + State.cardsStep().need + ' или добьёшь колоду.</p>' : '') +
+        '<p class="pnote">Колода дня: повторы, слова в работе, слова последнего урока ' +
         'и до трёх долгов — не больше ' + State.DECK_CAP + ' карточек. ' +
         'Тап переворачивает, дальше «знал / не знал».</p>' +
         '<button class="btn sec pact" data-cards>Открыть карточки</button>'
@@ -626,10 +636,11 @@ window.App = (function () {
   function minimalSteps(d) {
     var done = d.minimalSteps || [];
     var c = deckCounts();
+    var prog = cardsProgress(d);
     var steps = [
       {
         text: (c.words || c.debts)
-          ? 'Карточки: повторить ' + cardsSub()
+          ? 'Карточки: повторить ' + cardsSub() + (prog ? ' · ' + prog : '')
           : 'Колода пуста — вместо неё одно видео/аудио на английском ~5 мин',
         act: (c.words || c.debts)
           ? '<button class="btn sec pact" data-cards>Открыть карточки</button>' : ''
@@ -770,11 +781,28 @@ window.App = (function () {
     return '<div class="pstatus">' + dayLine(t, d) + '</div>';
   }
 
+  /**
+   * Шаги минималки. Снять можно всегда; «Карточки» ставятся только колодой
+   * (State.cardsStep, 2.7.6): свободная галочка держала серию без карточек.
+   * → true, если отметка записана
+   */
+  function cardsRefused() {
+    var cs = State.cardsStep();
+    if (cs.ok) return false;
+    UI.toast('Карточки: ' + cs.seen + '/' + cs.need + ' — шаг засчитается, когда просмотришь ' +
+      cs.need + ' или добьёшь колоду', '', 3600);
+    render();
+    return true;
+  }
+
   function setMinimalStep(i, on) {
+    var was = ((State.day(State.today()) || {}).minimalSteps || [])[i];
+    if (i === 0 && on && !was && cardsRefused()) return false;
     var d = State.day(State.today(), true);
     d.minimalSteps = d.minimalSteps || [false, false];
     d.minimalSteps[i] = !!on;
     State.touch();
+    return true;
   }
 
   /** Тап по кружку пункта. Уроки руками не отмечаются — только итогом. */
@@ -789,6 +817,8 @@ window.App = (function () {
     if (id === 'min') {
       var ms = d.minimalSteps || [];
       var on = !(ms[0] && ms[1]);
+      // одного шага из двух кружок «Минималка» не ставит: карточки не набраны — ни одного
+      if (on && !ms[0] && cardsRefused()) return;
       setMinimalStep(0, on);
       setMinimalStep(1, on);
       return;
