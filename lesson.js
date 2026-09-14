@@ -86,7 +86,7 @@ window.Lesson = (function () {
    * У нормы урок один, и писать «1 из 1» — шум.
    */
   function ofDayLine(lessonId, d) {
-    if (!d || d.level !== 'full') return '';
+    if (!d || State.planOf(d) !== 'full') return '';
     var n = Math.min(dayIndex(lessonId, d), 2);
     return '<div class="ofday">урок ' + n + ' из 2' + (n === 1 ? ' на сегодня' : '') + '</div>';
   }
@@ -266,7 +266,7 @@ window.Lesson = (function () {
       var pts = State.points(todayIso);
       var hasWords = State.lessonWords(lessonId).length > 0;
       var second = null;
-      if (d.level === 'full' && d.lessons.length < 2) {
+      if (State.planOf(d) === 'full' && d.lessons.length < 2) {
         // Waterfall.second сам откатывается на State.nextLesson() и сам не берёт блок
         // track:'all'. Свой запасной путь дублировал первое и обходил второе:
         // отказ водопада возвращался кнопкой как «Второй урок»

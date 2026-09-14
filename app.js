@@ -104,7 +104,7 @@ window.App = (function () {
       // сегмент-контрол: повторный тап по активному уровню его не снимает
       U.on(host, 'click', '[data-level]', function (e, el) {
         var id = el.dataset.level;
-        if (((State.day(State.today()) || {}).level || 'none') === id) return;
+        if (State.planOf(State.day(State.today())) === id) return;
         openItem = null;                       // новый уровень — новый первый пункт
         flash(id);
         State.setLevel(id);
@@ -212,8 +212,9 @@ window.App = (function () {
     var justDone = done && !ringWasDone;
     ringWasDone = done;
 
-    var stroke = d.level === 'min' ? 'var(--warn)'
-      : (d.level === 'full' ? 'url(#ringgrad)' : 'var(--fire)');
+    var plan = State.planOf(d);
+    var stroke = plan === 'min' ? 'var(--warn)'
+      : (plan === 'full' ? 'url(#ringgrad)' : 'var(--fire)');
 
     return '<div class="ring' + (done ? ' done' : '') + (justDone ? ' pulse' : '') +
       '" title="' + U.esc('очки дня: ' + have + ' из ' + plan) + '">' +
@@ -339,7 +340,7 @@ window.App = (function () {
    * здесь называется «Пусто» и выбирается явно.
    */
   function levelSeg(d) {
-    var cur = d.level || 'none';
+    var cur = State.planOf(d);         // сегмент выбирает план; уровень дня — достигнутый
     return '<div class="seg lvlseg" role="group" aria-label="Уровень дня">' +
       State.s.settings.levels.map(function (l) {
         var on = cur === l.id;
@@ -548,7 +549,7 @@ window.App = (function () {
    */
   function planItems(t, d) {
     var out = [];
-    var level = d.level || 'none';
+    var level = State.planOf(d);
     var sunday = U.weekday(t) === 7;
     var wantLesson = !sunday || !!(d.forceLesson || d.pick);
 
@@ -767,7 +768,7 @@ window.App = (function () {
   function sundayEscape(t, d) {
     if (U.weekday(t) !== 7) return '';
     if (d.forceLesson || d.pick) return '';
-    var level = d.level || 'none';
+    var level = State.planOf(d);
     if (level !== 'norm' && level !== 'full') return '';
     return '<div class="center"><button class="linkbtn" data-force-lesson>всё равно хочу урок</button></div>';
   }
@@ -801,6 +802,8 @@ window.App = (function () {
     var d = State.day(State.today(), true);
     d.minimalSteps = d.minimalSteps || [false, false];
     d.minimalSteps[i] = !!on;
+    // шаги минималки — часть достигнутого уровня (2.7.6): уровень и очки пересчитываются
+    State.recount(State.today());
     State.touch();
     return true;
   }
@@ -839,6 +842,8 @@ window.App = (function () {
   };
 
   function dayLine(t, d) {
+    // очки — за достигнутый уровень, подсказка — по плану (2.7.6)
+    var planId = State.planOf(d);
     var levelId = d.level || 'none';
     var lvl = DOCTRINE.byId(State.s.settings.levels, levelId);
     var lvlPoints = lvl ? (lvl.points || 0) : 0;
@@ -858,8 +863,8 @@ window.App = (function () {
     var num = '<b class="mono ' + (risky ? 'r' : 'fire') + '">' + lvlPoints + '</b>';
     var head = 'сегодня: ' + num + ' ' + U.plural(lvlPoints, 'очко', 'очка', 'очков');
 
-    var desc = LEVEL_HINT[levelId] || '';
-    if (levelId === 'none') {
+    var desc = LEVEL_HINT[planId] || '';
+    if (planId === 'none') {
       if (addons.length) desc = 'уровень дня не выбран';
       else if (empty >= DOCTRINE.MAX_EMPTY_IN_ROW) desc = 'серия на грани — хватит минималки';
       else if (empty === 1) desc = 'вчера было пусто — минималка вернёт серию';

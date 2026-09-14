@@ -909,16 +909,61 @@ window.State = (function () {
     return d ? DOCTRINE.dayPoints(d, s.settings) : 0;
   }
 
-  function recount(iso) {
-    var d = s.days[iso];
-    if (d) d.points = DOCTRINE.dayPoints(d, s.settings);
+  /* ---------- 2.7.6 (Э6): план дня и достигнутый уровень ----------
+     Сегмент «Уровень дня» — это выбор плана: от него зависит, какие пункты
+     показывает «Сегодня» (урок есть только на норме и полной). До 2.7.6 он же
+     был уровнем дня и сразу давал очки: 09.09 тап «Норма» записал 2 очка дню
+     без урока, минималки и радара. Доктрина 2.1 даёт очки только за
+     достигнутый уровень, поэтому план и уровень разведены: day.plan — выбор,
+     day.level — не выше достигнутого. У дней до 2.7.6 плана нет: план = уровень. */
+
+  var LEVEL_RANK = { none: 0, min: 1, norm: 2, full: 3 };
+
+  /** План дня: выбранный сегментом уровень. */
+  function planOf(d) { return (d && (d.plan || d.level)) || 'none'; }
+
+  /**
+   * Что день набрал на деле. Норма — закрытый урок или ДЗ-урок (ИТОГ кладёт id
+   * в lessons), полная — два; воскресенье с радаром — норма (радар-день);
+   * минималка — оба шага минималки.
+   */
+  function achievedLevel(d, iso) {
+    if (!d) return 'none';
+    var n = (d.lessons || []).length;
+    if (n >= 2) return 'full';
+    if (n >= 1) return 'norm';
+    if (U.weekday(iso) === 7 && (d.addons || []).indexOf('radar') >= 0) return 'norm';
+    var ms = d.minimalSteps || [];
+    return (ms[0] && ms[1]) ? 'min' : 'none';
   }
 
-  /** Выбор уровня дня. Повторный тап по активному уровню снимает его в «Пусто». */
+  /** Уровень дня = план, но не выше достигнутого. Выше плана не поднимается. */
+  function settleLevel(d, iso) {
+    var plan = planOf(d);
+    var got = achievedLevel(d, iso);
+    var lvl = (LEVEL_RANK[plan] || 0) <= (LEVEL_RANK[got] || 0) ? plan : got;
+    if (lvl === (d.level || 'none')) return false;
+    if (!d.plan) d.plan = plan;          // опуская уровень, план не теряем
+    d.level = lvl;
+    return true;
+  }
+
+  function recount(iso) {
+    var d = s.days[iso];
+    if (!d) return;
+    settleLevel(d, iso);
+    d.points = DOCTRINE.dayPoints(d, s.settings);
+  }
+
+  /**
+   * Выбор плана дня. Повторный тап по активному плану снимает его в «Пусто».
+   * Уровень и очки придут, когда план выполнен (recount зовут закрытие урока,
+   * шаги минималки и радар).
+   */
   function setLevel(levelId, iso) {
     var date = iso || today();
     var d = day(date, true);
-    d.level = (d.level === levelId && levelId !== 'none') ? 'none' : levelId;
+    d.plan = (planOf(d) === levelId && levelId !== 'none') ? 'none' : levelId;
     recount(date);
     bumpBestStreak();
     touch();
@@ -2402,6 +2447,7 @@ window.State = (function () {
     applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
     today: today, day: day, points: points, recount: recount,
     setLevel: setLevel, toggleAddon: toggleAddon,
+    planOf: planOf, achievedLevel: achievedLevel, LEVEL_RANK: LEVEL_RANK,
     streak: streak, emptyInRow: emptyInRow, weekPoints: weekPoints, rank: rank, nextRank: nextRank,
     track: track, trackName: trackName,
     phases: phases, phaseName: phaseName, currentPhase: currentPhase,
