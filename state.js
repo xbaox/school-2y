@@ -119,6 +119,99 @@ window.State = (function () {
     { en: 'to explain', from: 'показать механизм, а не назвать', to: 'показать, как или почему, по шагам' }
   ];
 
+  /* ---------- 2.7.6: разовая правка данных (ТЗ 2.7.6 §3) ----------
+     Схема остаётся 3. Маркер выполнения — meta.migrations; каждый шаг M1–M6
+     сам по себе проверяет, нужен ли он (по id и содержимому), маркер — вторая
+     защита. Правка детерминирована и повторяется на каждом устройстве, поэтому
+     meta.updatedAt она не двигает (урок 2.7.5). */
+
+  var MIG_276 = '2.7.6';
+
+  /** Состояние, жившее до выпуска: события радара M2 — личный план владельца. */
+  var MIG_276_BEFORE = '2026-09-14';
+
+  var M1_CODE_FROM = 'ICS3U', M1_CODE_TO = 'ICS3UE';
+  var M1_NAME = 'Computer Science online — информатика 11 класса, e-learning (Brightspace)';
+
+  /**
+   * M2. Схема — как у кнопки «+ событие»: {id, done, course, type, date, note}.
+   * Поля заголовка у события нет — текст таблицы ТЗ живёт в note, его экран и
+   * показывает. Типы — из Radar.TYPES: квиз и тесты (unit test, конкурс CSMC) —
+   * оценочные quiz и test; типа «дело/встреча» в наборе нет, новых не вводим —
+   * остальные события получают assignment («сдача»: дело к сроку). Курс — как
+   * в ТЗ; у событий без курса — пустая строка.
+   */
+  var M2_EVENTS = [
+    { id: 'ev-2026-09-14-guidance', course: '', type: 'assignment', date: '2026-09-14',
+      note: 'Записаться к консультанту (Guidance, третий период) — три вопроса в карточке' },
+    { id: 'ev-2026-09-14-csmc-registration', course: 'MHF4U', type: 'assignment', date: '2026-09-14',
+      note: 'Учитель MHF4U после урока: регистрация на CSMC 18.11 (срок до 30.09)' },
+    { id: 'ev-2026-09-15-quiz-mhf4u', course: 'MHF4U', type: 'quiz', date: '2026-09-15',
+      note: 'Квиз MHF4U — разделы 1.1–1.3 (таблица 7×9 + модуль)' },
+    { id: 'ev-2026-09-15-volunteer-letter', course: '', type: 'assignment', date: '2026-09-15',
+      note: 'Письмо координатору волонтёрства (турнир), если не позвала — со школьной почты' },
+    { id: 'ev-2026-09-16-ics3ue-zoom', course: 'ICS3UE', type: 'assignment', date: '2026-09-16',
+      note: 'ICS3UE: ориентация в Zoom вечером (время — в объявлениях курса)' },
+    { id: 'ev-2026-09-17-ics3ue-start', course: 'ICS3UE', type: 'assignment', date: '2026-09-17',
+      note: 'ICS3UE: старт занятий, 75–90 мин в третьем периоде' },
+    { id: 'ev-2026-09-22-unit-test-mhf4u', course: 'MHF4U', type: 'test', date: '2026-09-22',
+      note: 'Unit test MHF4U, Unit 1: functions & notation · properties of graphs · absolute value · piecewise' },
+    { id: 'ev-2026-09-25-eng2d-poetry', course: 'ENG2D', type: 'assignment', date: '2026-09-25',
+      note: 'ENG2D ≈ до 25.09 (дата по outline, «tentative»): сборник стихов + in-class анализ стихотворения' },
+    { id: 'ev-2026-11-18-csmc', course: 'MHF4U', type: 'test', date: '2026-11-18',
+      note: 'CSMC — Canadian Senior Mathematics Contest (тренировочный год)' }
+  ];
+
+  /** M3. Карточка вопросов: тип не меняется, пунктов ровно три. */
+  var M3_ID = 'q-2026-09-08';
+  var M3_TITLE = 'Консультант, пн 14.09 — три вопроса';
+  var M3_DATE = '2026-09-14';
+  var M3_EN0 = 'Could I get a printed Credit Counselling Summary';
+  /** Заголовок, который ставил добор 2.7.5 (radar.js topUpQuestions). */
+  var M3_OLD_TITLE = 'Утро 8.09 — восемь вопросов';
+  var M3_ITEMS = [
+    {
+      who: 'консультанту (guidance)',
+      en: 'Could I get a printed Credit Counselling Summary? I want to see which credits from my previous school were granted, which compulsory credits I still need (including CHC2D and the two online learning credits — does ICS3UE count as one of them?), and what grade I am officially in.',
+      ru: 'Можно ли получить распечатку Credit Counselling Summary? Хочу увидеть, какие кредиты из прошлой школы зачтены, какие обязательные ещё нужны (включая CHC2D — историю Канады — и два онлайн-кредита: идёт ли ICS3UE как один из них), и в каком классе я официально.',
+      done: false, note: ''
+    },
+    {
+      who: 'консультанту (guidance)',
+      en: 'Community involvement hours: how many hours do I need as a student who joined this school this year, and which form do I use to record them?',
+      ru: 'Часы общественной работы: сколько часов нужно мне как пришедшему в этом году и по какой форме их записывать.',
+      done: false, note: ''
+    },
+    {
+      who: 'консультанту (guidance)',
+      en: 'OSSLT: am I on the list to write it this November, and what is the date?',
+      ru: 'OSSLT: я в списке на ноябрь, и какая дата?',
+      done: false, note: ''
+    }
+  ];
+
+  /** M4. Два дела плана — по id; done не трогается. */
+  var M4_TODOS = [
+    {
+      id: 'mt4vmss1jqr1hf',
+      set: {
+        title: 'Guidance: записаться (пн 14.09, третий период) — три вопроса в Радаре',
+        due: '2026-09-14',
+        why: 'Ответы — одной строкой в карточку Радара q-2026-09-08 и в окно «Английский + карьера». Credit Counselling Summary закрывает кредиты, годы за границей, официальный класс, онлайн-кредиты; часы общественной работы — норма и форма; OSSLT — в списке ли на ноябрь, дата.'
+      }
+    },
+    {
+      id: 'mt4vmss12dy03k',
+      set: {
+        due: '2026-10-15',
+        why: 'Внесено пакетом 2.7.6: квиз 15.09, unit test 22.09, поэзия ENG2D ≈25.09, ICS3UE 16–17.09, CSMC 18.11. Ждём: дата OSSLT (до 15.10), Financial Literacy и конец GLC2O (учитель GLC2O), Unit 2 у учителя MHF4U.'
+      }
+    }
+  ];
+
+  /** M6. День без урока, минималки и радара, записанный «Нормой» (Э6). */
+  var M6_DAY = '2026-09-09';
+
   /** Категория по коду или null. */
   function debtCat(code) {
     var want = String(code || '').trim();
@@ -443,8 +536,145 @@ window.State = (function () {
     // и в списках показанного останутся только живые открытые долги
     cleanInjected(out);
 
+    // 2.7.6: разовая правка данных владельца. Маркер читаем из сырого o,
+    // как версию схемы выше: base.meta из blank() его не подставит
+    var done = migrationsOf(o);
+    lastMig276 = null;
+    if (done.indexOf(MIG_276) < 0) {
+      lastMig276 = migrate276(out, o);
+      out.meta.migrations = done.concat(MIG_276);
+      logMig276(lastMig276);
+    }
+    heal276(out);
+    // счётчик слов — число ключей SRS (Э4): после M5 и долечивания слов
+    countWords(out);
+
     out.meta.version = SCHEMA;
     return out;
+  }
+
+  /* ---------- 2.7.6: миграция данных ---------- */
+
+  var lastMig276 = null;
+
+  function migrationsOf(o) {
+    var m = o && o.meta && o.meta.migrations;
+    return Array.isArray(m) ? m.slice() : [];
+  }
+
+  /** Карточка вопросов уже в форме M3: есть вопрос про Credit Counselling Summary. */
+  function isM3Card(e) {
+    return !!(e && e.id === M3_ID && Array.isArray(e.items) && e.items.some(function (q) {
+      return q && String(q.en || '').indexOf(M3_EN0) === 0;
+    }));
+  }
+
+  /**
+   * M1–M6 по ТЗ 2.7.6 §3. Работает на out (сырое o уже слито в него).
+   * Не трогает долги, уроки, итоги, дни кроме 09.09, scale, step, cards, hw.
+   * → отчёт {m1, m2, m3, m4, m5, m6}
+   */
+  function migrate276(out, o) {
+    var rep = { m1: 0, m2: [], m3: 0, m4: [], m5: 0, m6: 0 };
+
+    // M1. Курс информатики: ICS3U → ICS3UE. Уже есть ICS3UE — пропуск
+    var courses = out.settings.schoolCourses || [];
+    var hasNew = courses.some(function (c) { return c && c.code === M1_CODE_TO; });
+    if (!hasNew) {
+      courses.forEach(function (c) {
+        if (!c || c.code !== M1_CODE_FROM || c.track !== 'cs') return;
+        c.code = M1_CODE_TO;
+        c.name = M1_NAME;
+        rep.m1++;
+      });
+    }
+
+    // M2. События радара — только состоянию, жившему до выпуска, и по id
+    var onboarded = o && o.meta && o.meta.onboardedAt;
+    if (onboarded && onboarded < MIG_276_BEFORE) {
+      M2_EVENTS.forEach(function (row) {
+        if (out.radar.some(function (e) { return e && e.id === row.id; })) return;
+        out.radar.push({ id: row.id, done: false, course: row.course, type: row.type, date: row.date, note: row.note });
+        rep.m2.push(row.id);
+      });
+    }
+
+    // M3. Карточка вопросов: три пункта, новые дата и заголовок; тип не меняется
+    out.radar.forEach(function (e) {
+      if (!e || e.id !== M3_ID) return;
+      var items = Array.isArray(e.items) ? e.items : [];
+      if (items.length === 3 && String((items[0] || {}).en || '').indexOf(M3_EN0) === 0) return;
+      e.title = M3_TITLE;
+      e.date = M3_DATE;
+      e.items = clone(M3_ITEMS);
+      rep.m3++;
+    });
+
+    // M4. Два дела — по id и только если текст ещё не тот
+    M4_TODOS.forEach(function (fix) {
+      out.todos.forEach(function (t) {
+        if (!t || t.id !== fix.id) return;
+        var changed = false;
+        Object.keys(fix.set).forEach(function (k) {
+          if (t[k] === fix.set[k]) return;
+          t[k] = fix.set[k];
+          changed = true;
+        });
+        if (changed) rep.m4.push(fix.id);
+      });
+    });
+
+    // M5. Слова итогов, которых нет в SRS, — «в работе» с повтором в день миграции
+    var due = today();
+    out.summaries.slice()
+      .sort(function (a, b) {
+        var da = (a && a.date) || '', db = (b && b.date) || '';
+        return da < db ? -1 : (da > db ? 1 : 0);
+      })
+      .forEach(function (sum) {
+        rep.m5 += enrollWords(out.srs, (sum && sum.parsed && sum.parsed.words) || [], function () {
+          return { status: 'learning', step: 0, streak: 0, due: due };
+        });
+      });
+
+    // M6. 09.09 — «Норма» без урока, минималки и добавок → пусто
+    var d9 = out.days[M6_DAY];
+    if (d9 && (d9.level || 'none') !== 'none' && !(d9.lessons || []).length &&
+      !Array.isArray(d9.minimalSteps) && !(d9.addons || []).length) {
+      d9.level = 'none';
+      d9.points = 0;
+      rep.m6 = 1;
+    }
+    return rep;
+  }
+
+  /**
+   * Вне маркера. Клиент 2.7.5 после pull дописывает в карточку M3 вопросы 7–8
+   * со старым заголовком (radar.js topUpQuestions) и пушит это в облако —
+   * карточка возвращается к трём вопросам M3, отметки и ответы на них целы.
+   * Слова итогов, пришедшие с такого клиента без записи SRS, заводятся так же,
+   * как их заводит разбор ИТОГа. → сколько правок
+   */
+  function heal276(out) {
+    var n = 0;
+    out.radar.forEach(function (e) {
+      if (!isM3Card(e)) return;
+      var keep = e.items.filter(function (q) {
+        return q && M3_ITEMS.some(function (m) { return m.en === q.en; });
+      });
+      if (keep.length !== e.items.length) { e.items = keep; n++; }
+      if (e.title === M3_OLD_TITLE) { e.title = M3_TITLE; n++; }
+    });
+    out.summaries.forEach(function (sum) {
+      n += enrollWords(out.srs, (sum && sum.parsed && sum.parsed.words) || []);
+    });
+    return n;
+  }
+
+  function logMig276(rep) {
+    console.log('[migrate 2.7.6] M1 курс ' + (rep.m1 ? M1_CODE_FROM + ' → ' + M1_CODE_TO : 'без изменений') +
+      ' · M2 событий +' + rep.m2.length + ' · M3 карточка ' + (rep.m3 ? 'обновлена' : 'без изменений') +
+      ' · M4 дел ' + rep.m4.length + ' · M5 слов +' + rep.m5 + ' · M6 09.09 ' + (rep.m6 ? '→ пусто' : 'без изменений'));
   }
 
   /* ---------- 2.6.5: ремонт банка долгов ---------- */
@@ -2442,6 +2672,8 @@ window.State = (function () {
     catTrack: catTrack, catFitsTrack: catFitsTrack, trackHasCats: trackHasCats,
     boardTrack: boardTrack,
     migrationReport: function () { return lastV3; },
+    migrationReport276: function () { return lastMig276; }, MIG_276: MIG_276, isM3Card: isM3Card,
+    M2_EVENTS: M2_EVENTS, M3_ITEMS: M3_ITEMS, M4_TODOS: M4_TODOS,
     holdsStreak: holdsStreak, streakPoints: streakPoints,
     subscribe: subscribe, emit: emit,
     applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
