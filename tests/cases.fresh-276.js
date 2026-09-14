@@ -82,7 +82,9 @@
       ok(r.reason.kind !== 'radar', 'радар по курсу без своих уроков молчит — ' + r.reason.text);
       ok(State.lessonTrack(r.lessonId) !== 'all', 'общий блок не выбран: ' + r.lessonId);
 
-      // радар по математике берёт свой урок, а не общий блок
+      // радар по математике берёт свой урок, а не общий блок. 2.7.7 (Э1): у Б7
+      // 15.09 четыре урока на четыре будня — дедлайн выше радара; срок на неделю позже
+      State.s.blocks.B7.deadline = '2026-09-27';
       State.s.radar.push({ id: 'ev-m', course: 'MHF4U', type: 'quiz', date: TUE, note: '', done: false });
       var m = Waterfall.pick(TUE);
       eq([m.lessonId, m.reason.kind], ['B7.1', 'radar'], 'радар MHF4U → Б7.1');
