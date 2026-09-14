@@ -411,8 +411,10 @@ window.Cards = (function () {
           idx = (idx + n + list2.length) % list2.length;
           flipped = false;
           // очередь считается пройденной, когда с последней карточки
-          // шагнули вперёд — а не когда просто её открыли
-          State.setDeckCursor(idx, { done: n > 0 && was === list2.length - 1 });
+          // шагнули вперёд — а не когда просто её открыли. 2.7.6: и только если
+          // сегодня показаны все карточки колоды — «← назад» с первой уводит
+          // кольцом на последнюю, и два нажатия отмечали колоду добитой
+          State.setDeckCursor(idx, { done: n > 0 && was === list2.length - 1 && allSeen(list2) });
           paint();                       // отметку ставит сам paint, по ключу карточки
         }
         box.onclick = function () { flipped = !flipped; paint(); };
@@ -451,7 +453,17 @@ window.Cards = (function () {
     if (c.seen.indexOf(key) >= 0) return;        // ту же карточку второй раз не считаем
     c.seen.push(key);
     c.viewedToday = c.seen.length;
-    State.touch(true);
+    // 2.7.6: в момент, когда шаг «Карточки» набран, план на «Сегодня»
+    // перерисовывается — иначе «карточки: 9/10» висело до следующей правки
+    var need = State.cardsStep ? State.cardsStep(t).need : 0;
+    State.touch(c.viewedToday !== need);
+  }
+
+  /** Все карточки колоды показаны сегодня. */
+  function allSeen(list) {
+    var c = State.s.cards || {};
+    var seen = c.lastDay === State.today() && Array.isArray(c.seen) ? c.seen : [];
+    return list.every(function (x) { return seen.indexOf(x.key) >= 0; });
   }
 
   /** Сколько разных карточек посмотрели сегодня. */

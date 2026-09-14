@@ -44,7 +44,14 @@ window.Waterfall = (function () {
    * State.nextLessonInTrack пускает блок 'all' в очередь любой дорожки.
    */
   function nextOwnLesson(trackId, phaseId) {
-    var ids = State.phaseBlocks(phaseId);
+    // 2.7.6 (ревью): свои блоки — по сроку, при равном сроке и без срока — по
+    // номеру. Этап 7 развёл номер и срок у письма (Б12 20.12, Б14 22.11), и
+    // шаблон, свежесть и долги отдавали Б12, пока Б14 горел красным
+    var ids = State.phaseBlocks(phaseId).slice().sort(function (a, b) {
+      var da = State.s.blocks[a].deadline || '9999', db = State.s.blocks[b].deadline || '9999';
+      if (da !== db) return da < db ? -1 : 1;
+      return State.blockNum(a) - State.blockNum(b);
+    });
     for (var i = 0; i < ids.length; i++) {
       if (State.s.blocks[ids[i]].track !== trackId) continue;
       var next = nextInBlock(ids[i]);
@@ -211,6 +218,9 @@ window.Waterfall = (function () {
     if (!track) return null;
     return {
       track: track,
+      // свой урок фазы — в порядке сроков; своих нет (инфа и бизнес в Ф1) —
+      // общая очередь дорожки, в ней и общий блок: его шаблон брать может
+      lessonId: nextOwnLesson(track, State.currentPhase(t)),
       reason: { kind: 'plan', text: 'шаблон: ' + WD_NAME[wd] + ' — ' + State.trackName(track).toLowerCase() }
     };
   }

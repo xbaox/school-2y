@@ -668,6 +668,30 @@ window.State = (function () {
     out.summaries.forEach(function (sum) {
       n += enrollWords(out.srs, (sum && sum.parsed && sum.parsed.words) || []);
     });
+    n += healTodos276(out);
+    return n;
+  }
+
+  /**
+   * Клиент 2.7.5 на каждой загрузке сопоставляет дела плана по подстроке
+   * (Radar.migrateTodos без маркера) и возвращает им тексты 2.6.2 — поверх M4,
+   * с маркером в состоянии. Такое дело узнаётся точно: название и «зачем»
+   * дословно те, что в посеве плана; руками их так не набирают. Тогда M4
+   * применяется снова; своё «done» дело сохраняет.
+   */
+  function healTodos276(out) {
+    var seeds = (window.Radar && Radar.SEED_TODOS) || [];
+    if (!seeds.length) return 0;
+    var n = 0;
+    M4_TODOS.forEach(function (fix) {
+      out.todos.forEach(function (t) {
+        if (!t || t.id !== fix.id) return;
+        var reverted = seeds.some(function (seed) { return t.title === seed.title && t.why === seed.why; });
+        if (!reverted) return;
+        Object.keys(fix.set).forEach(function (k) { t[k] = fix.set[k]; });
+        n++;
+      });
+    });
     return n;
   }
 
@@ -1812,6 +1836,25 @@ window.State = (function () {
 
   function wordsTotal() { return Object.keys(s.srs || {}).length; }
 
+  /** Снять из SRS нетронутые записи слов, которых больше нет ни в одном итоге. */
+  function dropOrphanWords(words) {
+    if (!words || !words.length) return 0;
+    var live = {};
+    s.summaries.forEach(function (sum) {
+      ((sum && sum.parsed && sum.parsed.words) || []).forEach(function (w) { live[wordKey(w && w.en)] = true; });
+    });
+    var n = 0;
+    words.forEach(function (w) {
+      var k = wordKey(w && w.en);
+      var r = k && s.srs[k];
+      if (!r || live[k]) return;
+      if (r.status !== 'new' || r.streak || r.step || r.due) return;   // оценённое слово — история владельца
+      delete s.srs[k];
+      n++;
+    });
+    return n;
+  }
+
   function wordStatus(en) {
     var r = srsRec(en);
     return (r && r.status) || 'new';
@@ -2002,8 +2045,10 @@ window.State = (function () {
     var t = opts.date || today();
     s.cards.cursorDay = t;
     s.cards.cursor = Math.max(0, i);
+    var newlyDone = !!opts.done && s.cards.doneDay !== t;
     if (opts.done) s.cards.doneDay = t;
-    touch(true);
+    // добитая колода засчитывает шаг «Карточки» — план на «Сегодня» перерисуется
+    touch(!newlyDone);
     return s.cards.cursor;
   }
 
@@ -2488,9 +2533,14 @@ window.State = (function () {
     if (replaced && ((s.summaries[at] || {}).parsed || {}).stretch === true) s.stats.stretchDone--;
     if (parsed.stretch === true) s.stats.stretchDone = (s.stats.stretchDone || 0) + 1;
     if (s.stats.stretchDone < 0) s.stats.stretchDone = 0;
+    var oldWords = replaced ? (((s.summaries[at] || {}).parsed || {}).words || []) : [];
     if (replaced) s.summaries[at] = record;
     else s.summaries.push(record);
     var wordsAdded = enrollWords(s.srs, record.parsed.words);
+    // «Итог ещё раз» с исправленным списком: слово, которое было только в
+    // заменённой записи и ни разу не оценивалось, из SRS уходит — иначе оно
+    // навсегда в счётчике, а в колоду не попадёт (колода строится из итогов)
+    dropOrphanWords(oldWords);
 
     if (!wasDone) s.stats.lessonsDone = (s.stats.lessonsDone || 0) + 1;
 
