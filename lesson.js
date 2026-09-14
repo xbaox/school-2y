@@ -487,15 +487,12 @@ window.Lesson = (function () {
             if (wr.notices.length) UI.toast(wr.notices.join(' · '), '', 6000);
             return;
           }
-          var parsed = PROMPTS.parse(ta.value);
+          // 2.7.6: заголовок обязан назвать этот урок — id или подписью
+          // (B53.1 или К.1); чужой урок и итог без заголовка не принимаются
+          var parsed = PROMPTS.parse(ta.value, lessonId);
           if (!parsed.ok) {
             err.textContent = parsed.error;
             return;
-          }
-          if (parsed.lessonId && parsed.lessonId !== lessonId) {
-            err.innerHTML = 'В итоге стоит урок ' + U.esc(parsed.lessonId) + ', а закрываем ' +
-              U.esc(lessonId) + '. Проверь — или нажми «Закрыть урок» ещё раз, чтобы всё равно засчитать.';
-            if (!ta.dataset.warned) { ta.dataset.warned = '1'; return; }
           }
           // шторку закрываем только после успеха: иначе вставленный текст
           // пропадал вместе с ней, а урок оставался незакрытым
