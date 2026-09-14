@@ -154,6 +154,12 @@ window.Radar = (function () {
   function migrateTodos() {
     var todos = State.s.todos || [];
     if (!todos.length) return 0;          // пустой список засеет seedTodos
+    // 2.7.6: миграция M4 переписала два дела плана поверх текстов 2.6.2, а
+    // совпадение по подстроке («guidance», «семестра 1 в радар») откатывало
+    // их на каждой загрузке и поднимало updatedAt. Состояние, прошедшее 2.7.6,
+    // тексты 2.6.2 уже получило — дальше дела правит только владелец
+    var migs = (State.s.meta && State.s.meta.migrations) || [];
+    if (migs.indexOf('2.7.6') >= 0) return 0;
     var used = {}, changed = 0;
 
     SEED_TODOS.forEach(function (seed) {
@@ -416,6 +422,8 @@ window.Radar = (function () {
    */
   function topUpQuestions(e) {
     if (!e || !Array.isArray(e.items) || e.items.length >= QUESTIONS_TOTAL) return 0;
+    // 2.7.6 (M3): в карточке ровно три вопроса к консультанту — не добираем
+    if (State.isM3Card && State.isM3Card(e)) return 0;
     var have = {};
     e.items.forEach(function (q) { if (q && q.en) have[q.en] = true; });
     var added = 0;
@@ -465,13 +473,16 @@ window.Radar = (function () {
   /**
    * Показывать ли карточку на «Сегодня»: с даты события и пока не отмечены
    * все пункты, но не дольше срока — иначе она висела бы вечно.
+   * Срок по умолчанию — QUESTIONS_UNTIL, но не раньше даты самого события:
+   * карточка, перенесённая на 14.09 (2.7.6, M3), иначе не показалась бы вовсе.
    */
   function questionsOnToday(todayIso) {
     var t = todayIso || State.today();
     return questionEvents().filter(function (e) {
       if (t < e.date) return false;
       if (questionsAllDone(e)) return false;
-      return t <= (e.until || QUESTIONS_UNTIL);
+      var until = e.until || (e.date > QUESTIONS_UNTIL ? e.date : QUESTIONS_UNTIL);
+      return t <= until;
     });
   }
 
@@ -580,10 +591,11 @@ window.Radar = (function () {
       '<div class="rowline">' +
       '<button class="rowbody" data-event-edit="' + U.esc(e.id) + '">' +
       '<div class="t">' + (track ? UI.trackDot(track) + ' ' : '<span class="dotmark dim"></span> ') +
-      U.esc(e.course) + ' · ' + U.esc(type) + '</div>' +
+      // событие без курса (2.7.6: запись к консультанту, письмо) — только тип
+      (e.course ? U.esc(e.course) + ' · ' : '') + U.esc(type) + '</div>' +
       '<div class="s mono ' + cls + '">' + U.fmtShort(e.date) + ' · ' +
       (left < 0 ? 'прошло' : (left === 0 ? 'сегодня' : (left === 1 ? 'завтра' : 'через ' + U.days(left)))) +
-      (track ? '' : ' · уроки по нему не назначаются') +
+      (track || !e.course ? '' : ' · уроки по нему не назначаются') +
       (e.note ? ' · ' + U.esc(e.note) : '') + '</div></button>' +
       '<button class="rmini" data-event-done="' + U.esc(e.id) + '" aria-label="' +
       (e.done ? 'Вернуть событие в список' : 'Отметить событие пройденным') + '">' +

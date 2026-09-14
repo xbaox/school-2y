@@ -23,8 +23,9 @@ window.CONTENT = (function () {
    */
   var COURSE_TRACK = {
     MPM2D: 'math', MCR3U: 'math', MHF4U: 'math', MCV4U: 'math', MDM4U: 'math',
-    ESL: 'write', NBE3U: 'write', ENG4U: 'write', OSSLT: 'write', IELTS: 'write',
-    ICS3U: 'cs',
+    ESL: 'write', NBE3U: 'write', ENG2D: 'write', ENG4U: 'write', OSSLT: 'write', IELTS: 'write',
+    // ICS3UE — онлайн-информатика после разговора с консультантом (2.7.6, M1)
+    ICS3U: 'cs', ICS3UE: 'cs',
     BMI3C: 'biz', BOH4M: 'biz'
   };
 

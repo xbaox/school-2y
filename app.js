@@ -1016,6 +1016,9 @@ window.App = (function () {
     // отдать смесь версий, и один отсутствующий метод не должен ронять boot
     if (window.Radar && Radar.migrateTodos) Radar.migrateTodos();
     if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
+    // миграция 2.7.6 прошла при load() в памяти: сохраняем маркер без подъёма
+    // updatedAt — load() сам не пишет, а «новее» правка состояние не делает
+    if (State.migrationReport276 && State.migrationReport276()) State.save();
     register('today', Today);
     buildShell();
     booted = true;

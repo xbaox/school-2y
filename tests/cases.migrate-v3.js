@@ -287,7 +287,9 @@
     var st = State.migrate(src);
     eq(st.summaries[0].parsed.words.map(function (w) { return w.en; }), ['main idea', 'topic'],
       'выдуманные термины ушли из банка слов');
-    eq(Object.keys(st.srs).sort(), ['main idea'], 'и из накладки SRS');
+    // 2.7.6: выдуманные ушли и из SRS, а живое слово итога без записи («topic»)
+    // заведено миграцией 2.7.6 (M5); счётчик — число ключей SRS
+    eq(Object.keys(st.srs).sort(), ['main idea', 'topic'], 'мусор ушёл из накладки SRS, живое слово заведено');
     eq(st.stats.wordsTotal, 2, 'счётчик слов пересчитан по живому банку');
     var again = State.migrate(JSON.parse(JSON.stringify(st)));
     eq(again.stats.wordsTotal, 2, 'повторный прогон ничего не меняет');
