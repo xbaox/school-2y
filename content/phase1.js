@@ -13,8 +13,8 @@
 
    Заполнено сейчас: Б7, Б8 (все поля), К.1–К.3.
    Б9–Б16 и К.4–К.10 — структура; tasks/text/terms приедут:
-     2.7.1 (≈14.09, после планов курсов от учителей): Б9, Б10, К.4–К.6
-     2.7.2 (≈05.10): Б11–Б16, К.7–К.10
+     2.8.0: Б9, Б10, К.4–К.6
+     2.8.1: Б11–Б16, К.7–К.10
    Все тексты для чтения написаны для урока; цифры в них условные.
    ============================================================ */
 
@@ -292,7 +292,7 @@
     /* ================= Б9 · математика ================= */
     {
       id: 'B9', track: 'math', title: 'Многочлены-2: теорема о корне, уравнения, неравенства', deadline: '2026-10-18',
-      note: 'Опорные задания и глоссарий — пакет 2.7.1 (после планов курсов от учителей).',
+      note: 'Опорные задания и глоссарий — пакет 2.8.0.',
       lessons: [
         { title: 'Теорема о корне и разложение кубических', goal: 'factor theorem; подбор корня; разложение группировкой; сумма и разность кубов', youtube: 'factor theorem factoring cubic polynomials', focus: 'rational zero test (подбор делителей свободного члена); деление после найденного корня; sum/difference of cubes', writing: '3 предложения: объяснить, почему x − 2 — множитель данного многочлена', terms: [], text: null, tasks: null },
         { title: 'Уравнения многочленов и их графики', goal: 'решать p(x) = 0 через разложение; связывать корни с графиком', youtube: 'solving polynomial equations by factoring', focus: 'real roots; кратность корня на графике; проверка подстановкой', writing: 'Объяснение решения уравнения 4 предложениями (первое лицо, present simple)', terms: [], text: null, tasks: null },
@@ -304,7 +304,7 @@
     /* ================= Б10 · письмо и чтение ================= */
     {
       id: 'B10', track: 'write', title: 'Абзац-мнение и новостная заметка: формат OSSLT', deadline: '2026-11-01',
-      note: 'OSSLT — провинциальный тест грамотности, обязателен для диплома; окно ноябрь 2026 или март–апрель 2027 (скажет школа). Опорные задания — пакет 2.7.1.',
+      note: 'OSSLT — провинциальный тест грамотности, условие диплома; конец ноября 2026, точная дата до 15.10. Опорные задания — пакет 2.8.0 (или 2.8.1, если материалы придут позже).',
       lessons: [
         { title: 'Абзац-мнение: структура', goal: 'topic sentence с мнением + 2 причины с поддержкой + concluding sentence', youtube: 'OSSLT opinion paragraph structure', focus: 'I believe / In my opinion + because; связки First, Second, Finally; поддержка каждой причины примером', writing: 'Абзац-мнение на школьную тему, 6–8 предложений + чистовик', terms: [], text: null, tasks: null },
         { title: 'Новостная заметка: заголовок, lead, 5W', goal: 'структура news report: headline, lead с who/what/where/when/why, «перевёрнутая пирамида», цитаты, нейтральный тон', youtube: 'OSSLT news report how to write', focus: 'факты первыми, мнение автора отсутствует; цитата с указанием говорящего; прошедшее время', writing: 'Заметка по картинке-заданию OSSLT, 3 абзаца', terms: [], text: null, tasks: null },
@@ -316,7 +316,7 @@
     /* ================= Б11 · математика ================= */
     {
       id: 'B11', track: 'math', title: 'Рациональные функции и асимптоты', deadline: '2026-11-15',
-      note: 'Опорные задания — пакет 2.7.2.',
+      note: 'Опорные задания — пакет 2.8.1.',
       lessons: [
         { title: 'Обратные величины 1/f(x) и вертикальные асимптоты', goal: 'reciprocal function; vertical asymptote там, где знаменатель = 0; holes', youtube: 'reciprocal functions vertical asymptotes holes', focus: 'домен рациональной функции; поведение около асимптоты; знак с двух сторон', writing: '3 предложения: почему у функции есть вертикальная асимптота при x = 2', terms: [], text: null, tasks: null },
         { title: 'Горизонтальные и наклонные асимптоты, набросок', goal: 'horizontal/oblique asymptote по степеням числителя и знаменателя; end behaviour; набросок', youtube: 'horizontal oblique asymptotes rational functions graphing', focus: 'сравнение степеней; деление для наклонной асимптоты; пересечения с осями', writing: 'Описание графика 4 предложениями с терминами', terms: [], text: null, tasks: null },
@@ -327,8 +327,8 @@
 
     /* ================= Б12 · письмо и чтение (было: маркетинг) ================= */
     {
-      id: 'B12', track: 'write', title: 'Литературный анализ для ENG2D', deadline: '2026-11-29',
-      note: 'Маркетинг переехал в Ф2 вместе с BMI3C (маркетинг, 11 класс, 2-й семестр). Опорные задания — пакет 2.7.2.',
+      id: 'B12', track: 'write', title: 'Литературный анализ для ENG2D', deadline: '2026-12-20',
+      note: 'Пьеса и роман в ENG2D идут до 18.12, экзамен в конце января. Опорные задания — пакет 2.8.1.',
       lessons: [
         { title: 'Сюжет и конфликт', goal: 'plot: exposition, rising action, climax, falling action, resolution; типы конфликта', youtube: 'plot diagram elements of plot conflict types', focus: 'по рассказу из класса: расставить события по схеме; назвать тип конфликта (person vs person / self / society / nature)', writing: '4 предложения: пересказ сюжета по схеме', terms: [], text: null, tasks: null },
         { title: 'Персонаж и тема', goal: 'characterization (direct / indirect); theme как утверждение, не тема', youtube: 'characterization direct indirect theme statement', focus: 'что персонаж говорит, делает, что говорят о нём; theme = topic + что автор о нём говорит', writing: 'Абзац о персонаже с одной цитатой', terms: [], text: null, tasks: null },
@@ -340,7 +340,7 @@
     /* ================= Б13 · математика ================= */
     {
       id: 'B13', track: 'math', title: 'Тригонометрия: радианы, графики, тождества', deadline: '2026-12-13',
-      note: 'Опорные задания — пакет 2.7.2.',
+      note: 'Опорные задания — пакет 2.8.1.',
       lessons: [
         { title: 'Радианы, дуга, особые углы, правило CAST', goal: 'радианы ↔ градусы; длина дуги; точные значения для π/6, π/4, π/3; знаки по четвертям', youtube: 'radians special angles unit circle CAST rule', focus: 'unit circle; exact values; related acute angle', writing: '3 предложения: почему радиан — «естественная» единица (через дугу)', terms: [], text: null, tasks: null },
         { title: 'Графики sin, cos, tan и их преобразования', goal: 'y = a·sin(k(x − d)) + c: amplitude, period 2π/k, phase shift, vertical shift', youtube: 'graphing sine cosine transformations amplitude period phase shift', focus: 'параметры → график и обратно; моделирование (высота, температура)', writing: 'Описание графика 4 предложениями с терминами', terms: [], text: null, tasks: null },
@@ -351,8 +351,8 @@
 
     /* ================= Б14 · письмо и чтение ================= */
     {
-      id: 'B14', track: 'write', title: 'OSSLT-генеральная', deadline: '2026-12-20',
-      note: 'Если школа назначит тест на ноябрь — дедлайн блока сдвигается пакетом 2.7.1 (поле deadlineSource: content). Опорные задания — пакет 2.7.2.',
+      id: 'B14', track: 'write', title: 'OSSLT-генеральная', deadline: '2026-11-22',
+      note: 'OSSLT — конец ноября 2026 (outline ENG2D); точная дата до 15.10. Если раньше 25.11 — дедлайн блока 15.11. Опорные задания — пакет 2.8.1.',
       lessons: [
         { title: 'Секция чтения целиком на время', goal: 'пробник EQAO: чтение всех типов текстов под таймер', youtube: 'OSSLT reading section practice EQAO sample', focus: 'распределение времени; сначала вопросы, потом текст; пометки на полях', writing: 'Два open-response ответа из пробника', terms: [], text: null, tasks: null },
         { title: 'Серия абзацев (opinion essay) на время', goal: 'series of paragraphs: вступление с мнением, 2–3 абзаца причин, заключение', youtube: 'OSSLT series of paragraphs how to write', focus: 'план 3 минуты; связки между абзацами; чек-лист языка перед сдачей', writing: 'Series of paragraphs за 30 минут', terms: [], text: null, tasks: null },
@@ -364,7 +364,7 @@
     /* ================= Б15 · математика ================= */
     {
       id: 'B15', track: 'math', title: 'Показательные и логарифмические функции', deadline: '2027-01-17',
-      note: 'В каркасе 2.6.0 этой темы не было — а это целый раздел MHF4U и экзамена. Опорные задания — пакет 2.7.2.',
+      note: 'В каркасе 2.6.0 этой темы не было — а это целый раздел MHF4U и экзамена. Опорные задания — пакет 2.8.1.',
       lessons: [
         { title: 'Показательные функции и законы степеней', goal: 'y = a·bˣ, преобразования, асимптота y = 0; exponent laws', youtube: 'exponential functions graphs transformations exponent laws', focus: 'рост и убывание по b; горизонтальная асимптота; решение простых показательных уравнений приведением к одному основанию', writing: '3 предложения: описать график y = 3·2ˣ − 1', terms: [], text: null, tasks: null },
         { title: 'Логарифм: определение и законы', goal: 'log ↔ степень; laws of logarithms; вычисление без калькулятора', youtube: 'logarithms introduction laws of logarithms', focus: 'y = logₐx ⇔ aʸ = x; product, quotient, power laws; change of base', writing: 'Объяснение одним абзацем: что такое логарифм (по схеме определения)', terms: [], text: null, tasks: null },
