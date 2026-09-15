@@ -2150,6 +2150,28 @@ window.State = (function () {
     return { ok: need === 0 || deckDone(t) || seen >= need, seen: seen, need: need };
   }
 
+  /**
+   * 2.7.7 (Э7): шаг «Карточки» ставится сам — в момент, когда cardsStep
+   * набран (10 разных карточек или добитая колода). Звать ровно на переходе
+   * «не набран → набран»: вызывающий (Cards.markSeen, шаг колоды) помнит, что
+   * было до карточки, и зовёт только тогда. Поэтому снятая руками галочка
+   * следующей карточкой не возвращается — шаг уже набран, перехода нет.
+   * Пустая колода сама шаг не ставит: вместо неё видео, его отмечает человек.
+   * → true, если отметка поставлена сейчас (день пересчитан, одна перерисовка)
+   */
+  function autoCardsStep(todayIso) {
+    var t = todayIso || today();
+    var cs = cardsStep(t);
+    if (!cs.ok || !cs.need) return false;
+    var d = day(t, true);
+    var ms = d.minimalSteps || [];
+    if (ms[0]) return false;
+    d.minimalSteps = [true, !!ms[1]];
+    recount(t);
+    touch();
+    return true;
+  }
+
   /** Где остановились сегодня: 0, если день новый. */
   function deckCursor(todayIso) {
     var t = todayIso || today();
@@ -2877,7 +2899,7 @@ window.State = (function () {
     debtBoard: debtBoard, priorityDebts: priorityDebts, lastExample: lastExample,
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,
-    cardsStep: cardsStep, CARDS_STEP: CARDS_STEP,
+    cardsStep: cardsStep, CARDS_STEP: CARDS_STEP, autoCardsStep: autoCardsStep,
     setDeckCursor: setDeckCursor, DECK_CAP: DECK_CAP, DECK_DEBTS: DECK_DEBTS, DECK_FRESH: DECK_FRESH,
     recentWords: recentWords, lastLessonWords: lastLessonWords,
     openDebts: openDebts, debtsCount: debtsCount,

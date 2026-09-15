@@ -604,7 +604,7 @@ window.App = (function () {
     return {
       id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(), done: !!ms[0],
       body: (c.words || c.debts)
-        ? (prog ? '<p class="pnote"><b class="mono">' + U.esc(prog) + '</b> — шаг засчитается, ' +
+        ? (prog ? '<p class="pnote"><b class="mono">' + U.esc(prog) + '</b> — шаг засчитается сам, ' +
           'когда просмотришь ' + State.cardsStep().need + ' или добьёшь колоду.</p>' : '') +
         '<p class="pnote">Колода дня: слова последнего урока и в работе, до трёх долгов, ' +
         'затем повторы — не больше ' + State.DECK_CAP + ' карточек. ' +
@@ -787,6 +787,7 @@ window.App = (function () {
   /**
    * Шаги минималки. Снять можно всегда; «Карточки» ставятся только колодой
    * (State.cardsStep, 2.7.6): свободная галочка держала серию без карточек.
+   * 2.7.7 (Э7): набранный шаг ставит сама колода (Cards.markSeen → State.autoCardsStep).
    * → true, если отметка записана
    */
   function cardsRefused() {
@@ -988,7 +989,7 @@ window.App = (function () {
     ['PROMPTS', 'headerMatches'], ['Waterfall', 'nextOwnLesson'], ['State', 'enrollWords'],
     ['State', 'cardsStep'], ['State', 'planOf'], ['State', 'isM3Card'],
     // 2.7.7: дедлайн заранее, миграция событий-дел
-    ['Waterfall', 'schoolDays'], ['State', 'migrationReport277']
+    ['Waterfall', 'schoolDays'], ['State', 'migrationReport277'], ['State', 'autoCardsStep']
   ];
 
   function mixedBundle() {
