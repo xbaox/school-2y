@@ -46,19 +46,10 @@ window.Waterfall = (function () {
    */
   function nextOwnLesson(trackId, phaseId) {
     // 2.7.6 (ревью): свои блоки — по сроку, при равном сроке и без срока — по
-    // номеру. Этап 7 развёл номер и срок у письма (Б12 20.12, Б14 22.11), и
-    // шаблон, свежесть и долги отдавали Б12, пока Б14 горел красным
-    var ids = State.phaseBlocks(phaseId).slice().sort(function (a, b) {
-      var da = State.s.blocks[a].deadline || '9999', db = State.s.blocks[b].deadline || '9999';
-      if (da !== db) return da < db ? -1 : 1;
-      return State.blockNum(a) - State.blockNum(b);
-    });
-    for (var i = 0; i < ids.length; i++) {
-      if (State.s.blocks[ids[i]].track !== trackId) continue;
-      var next = nextInBlock(ids[i]);
-      if (next) return next;
-    }
-    return null;
+    // номеру. 2.7.7 (Э6): тот же порядок нужен и сквозной очереди дорожки
+    // (экран «Программа», запасной путь) — одна функция на оба
+    if (!trackId || !phaseId) return null;
+    return State.nextLessonInTrack(trackId, phaseId, true);
   }
 
   /**
