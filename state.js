@@ -549,6 +549,12 @@ window.State = (function () {
     // счётчик слов — число ключей SRS (Э4): после M5 и долечивания слов
     countWords(out);
 
+    // 2.7.7 (Э4): рекорд серии не ниже текущей серии. Серия выводится из дней,
+    // поэтому поправка детерминирована, повторяется на каждом устройстве и
+    // updatedAt не двигает: так рекорд сходится с серией и без действий
+    // (живая копия 13.09: серия 56 при рекорде 55)
+    bumpBestStreakIn(out);
+
     out.meta.version = SCHEMA;
     return out;
   }
@@ -1207,6 +1213,10 @@ window.State = (function () {
     if (!d) return;
     settleLevel(d, iso);
     d.points = DOCTRINE.dayPoints(d, s.settings);
+    // 2.7.7 (Э4): рекорд серии — при любом пересчёте дня. До 2.7.7 его
+    // поднимали только урок, план и добавки, а минималка и чек-лист радара
+    // серию держали молча: 13.09 серия 56 при рекорде 55
+    bumpBestStreak();
   }
 
   /**
@@ -1219,7 +1229,6 @@ window.State = (function () {
     var d = day(date, true);
     d.plan = (planOf(d) === levelId && levelId !== 'none') ? 'none' : levelId;
     recount(date);
-    bumpBestStreak();
     touch();
   }
 
@@ -1229,7 +1238,6 @@ window.State = (function () {
     var i = d.addons.indexOf(addonId);
     if (i >= 0) d.addons.splice(i, 1); else d.addons.push(addonId);
     recount(date);
-    bumpBestStreak();
     touch();
   }
 
@@ -1239,8 +1247,10 @@ window.State = (function () {
    * иначе «Проект» в одиночку заменял учёбу. Исключение — воскресный радар,
    * он часть доктрины, и такой день не пустой.
    */
-  function holdsStreak(iso) {
-    var d = s.days[iso];
+  function holdsStreak(iso) { return holdsStreakIn(s.days, iso); }
+
+  function holdsStreakIn(days, iso) {
+    var d = days && days[iso];
     if (!d) return false;
     if ((d.lessons || []).length) return true;
     var ms = d.minimalSteps || [];
@@ -1259,9 +1269,19 @@ window.State = (function () {
   function rank(iso) { return DOCTRINE.rankFor(weekPoints(iso), s.settings.ranks); }
   function nextRank(iso) { return DOCTRINE.nextRank(weekPoints(iso), s.settings.ranks); }
 
-  function bumpBestStreak() {
-    var cur = DOCTRINE.streak(streakPoints, today());
-    if (cur > (s.stats.bestStreak || 0)) s.stats.bestStreak = cur;
+  function bumpBestStreak() { return bumpBestStreakIn(s); }
+
+  /**
+   * 2.7.7 (Э4): stats.bestStreak = max(рекорд, текущая серия). Зовётся из
+   * recount — любой пересчёт дня (урок, шаги минималки, чек-лист радара,
+   * добавки, план) — и из migrate при загрузке. → true, если рекорд вырос
+   */
+  function bumpBestStreakIn(st) {
+    if (!st || !st.stats) return false;
+    var cur = DOCTRINE.streak(function (iso) { return holdsStreakIn(st.days, iso) ? 1 : 0; }, today());
+    if (cur <= (st.stats.bestStreak || 0)) return false;
+    st.stats.bestStreak = cur;
+    return true;
   }
 
   /* ---------- ступень нагрузки (ТЗ 4.4) ---------- */
@@ -2659,7 +2679,6 @@ window.State = (function () {
 
     touchTrack(trackId, date);
     if (l) refreshBlockDone(l.blockId);
-    bumpBestStreak();
     touch();
 
     // строки событий для уведомления (ТЗ 2.2). Порядок как в ТЗ:
@@ -2760,7 +2779,7 @@ window.State = (function () {
     migrationReport: function () { return lastV3; },
     migrationReport276: function () { return lastMig276; }, MIG_276: MIG_276, isM3Card: isM3Card,
     M2_EVENTS: M2_EVENTS, M3_ITEMS: M3_ITEMS, M4_TODOS: M4_TODOS,
-    holdsStreak: holdsStreak, streakPoints: streakPoints,
+    holdsStreak: holdsStreak, streakPoints: streakPoints, bumpBestStreak: bumpBestStreak,
     subscribe: subscribe, emit: emit,
     applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
     today: today, day: day, points: points, recount: recount,
