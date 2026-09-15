@@ -59,6 +59,47 @@ window.U = (function () {
     return addDays(isoDate, -(weekday(isoDate) - 1));
   }
 
+  /**
+   * Учебные дни недели по режиму (2.7.8, Б4) — дни, в которые шаблон недели
+   * ставит обычный урок блока. Одна таблица на всё приложение: дедлайн заранее
+   * (Waterfall.schoolDays) и подпись «программный урок … — в понедельник»
+   * считают по ней. «Школа» — пн–пт: суббота отдана К, воскресенье — радару.
+   * «Лето» и «Мост» — дни уроков шаблона недели (Waterfall.WEEK): пн–сб,
+   * воскресенье — радар-день. Режим не из таблицы считается школьным — так
+   * 2.7.7 считала во всех режимах.
+   */
+  var SCHOOL_WEEKDAYS = {
+    school: [1, 2, 3, 4, 5],
+    summer: [1, 2, 3, 4, 5, 6],
+    bridge: [1, 2, 3, 4, 5, 6]
+  };
+
+  function schoolWeekdays(mode) {
+    return Object.prototype.hasOwnProperty.call(SCHOOL_WEEKDAYS, mode) ? SCHOOL_WEEKDAYS[mode] : SCHOOL_WEEKDAYS.school;
+  }
+
+  /** Учебный ли день дата в режиме mode ('school' | 'summer' | 'bridge'). */
+  function schoolDay(isoDate, mode) {
+    return schoolWeekdays(mode).indexOf(weekday(isoDate)) >= 0;
+  }
+
+  /** Учебных дней от from до to, оба конца включительно; to раньше from — ноль. */
+  function schoolDays(from, to, mode) {
+    var total = diffDays(from, to) + 1;
+    if (total <= 0) return 0;
+    var list = schoolWeekdays(mode), wd = weekday(from);
+    var n = Math.floor(total / 7) * list.length;
+    for (var i = 0; i < total % 7; i++) if (list.indexOf((wd - 1 + i) % 7 + 1) >= 0) n++;
+    return n;
+  }
+
+  /** Ближайший учебный день после даты (саму дату не считает). */
+  function nextSchoolDay(isoDate, mode) {
+    var next = addDays(isoDate, 1);
+    while (!schoolDay(next, mode)) next = addDays(next, 1);
+    return next;
+  }
+
   var MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
   var MONTHS_FULL = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля',
     'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -150,6 +191,7 @@ window.U = (function () {
     DAY_START_HOUR: DAY_START_HOUR,
     iso: iso, parse: parse, today: today, nextDayBoundary: nextDayBoundary,
     addDays: addDays, diffDays: diffDays, weekday: weekday, weekStart: weekStart,
+    SCHOOL_WEEKDAYS: SCHOOL_WEEKDAYS, schoolDay: schoolDay, schoolDays: schoolDays, nextSchoolDay: nextSchoolDay,
     fmtShort: fmtShort, fmtLong: fmtLong, fmtWeekday: fmtWeekday, fmtDayMonth: fmtDayMonth,
     plural: plural, days: days, uid: uid, clamp: clamp, esc: esc,
     el: el, els: els, on: on, shuffle: shuffle, stripDebtId: stripDebtId

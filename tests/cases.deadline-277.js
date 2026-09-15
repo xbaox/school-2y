@@ -27,6 +27,11 @@
   function why(r) { return r ? [r.lessonId, r.reason.kind, r.reason.text] : null; }
 
   describe('2.7.7 Э1: учебные дни до срока — пн–пт, оба конца включительно', function () {
+    // 2.7.8 (Б4): счёт идёт по режиму дня, пн–пт — это режим «Школа»; набор
+    // перед этим мог оставить «Лето» (State.reset), где суббота учебная
+    State.reset();
+    State.syncContent();
+    State.setMode('school');
     eq(Waterfall.schoolDays('2026-09-14', '2026-09-20'), 5, 'пн 14.09 → вс 20.09: пять будней');
     eq(Waterfall.schoolDays('2026-09-16', '2026-09-20'), 3, 'ср → вс: ср, чт, пт');
     eq(Waterfall.schoolDays('2026-09-18', '2026-09-20'), 1, 'пт → вс: только пятница');

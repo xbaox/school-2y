@@ -1187,6 +1187,16 @@ window.State = (function () {
   function mode() { return s.settings.mode; }
   function isSchool() { return s.settings.mode === 'school'; }
 
+  /**
+   * Режим учебных дней на дату (2.7.8, Б4) — для U.schoolDay, U.schoolDays и
+   * U.nextSchoolDay. «Мост» берётся по фазе: переключатель знает только Лето
+   * и Школу, а летом 2027 он так и стоит на «Школе». В остальные дни — режим
+   * переключателя.
+   */
+  function lessonMode(iso) {
+    return currentPhase(iso) === 'bridge' ? 'bridge' : mode();
+  }
+
   function setMode(m) {
     if (m !== 'summer' && m !== 'school') return;
     s.settings.mode = m;
@@ -1445,7 +1455,7 @@ window.State = (function () {
   /**
    * Заявка на ДЗ-урок: помечаем день и отдаём id. Выбор урока не трогаем.
    * movedLessonId — программный урок, который этим днём переехал на ближайший
-   * учебный день (пн–пт).
+   * учебный день (U.nextSchoolDay по режиму дня; в «Школе» — пн–пт).
    * Он запоминается ЗДЕСЬ и больше не пересчитывается: к вечеру выбор дня
    * успевает поменяться (закрыт второй урок, скопирован другой промпт), и
    * подпись «— завтра» начинала называть урок, сделанный сегодня.
@@ -2916,7 +2926,7 @@ window.State = (function () {
     M2_EVENTS: M2_EVENTS, M3_ITEMS: M3_ITEMS, M4_TODOS: M4_TODOS,
     holdsStreak: holdsStreak, streakPoints: streakPoints, bumpBestStreak: bumpBestStreak,
     subscribe: subscribe, emit: emit,
-    applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode,
+    applyAutoMode: applyAutoMode, mode: mode, isSchool: isSchool, setMode: setMode, lessonMode: lessonMode,
     today: today, day: day, points: points, recount: recount,
     setLevel: setLevel, toggleAddon: toggleAddon,
     planOf: planOf, achievedLevel: achievedLevel, LEVEL_RANK: LEVEL_RANK,
