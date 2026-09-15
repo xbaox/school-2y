@@ -400,7 +400,9 @@ window.App = (function () {
       ? items.map(function (it) { return planRow(it, openId); }).join('')
       : emptyPlan(t);
 
-    return '<div class="plan' + (allDone ? ' done' : '') + '">' +
+    // незакрытый урок прошлых дней — одной строкой над планом, на любом уровне
+    return (window.Lesson ? Lesson.pendingCard(t) : '') +
+      '<div class="plan' + (allDone ? ' done' : '') + '">' +
       body + sundayEscape(t, d) + planStatus(t, d, allDone) + '</div>' +
       debtsLine() + hwOffer(t) + stageOffer(t);
   }
@@ -673,6 +675,17 @@ window.App = (function () {
   }
 
   /**
+   * Когда переехавший программный урок снова стоит в плане: ближайший учебный
+   * день. Учебные дни — пн–пт: суббота отдана К, воскресенье — радару, поэтому
+   * урок, уступивший пятницу школьному ДЗ, ждёт понедельника, а не субботы.
+   */
+  function nextSchoolDayWord(t) {
+    var next = U.addDays(t, 1);
+    while (U.weekday(next) > 5) next = U.addDays(next, 1);
+    return U.diffDays(t, next) === 1 ? 'завтра' : 'в понедельник';
+  }
+
+  /**
    * Урок. Галочка ставится только валидным «ИТОГОМ УРОКА»: тап по кружку
    * об этом и говорит. Второй урок ждёт, пока закрыт первый.
    */
@@ -711,7 +724,7 @@ window.App = (function () {
       return {
         id: 'l1', tick: 'lesson', title: head,
         sub: 'норма закрыта ДЗ-уроком' +
-          (moved ? ' · программный урок ' + moved + ' — завтра' : ''),
+          (moved ? ' · программный урок ' + moved + ' — ' + nextSchoolDayWord(t) : ''),
         done: (d.lessons || []).indexOf(hw.id) >= 0,
         body: ''
       };

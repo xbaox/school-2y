@@ -246,7 +246,8 @@ window.Lesson = (function () {
       if (!d || !d.copied || !d.copied.length) continue;
       var open = d.copied.filter(function (id) {
         var st = State.s.lessons[id];
-        return (!st || !st.done) &&
+        // ДЗ-урок в copied не пишется, а закрыть его можно только в свой день
+        return !State.isHw(id) && (!st || !st.done) &&
           (d.lessons || []).indexOf(id) < 0 &&
           (d.dropped || []).indexOf(id) < 0;
       });
@@ -255,19 +256,20 @@ window.Lesson = (function () {
     return null;
   }
 
+  /**
+   * Незавершённый урок на «Сегодня» (2.7.7) — одна информационная строка,
+   * без кнопок. Урок не привязан к календарю (доктрина, п. 5): он и так
+   * остался в очереди и закрывается обычным ИТОГом, догонять его не нужно
+   * (п. 4). Скопированный сегодня урок строку гасит — им уже занимаются.
+   */
   function unfinished(todayIso) {
-    var p = findPending(todayIso);
-    if (!p) return '';
-    var l = CONTENT.lesson(p.lessonId);
-    var back = U.diffDays(p.date, todayIso);
-    return '<div class="card2 pending">' +
-      '<div class="t">' + (back === 1 ? 'Вчерашний урок не закрыт' :
-        'Урок от ' + U.esc(U.fmtShort(p.date)) + ' не закрыт') + '</div>' +
-      '<div class="s">' + U.esc(p.lessonId + (l ? ' · ' + l.title : '')) + '</div>' +
-      '<div class="btn-row" style="margin-top:10px">' +
-      '<button class="btn sec" data-drop="' + U.esc(p.lessonId) + '" data-date="' + U.esc(p.date) + '">Урок не состоялся</button>' +
-      '<button class="btn pr" data-late="' + U.esc(p.lessonId) + '" data-date="' + U.esc(p.date) + '">Вставить итог</button>' +
-      '</div></div>';
+    var t = todayIso || State.today();
+    var p = findPending(t);
+    if (!p || State.promptCopied(p.lessonId, t)) return '';
+    var back = U.diffDays(p.date, t);
+    return '<div class="tiny dim center pendline">' +
+      (back === 1 ? 'Вчерашний урок не закрыт' : 'Урок от ' + U.esc(U.fmtShort(p.date)) + ' не закрыт') +
+      ' · ' + U.esc(State.lessonLabel(p.lessonId)) + ' — остался в очереди</div>';
   }
 
   /** Умная primary-кнопка: всегда ровно одна (раздел 7.8). */
@@ -361,13 +363,6 @@ window.Lesson = (function () {
     U.on(host, 'click', '[data-lesson-words]', function (e, el) {
       if (window.Cards) Cards.openLessonWords(el.dataset.lessonWords);
     });
-    U.on(host, 'click', '[data-late]', function (e, el) {
-      openSummary(el.dataset.late, { date: el.dataset.date });
-    });
-    U.on(host, 'click', '[data-drop]', function (e, el) {
-      dropLesson(el.dataset.drop, el.dataset.date);
-      UI.toast('Урок вернулся в очередь. Без штрафа.', 'ok');
-    });
   }
 
   /**
@@ -375,6 +370,8 @@ window.Lesson = (function () {
    * Урок возвращается в очередь без штрафа — done не ставится, очки дня
    * не трогаются, напоминание гаснет. Отметка живёт на дне, а не на уроке:
    * бросить его сегодня и провести завтра — нормальный сценарий.
+   * С 2.7.7 кнопки на «Сегодня» нет (строка без действий); отметку dropped
+   * из старых состояний findPending по-прежнему уважает.
    */
   function dropLesson(lessonId, dateIso) {
     var d = State.day(dateIso || State.today(), true);
