@@ -42,14 +42,17 @@
     fresh();
     var list = State.schoolCourses();
     eq(list.length, 4, 'курсов четыре');
-    eq(list.map(function (c) { return c.code; }), ['MHF4U', 'ENG2D', 'GLC2O', 'ICS3U'],
+    eq(list.map(function (c) { return c.code; }), ['MHF4U', 'ENG2D', 'GLC2O', 'ICS3UE'],
       'коды по умолчанию');
     eq(list.map(function (c) { return c.track; }), ['math', 'write', 'biz', 'cs'],
       'дорожки по умолчанию');
     list.forEach(function (c) {
       ok(c.name && c.name.indexOf('—') > 0, 'код ' + c.code + ' расшифрован');
     });
-    ok(State.schoolCourse('ICS3U').editable, 'код онлайн-информатики правится владельцем');
+    ok(State.schoolCourse('ICS3UE').editable, 'код онлайн-информатики правится владельцем');
+    eq(State.schoolCourse('ICS3UE').name, 'Computer Science online — информатика 11 класса, e-learning (Brightspace)',
+      'имя — как у миграции 2.7.6 (M1)');
+    eq(State.schoolCourse('ICS3U'), null, 'старого предположения ICS3U в свежей установке нет');
 
     eq((State.schoolCourse('mhf4u') || {}).track, 'math', 'код ищется без учёта регистра');
     eq(State.schoolCourse('CHC2D'), null, 'чужого курса в списке нет');
@@ -417,7 +420,7 @@
   describe('долги дорожки без своих категорий (ДЗ по информатике)', function () {
     fresh('S1');
     var HW_CS = 'HW-2026-09-15-cs';
-    takeHw('ICS3U', TUE);
+    takeHw('ICS3UE', TUE);
     State.applySummary(HW_CS, summary({
       debts: ['М2 — не показывает ходы', 'П6 — ярлык вместо предложения']
     }), { date: TUE });
@@ -433,7 +436,7 @@
     eq(open, ['П6', 'М2'], 'доска информатики показывает оба долга');
     eq(State.priorityDebts('cs').length, 2, 'и оба получают ПРИОРИТЕТ');
 
-    takeHw('ICS3U', WED);
+    takeHw('ICS3UE', WED);
     var p = PROMPTS.lesson('HW-2026-09-16-cs', { today: WED });
     ok(p.indexOf('не показывает ходы') > 0, 'долг математики в промпте ДЗ по информатике');
     ok(p.indexOf('ярлык вместо предложения') > 0, 'и долг письма тоже');

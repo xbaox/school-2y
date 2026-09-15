@@ -77,7 +77,7 @@
       scene();
       ['math', 'write', 'biz'].forEach(function (t) { State.track(t).lastLessonDate = '2026-09-14'; });
       State.track('cs').lastLessonDate = '2026-09-14';
-      State.s.radar.push({ id: 'ev-cs', course: 'ICS3U', type: 'test', date: '2026-09-17', note: '', done: false });
+      State.s.radar.push({ id: 'ev-cs', course: 'ICS3UE', type: 'test', date: '2026-09-17', note: '', done: false });
       var r = Waterfall.pick(TUE);
       ok(r.reason.kind !== 'radar', 'радар по курсу без своих уроков молчит — ' + r.reason.text);
       ok(State.lessonTrack(r.lessonId) !== 'all', 'общий блок не выбран: ' + r.lessonId);

@@ -27,7 +27,13 @@
   }
 
   function owner() {
-    var courses = clone(State.SCHOOL_COURSES);
+    // список курсов до 2.7.6: с 2.7.7 дефолт уже ICS3UE, а M1 проверяется на старом
+    var courses = [
+      { code: 'MHF4U', name: 'Advanced Functions — продвинутые функции, 12 класс', track: 'math' },
+      { code: 'ENG2D', name: 'English — английский 10 класса, академический', track: 'write' },
+      { code: 'GLC2O', name: 'Career Studies — карьера и планирование', track: 'biz' },
+      { code: 'ICS3U', name: 'Computer Science онлайн — информатика, e-learning', track: 'cs', editable: true }
+    ];
     return {
       meta: { updatedAt: STAMP, version: 3, onboardedAt: '2026-08-22' },
       settings: { mode: 'school', schoolCourses: courses },
