@@ -578,18 +578,33 @@ window.App = (function () {
 
   /* ---------- пункты плана ---------- */
 
+  /**
+   * Состав колоды дня (2.7.8, Б3) — те же числа, что покажет листалка
+   * (State.deckPlan): fresh — новые и «в работе», долги, повторы. До 2.7.8 здесь
+   * стоял весь активный банк («50 слов + 8 долгов»), хотя колода режется
+   * кэпом 20 и берёт не больше трёх долгов.
+   */
   function deckCounts() {
-    // в колоде столько, сколько сегодня реально надо повторить
-    return { words: State.activeWords().length, debts: State.openDebts().length };
+    var p = State.deckPlan();
+    return { fresh: p.fresh, debts: p.debts.length, reviews: p.reviews, size: p.words.length + p.debts.length };
   }
 
-  function cardsSub() {
-    var c = deckCounts();
-    if (!c.words && !c.debts) return 'колода пуста — видео ~5 мин';
-    var w = State.wordCounts();
-    return c.words + ' ' + U.plural(c.words, 'слово', 'слова', 'слов') +
-      (c.debts ? ' + ' + c.debts + ' ' + U.plural(c.debts, 'долг', 'долга', 'долгов') : '') +
-      (w.known ? ' · выучено ' + w.known : '');
+  /**
+   * «5 новых · 3 долга · 12 повторов · выучено 111» — в порядке колоды.
+   * Нулевые части не пишутся, как «+ 0 долгов» и «выучено 0» не писались
+   * раньше: подпись узкая, а пустую колоду называет своя строка.
+   * «выучено» — по всему банку, как раньше.
+   */
+  function cardsSub(counts) {
+    var c = counts || deckCounts();
+    if (!c.size) return 'колода пуста — видео ~5 мин';
+    var known = State.wordCounts().known;
+    var parts = [];
+    if (c.fresh) parts.push(c.fresh + ' ' + U.plural(c.fresh, 'новое', 'новых', 'новых'));
+    if (c.debts) parts.push(c.debts + ' ' + U.plural(c.debts, 'долг', 'долга', 'долгов'));
+    if (c.reviews) parts.push(c.reviews + ' ' + U.plural(c.reviews, 'повтор', 'повтора', 'повторов'));
+    if (known) parts.push('выучено ' + known);
+    return parts.join(' · ');
   }
 
   /** «карточки: 3/10» — пока шаг «Карточки» не набран (2.7.6, Э5). */
@@ -604,8 +619,8 @@ window.App = (function () {
     var c = deckCounts();
     var prog = cardsProgress(d);
     return {
-      id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(), done: !!ms[0],
-      body: (c.words || c.debts)
+      id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(c), done: !!ms[0],
+      body: c.size
         ? (prog ? '<p class="pnote"><b class="mono">' + U.esc(prog) + '</b> — шаг засчитается сам, ' +
           'когда просмотришь ' + State.cardsStep().need + ' или добьёшь колоду.</p>' : '') +
         '<p class="pnote">Колода дня: слова последнего урока и в работе, до трёх долгов, ' +
@@ -643,10 +658,11 @@ window.App = (function () {
     var prog = cardsProgress(d);
     var steps = [
       {
-        text: (c.words || c.debts)
-          ? 'Карточки: повторить ' + cardsSub() + (prog ? ' · ' + prog : '')
+        // 2.7.8 (Б3): без «повторить» — в колоде не только повторы
+        text: c.size
+          ? 'Карточки: ' + cardsSub(c) + (prog ? ' · ' + prog : '')
           : 'Колода пуста — вместо неё одно видео/аудио на английском ~5 мин',
-        act: (c.words || c.debts)
+        act: c.size
           ? '<button class="btn sec pact" data-cards>Открыть карточки</button>' : ''
       },
       {
