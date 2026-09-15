@@ -67,10 +67,10 @@
 
     var plan = State.deckPlan(T);
     var order = plan.words.map(function (w) { return w.en; });
-    eq(order[0], 'old1', 'первым — подошедший повтор');
-    ok(order.indexOf('old3') < order.indexOf('old2'),
-      'в работе: последний «не знал» впереди');
-    ok(order.indexOf('last1') > order.indexOf('old2'), 'слова последнего урока — после работы');
+    // 2.7.7 (Э3): резерв новых и «в работе» идёт перед повторами
+    eq(plan.lead, 4, 'резерв: два слова последнего урока и два в работе');
+    eq(order.slice(0, plan.lead).sort(), ['last1', 'last2', 'old2', 'old3'], 'резерв — новые и в работе');
+    eq(order[plan.lead], 'old1', 'подошедший повтор — после резерва');
   });
 
   describe('2.7.0 колода: долги ротацией по дню, только открытые', function () {

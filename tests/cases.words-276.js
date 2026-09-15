@@ -57,12 +57,16 @@
     for (var i = 0; i < 22; i++) bank.push({ en: 'due' + i, ru: 'п' + i });
     State.applySummary('B7.1', summary(bank), { date: '2026-09-01' });
     bank.forEach(function (w) { State.s.srs[w.en] = { status: 'known', streak: 3, step: 0, due: '2026-09-10' }; });
-    State.applySummary('B7.2', summary([{ en: 'secant', ru: 'секущая' }]), { date: MON });
+    // 2.7.7 (Э3): под слова последнего урока резерв — пять мест; шестое слово ждёт
+    var six = ['secant', 'cosecant', 'tangent', 'cotangent', 'sine', 'cosine'];
+    State.applySummary('B7.2', summary(six.map(function (en) { return { en: en, ru: 'т' }; })), { date: MON });
 
-    var deck = State.deckPlan(MON).words.map(function (w) { return w.en; });
-    eq(deck.indexOf('secant'), -1, 'в колоду дня слово не влезло — кэп на месте');
-    ok(Object.prototype.hasOwnProperty.call(State.s.srs, 'secant'), 'но в SRS оно есть');
-    eq(State.s.stats.wordsTotal, 23, 'и в счётчике тоже');
+    var plan = State.deckPlan(MON);
+    var deck = plan.words.map(function (w) { return w.en; });
+    eq(plan.words.length, State.DECK_CAP, 'кэп на месте');
+    eq(deck.indexOf('cosine'), -1, 'в колоду дня шестое слово не влезло');
+    ok(Object.prototype.hasOwnProperty.call(State.s.srs, 'cosine'), 'но в SRS оно есть');
+    eq(State.s.stats.wordsTotal, 28, 'и в счётчике тоже');
   });
 
   describe('2.7.6 Э4: Журнал считает слова по колоде', function () {

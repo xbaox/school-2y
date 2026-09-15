@@ -1929,6 +1929,7 @@ window.State = (function () {
 
   var DECK_CAP = 20;        // столько карточек в дне — минималка не растёт
   var DECK_DEBTS = 3;       // столько открытых долгов, ротацией по дню
+  var DECK_FRESH = 5;       // 2.7.7 (Э3): резерв под новые и «в работе»
 
   /** Число из даты — сид для шафла: колода дня стабильна в пределах дня. */
   function daySeed(iso) {
@@ -1938,48 +1939,46 @@ window.State = (function () {
   }
 
   /**
-   * Колода дня (ТЗ 6). Порядок групп, а не свалка:
-   *  1) подошедшие повторы — выученное, чей срок наступил;
-   *  2) в работе, и первыми те, где последний ответ был «не знал»
-   *     (ошибка обнуляет streak, поэтому streak 0 у learning и значит это);
-   *  3) слова последнего урока — их проходят по свежим следам;
-   *  4) остальные активные — добор до кэпа.
-   * Внутри каждой группы порядок перемешан сидом от даты: в пределах дня
-   * колода стабильна, назавтра — другая.
-   * Долги идут отдельной группой: до трёх открытых, ротацией по дню.
+   * Самый свежий итог: наибольшая дата, при равной — вставленный позже.
+   * До 2.7.7 сортировка возвращала 1 и на равных датах — какой из двух итогов
+   * одного дня «последний», зависело от сортировки.
+   */
+  function lastSummary() {
+    var last = null;
+    s.summaries.forEach(function (sum) {
+      if (sum && (!last || String(sum.date || '') >= String(last.date || ''))) last = sum;
+    });
+    return last;
+  }
+
+  /**
+   * Колода дня. 2.7.7 (Э3): места делятся между группами, а не достаются по
+   * очереди групп. До 2.7.7 повторы стояли первыми и при 17+ подошедших
+   * занимали всю колоду: слова последнего урока и «в работе» не показывались
+   * днями (14.09 у владельца — 17 повторов + 3 долга, ни одного из 29 слов в работе).
+   *
+   * Кэп 20: до трёх долгов (ротация по дню); DECK_FRESH = 5 мест — новым и «в работе»;
+   * остальное (12 при трёх долгах) — выученным с наступившим сроком.
+   *  Резерв, по приоритету:
+   *   1) слова последнего итога (lastSummary): сначала ни разу не оценённые, потом в работе;
+   *   2) в работе — «не знал» последним ответом (streak 0) первыми;
+   *   3) прочие новые — по старшинству банка.
+   *  Повторы: самый давний срок первым — места не разыгрываются шафлом,
+   *   и подошедший повтор не застревает за другими.
+   * Незанятый резерв отдаётся повторам, незанятые места повторов — резерву.
+   *
+   * Порядок карточек (Cards.deck): резерв → долги → повторы → добор резерва.
+   * Шаг «Карточки» засчитывается на десятой карточке, поэтому первые десять —
+   * 5 новых/в работе + 3 долга + 2 повтора: свежие слова теряют больше всех от
+   * пропущенного дня, долги идут ротацией и в SRS не живут, а непоказанный
+   * повтор просто остаётся подошедшим назавтра.
+   * Выбор — по приоритету; внутри отрезка порядок перемешан сидом от даты:
+   * в пределах дня колода стабильна, назавтра — другая.
+   * → { words, debts, lead, fresh, reviews, cap }; lead — сколько слов перед долгами.
    */
   function deckPlan(todayIso) {
     var t = todayIso || today();
     var seed = daySeed(t);
-    var lastLesson = null;
-    var sums = s.summaries.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
-    if (sums.length) lastLesson = sums[sums.length - 1].lessonId;
-
-    var lastKeys = {};
-    if (lastLesson) {
-      lessonWords(lastLesson).forEach(function (w) { lastKeys[wordKey(w.en)] = true; });
-    }
-
-    var due = [], learning = [], recent = [], rest = [];
-    activeWords(t).forEach(function (w) {
-      var r = srsRec(w.en);
-      var st = (r && r.status) || 'new';
-      if (st === 'known') due.push(w);
-      else if (st === 'learning') learning.push(w);
-      else if (lastKeys[wordKey(w.en)]) recent.push(w);
-      else rest.push(w);
-    });
-
-    // «не знал» последним ответом — вперёд всей группы
-    learning.sort(function (a, b) {
-      var sa = (srsRec(a.en) || {}).streak || 0, sb = (srsRec(b.en) || {}).streak || 0;
-      return sa - sb;
-    });
-
-    var words = U.shuffle(due, seed)
-      .concat(U.shuffle(learning, seed + 1))
-      .concat(U.shuffle(recent, seed + 2))
-      .concat(U.shuffle(rest, seed + 3));
 
     // долги ротацией по дню: каждый день своя тройка, порядок не случайный
     var open = openDebts();
@@ -1990,10 +1989,47 @@ window.State = (function () {
         debts.push(open[(off + i) % open.length]);
       }
     }
+    var slots = Math.max(0, DECK_CAP - debts.length);
+
+    var last = lastSummary();
+    var lastKeys = {};
+    ((last && last.parsed && last.parsed.words) || []).forEach(function (w) {
+      var k = wordKey(w && w.en);
+      if (k) lastKeys[k] = true;
+    });
+
+    var reviews = [], recentNew = [], recentWork = [], learning = [], rest = [];
+    activeWords(t).forEach(function (w, i) {
+      var r = srsRec(w.en) || {};
+      var st = r.status || 'new';
+      var item = { w: w, i: i, due: r.due || '', streak: r.streak || 0 };
+      if (st === 'known') reviews.push(item);
+      else if (lastKeys[wordKey(w.en)]) (st === 'new' ? recentNew : recentWork).push(item);
+      else if (st === 'learning') learning.push(item);
+      else rest.push(item);
+    });
+    function byStreak(a, b) { return a.streak - b.streak || a.i - b.i; }
+    recentWork.sort(byStreak);
+    learning.sort(byStreak);
+    reviews.sort(function (a, b) { return a.due === b.due ? a.i - b.i : (a.due < b.due ? -1 : 1); });
+    var fresh = recentNew.concat(recentWork, learning, rest);
+
+    var nFresh = Math.min(DECK_FRESH, fresh.length, slots);
+    var nReview = Math.min(reviews.length, slots - nFresh);
+    var nExtra = Math.min(fresh.length - nFresh, slots - nFresh - nReview);
+
+    function take(list, from, n, salt) {
+      return U.shuffle(list.slice(from, from + n).map(function (x) { return x.w; }), seed + salt);
+    }
+    var head = take(fresh, 0, nFresh, 1);
+    var tail = take(reviews, 0, nReview, 2).concat(take(fresh, nFresh, nExtra, 3));
 
     return {
-      words: words.slice(0, Math.max(0, DECK_CAP - debts.length)),
+      words: head.concat(tail),
       debts: debts,
+      lead: head.length,
+      fresh: nFresh + nExtra,
+      reviews: nReview,
       cap: DECK_CAP
     };
   }
@@ -2756,7 +2792,7 @@ window.State = (function () {
     promptCats: promptCats, PROMPT_PRIORITY: PROMPT_PRIORITY,
     deckPlan: deckPlan, deckDone: deckDone, deckCursor: deckCursor,
     cardsStep: cardsStep, CARDS_STEP: CARDS_STEP,
-    setDeckCursor: setDeckCursor, DECK_CAP: DECK_CAP, DECK_DEBTS: DECK_DEBTS,
+    setDeckCursor: setDeckCursor, DECK_CAP: DECK_CAP, DECK_DEBTS: DECK_DEBTS, DECK_FRESH: DECK_FRESH,
     recentWords: recentWords, lastLessonWords: lastLessonWords,
     openDebts: openDebts, debtsCount: debtsCount,
     SRS_INTERVALS: SRS_INTERVALS, SRS_TO_KNOWN: SRS_TO_KNOWN,
