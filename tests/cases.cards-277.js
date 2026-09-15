@@ -50,6 +50,29 @@
 
   function ms() { return ((State.day(MON) || {}).minimalSteps || [false, false]).slice(); }
 
+  /** Шторка с оценкой: переворот, «знал/не знал» (делегированный клик), «дальше». */
+  function openGrading() {
+    var nodes = {}, handlers = [];
+    function node(name) {
+      return nodes[name] || (nodes[name] = { hidden: false, className: '', innerHTML: '', textContent: '', onclick: null, dataset: {} });
+    }
+    var root = {
+      querySelector: node, contains: function () { return true; },
+      addEventListener: function (type, fn) { if (type === 'click') handlers.push(fn); }
+    };
+    var real = UI.sheet;
+    UI.sheet = function (o) { if (o.onMount) o.onMount(root, function () {}); };
+    try { Cards.open(); } finally { UI.sheet = real; }
+    return {
+      flip: function () { node('[data-box]').onclick(); },
+      next: function () { node('[data-next]').onclick(); },
+      know: function (yes) {
+        var el = { dataset: { know: yes ? '1' : '0' } };
+        handlers.forEach(function (h) { h({ target: { closest: function (sel) { return sel === '[data-know]' ? el : null; } } }); });
+      }
+    };
+  }
+
   describe('2.7.7 Э7: десятая карточка ставит шаг сама — одна перерисовка, тост', function () {
     withToday(MON, function () {
       withToasts(function () {
@@ -117,6 +140,49 @@
         for (var i = 0; i < 9; i++) c.next();
         eq(State.day('2026-09-15').minimalSteps, [true, false], 'назавтра счёт с нуля и шаг ставится снова');
         eq(said.length, 1, 'с тостом');
+      });
+    });
+  });
+
+  describe('2.7.7 ревью: «знал» на повторе укорачивает колоду и набирает шаг — отметка ставится', function () {
+    function sum(ws, debts) {
+      return { score: 8, level: 'L2', topics: 'т', words: ws, debts: debts || [], cleared: [],
+        warmup: [], checklist: null, stretch: null, writing: '', raw: '' };
+    }
+    function pile(nReviews) {
+      State.reset();
+      State.syncContent();
+      State.setMode('school');
+      var old = [];
+      for (var i = 0; i < nReviews; i++) old.push({ en: 'old' + i, ru: 'с' + i });
+      State.applySummary('B2.1', sum(old), { date: '2026-09-01' });
+      old.forEach(function (w) { State.s.srs[w.en] = { status: 'known', streak: 3, step: 0, due: '2026-09-12' }; });
+      State.applySummary('B2.2', sum(words(4), ['М1 — раз', 'М2 — два', 'М3 — три']), { date: '2026-09-11' });
+    }
+    function walk(yes) {
+      var deck = Cards.deck(MON);
+      var ui = openGrading();
+      deck.forEach(function (card) {
+        ui.flip();
+        if (card.type === 'word') ui.know(yes); else { ui.flip(); ui.next(); }
+      });
+      return deck.map(function (x) { return x.type === 'debt' ? 'D' : (/^old/.test(x.en) ? 'R' : 'F'); }).join('');
+    }
+    withToday(MON, function () {
+      [2, 4].forEach(function (n) {
+        withToasts(function () {
+          pile(n);
+          var layout = walk(true);
+          eq(layout, 'FFFFDDD' + (n === 2 ? 'RR' : 'RRRR'), 'колода ' + layout);
+          eq([State.deckDone(MON), State.cardsStep(MON).ok], [true, true], n + ' повтора: колода добита, шаг набран');
+          eq(ms(), [true, false], n + ' повтора, «знал» на всём: шаг поставлен сам');
+          eq(said.filter(function (m) { return m === 'Карточки засчитаны'; }).length, 1, 'и один тост');
+        });
+      });
+      withToasts(function () {
+        pile(2);
+        walk(false);
+        eq(ms(), [true, false], 'контроль: «не знал» — колода не короче, шаг ставится добитой колодой');
       });
     });
   });
