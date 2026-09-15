@@ -416,7 +416,9 @@ window.Cards = (function () {
           // шагнули вперёд — а не когда просто её открыли. 2.7.6: и только если
           // сегодня показаны все карточки колоды — «← назад» с первой уводит
           // кольцом на последнюю, и два нажатия отмечали колоду добитой
+          var wasOk = State.cardsStep().ok;
           State.setDeckCursor(idx, { done: n > 0 && was === list2.length - 1 && allSeen(list2) });
+          creditStep(wasOk);             // 2.7.7 (Э7): добитая колода ставит шаг сама
           paint();                       // отметку ставит сам paint, по ключу карточки
         }
         box.onclick = function () { flipped = !flipped; paint(); };
@@ -453,12 +455,26 @@ window.Cards = (function () {
     var t = State.today();
     if (c.lastDay !== t) { c.lastDay = t; c.seen = []; c.viewedToday = 0; }
     if (c.seen.indexOf(key) >= 0) return;        // ту же карточку второй раз не считаем
+    var before = State.cardsStep ? State.cardsStep(t) : { ok: true, need: 0 };
     c.seen.push(key);
     c.viewedToday = c.seen.length;
+    // 2.7.7 (Э7): шаг набран этой карточкой — ставим его сами (одна перерисовка внутри)
+    if (creditStep(before.ok)) return;
     // 2.7.6: в момент, когда шаг «Карточки» набран, план на «Сегодня»
     // перерисовывается — иначе «карточки: 9/10» висело до следующей правки
-    var need = State.cardsStep ? State.cardsStep(t).need : 0;
-    State.touch(c.viewedToday !== need);
+    State.touch(c.viewedToday !== before.need);
+  }
+
+  /**
+   * 2.7.7 (Э7): шаг «Карточки» минималки ставится сам — только на переходе
+   * «не набран → набран». Снятая руками галочка следующей карточкой не
+   * возвращается: шаг уже был набран до неё, перехода нет.
+   * → true, если отметка поставлена
+   */
+  function creditStep(wasOk) {
+    if (wasOk || !State.autoCardsStep || !State.autoCardsStep()) return false;
+    UI.toast('Карточки засчитаны', 'ok');
+    return true;
   }
 
   /** Все карточки колоды показаны сегодня. */
