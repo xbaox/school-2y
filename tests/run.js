@@ -185,6 +185,57 @@ function withToday(iso, fn) {
 ctx.describe = describe; ctx.ok = ok; ctx.eq = eq; ctx.defer = defer;
 ctx.withToday = withToday;
 
+/* ---------- 2.7.7 (Э11): тексты репозитория для проверки на личные данные ---------- */
+
+/**
+ * Только файлы, отслеживаемые git: ТЗ, отчёты, spec/ и экспорты владельца лежат
+ * рядом, но в публичный репозиторий не идут. Без git (архивная копия) — обход
+ * дерева без того, что закрывает .gitignore. Картинки не читаются.
+ */
+function repoFiles() {
+  let list = null;
+  try {
+    list = require('child_process')
+      .execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\0').filter(Boolean);
+  } catch (e) { list = null; }
+  if (!list || !list.length) {
+    let ignore = [];
+    try {
+      ignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8').split(/\r?\n/)
+        .map(s => s.trim()).filter(s => s && s[0] !== '#')
+        .map(g => new RegExp('(^|/)' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+          .replace(/\*/g, '[^/]*').replace(/\/$/, '(/|$)') + (/\/$/.test(g) ? '' : '$')));
+    } catch (e) { ignore = []; }
+    list = [];
+    (function walk(dir) {
+      for (const f of fs.readdirSync(path.join(root, dir))) {
+        const rel = dir ? dir + '/' + f : f;
+        if (f === '.git' || f === 'node_modules' || ignore.some(re => re.test(rel))) continue;
+        if (fs.statSync(path.join(root, rel)).isDirectory()) walk(rel); else list.push(rel);
+      }
+    })('');
+  }
+  return list
+    .filter(p => !/\.(png|ico|jpe?g|webp|gif)$/i.test(p) && fs.existsSync(path.join(root, p)))
+    .map(p => ({ path: p, text: fs.readFileSync(path.join(root, p), 'utf8') }));
+}
+
+/**
+ * Список фамилий и названий, которых не должно быть в репозитории, живёт вне
+ * его — spec/privacy-denylist.txt (spec/ в .gitignore): одно слово в строке,
+ * # — комментарий. Нет файла — проверка по списку пустая, остальные правила идут.
+ */
+function denylist() {
+  try {
+    return fs.readFileSync(path.join(root, 'spec', 'privacy-denylist.txt'), 'utf8')
+      .split(/\r?\n/).map(s => s.replace(/#.*/, '').trim().toLowerCase()).filter(Boolean);
+  } catch (e) { return []; }
+}
+
+ctx.__repoFiles = repoFiles;
+ctx.__denylist = denylist;
+
 /* ---------- наборы проверок ---------- */
 
 const CASES = fs.readdirSync(__dirname)
