@@ -137,9 +137,11 @@ window.State = (function () {
    * M2. Схема — как у кнопки «+ событие»: {id, done, course, type, date, note}.
    * Поля заголовка у события нет — текст таблицы ТЗ живёт в note, его экран и
    * показывает. Типы — из Radar.TYPES: квиз и тесты (unit test, конкурс CSMC) —
-   * оценочные quiz и test; типа «дело/встреча» в наборе нет, новых не вводим —
-   * остальные события получают assignment («сдача»: дело к сроку). Курс — как
-   * в ТЗ; у событий без курса — пустая строка.
+   * оценочные quiz и test; типа «дело/встреча» в 2.7.6 не было —
+   * остальные события получили assignment («сдача»: дело к сроку). Курс — как
+   * в ТЗ; у событий без курса — пустая строка. 2.7.7 ввёл тип todo, и пять
+   * из них переводит в него миграция 2.7.7 (MIG_277_TODO), а не эта таблица:
+   * выпущенная миграция не переписывается.
    */
   var M2_EVENTS = [
     { id: 'ev-2026-09-14-guidance', course: '', type: 'assignment', date: '2026-09-14',
@@ -160,6 +162,24 @@ window.State = (function () {
       note: 'ENG2D ≈ до 25.09 (дата по outline, «tentative»): сборник стихов + in-class анализ стихотворения' },
     { id: 'ev-2026-11-18-csmc', course: 'MHF4U', type: 'test', date: '2026-11-18',
       note: 'CSMC — Canadian Senior Mathematics Contest (тренировочный год)' }
+  ];
+
+  /* ---------- 2.7.7: разовая правка данных (ТЗ 2.7.7, Э5) ----------
+     Маркер — тот же meta.migrations; шаг идёт после 2.7.6 в том же вызове
+     migrate, поэтому состояние 2.7.5 проходит обе правки за одну загрузку.
+     meta.updatedAt не двигает (урок 2.7.5). */
+
+  var MIG_277 = '2.7.7';
+
+  /**
+   * События M2, которые не оценка, а дело к сроку: запись к консультанту,
+   * регистрация на конкурс, письмо, ориентация и старт онлайн-курса. Тип
+   * todo, курс не трогается. Условие — тип assignment, который дала M2:
+   * событие, которому владелец сменил тип руками, не трогается.
+   */
+  var MIG_277_TODO = [
+    'ev-2026-09-14-guidance', 'ev-2026-09-14-csmc-registration', 'ev-2026-09-15-volunteer-letter',
+    'ev-2026-09-16-ics3ue-zoom', 'ev-2026-09-17-ics3ue-start'
   ];
 
   /** M3. Карточка вопросов: тип не меняется, пунктов ровно три. */
@@ -549,6 +569,16 @@ window.State = (function () {
     // счётчик слов — число ключей SRS (Э4): после M5 и долечивания слов
     countWords(out);
 
+    // 2.7.7: после 2.7.6 и в том же вызове — маркер читаем из out, куда
+    // 2.7.6 только что дописала свой (состояние 2.7.5 проходит обе правки)
+    var done277 = migrationsOf(out);
+    lastMig277 = null;
+    if (done277.indexOf(MIG_277) < 0) {
+      lastMig277 = migrate277(out);
+      out.meta.migrations = done277.concat(MIG_277);
+      if (lastMig277.todo.length) console.log('[migrate 2.7.7] событий → дело: ' + lastMig277.todo.join(', '));
+    }
+
     // 2.7.7 (Э4): рекорд серии не ниже текущей серии. Серия выводится из дней,
     // поэтому поправка детерминирована, повторяется на каждом устройстве и
     // updatedAt не двигает: так рекорд сходится с серией и без действий
@@ -562,6 +592,18 @@ window.State = (function () {
   /* ---------- 2.7.6: миграция данных ---------- */
 
   var lastMig276 = null;
+  var lastMig277 = null;
+
+  /** 2.7.7 (Э5): пять событий M2 → тип todo. → отчёт {todo: [id]} */
+  function migrate277(out) {
+    var rep = { todo: [] };
+    out.radar.forEach(function (e) {
+      if (!e || MIG_277_TODO.indexOf(e.id) < 0 || e.type !== 'assignment') return;
+      e.type = 'todo';
+      rep.todo.push(e.id);
+    });
+    return rep;
+  }
 
   function migrationsOf(o) {
     var m = o && o.meta && o.meta.migrations;
@@ -2778,6 +2820,7 @@ window.State = (function () {
     boardTrack: boardTrack,
     migrationReport: function () { return lastV3; },
     migrationReport276: function () { return lastMig276; }, MIG_276: MIG_276, isM3Card: isM3Card,
+    migrationReport277: function () { return lastMig277; }, MIG_277: MIG_277, MIG_277_TODO: MIG_277_TODO,
     M2_EVENTS: M2_EVENTS, M3_ITEMS: M3_ITEMS, M4_TODOS: M4_TODOS,
     holdsStreak: holdsStreak, streakPoints: streakPoints, bumpBestStreak: bumpBestStreak,
     subscribe: subscribe, emit: emit,

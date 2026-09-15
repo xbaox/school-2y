@@ -79,7 +79,7 @@ window.Waterfall = (function () {
   }
 
   function typeName(t) {
-    return { test: 'тест', quiz: 'квиз', assignment: 'сдача', exam: 'экзамен' }[t] || 'событие';
+    return { test: 'тест', quiz: 'квиз', assignment: 'сдача', exam: 'экзамен', todo: 'дело' }[t] || 'событие';
   }
 
   function whenText(days) {
@@ -90,10 +90,14 @@ window.Waterfall = (function () {
 
   /* ---------- правила ---------- */
 
-  /** 1. Радар: школьное событие ≤3 дней. Урок — своей дорожки курса, не общий блок. */
+  /**
+   * 1. Радар: школьное событие ≤3 дней. Урок — своей дорожки курса, не общий блок.
+   * «Дело» (todo, 2.7.7) урок не назначает: запись на конкурс по MHF4U — не
+   * сдача, и 14.09 причина «радар: сдача MHF4U сегодня» была ложной.
+   */
   function ruleRadar(t, exclude) {
     var events = (State.s.radar || [])
-      .filter(function (e) { return !e.done && e.date >= t && U.diffDays(t, e.date) <= 3; })
+      .filter(function (e) { return e && !e.done && e.type !== 'todo' && e.date >= t && U.diffDays(t, e.date) <= 3; })
       .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var phase = State.currentPhase(t);
     for (var i = 0; i < events.length; i++) {
@@ -503,7 +507,7 @@ window.Waterfall = (function () {
       cond: 'срок блока сегодня или позади, урок в нём не закрыт — или незакрытых уроков не меньше, чем будних дней до срока',
       act: '→ этот блок'
     },
-    { kind: 'radar', n: 3, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней', act: '→ этот предмет' },
+    { kind: 'radar', n: 3, name: 'Радар', cond: 'школьный тест или сдача ≤ 3 дней («дело» не в счёт)', act: '→ этот предмет' },
     { kind: 'fresh', n: 4, name: 'Свежесть', cond: 'дорожку не трогали ≥ 5 дней, и у неё есть свои уроки в фазе', act: '→ она' },
     { kind: 'pace', n: 5, name: 'Светофор блока', cond: 'дедлайн блока горит красным', act: '→ этот блок' },
     { kind: 'debts', n: 6, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },

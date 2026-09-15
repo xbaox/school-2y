@@ -8,12 +8,25 @@
 window.Radar = (function () {
   'use strict';
 
+  /**
+   * Типы событий. 2.7.7 (Э5): «дело» (todo) — событие к сроку, но не оценка:
+   * запись к консультанту, регистрация, письмо. Курс у него не обязателен,
+   * и урок дня оно не назначает (Waterfall.ruleRadar его пропускает).
+   */
   var TYPES = [
     { id: 'test', name: 'тест' },
     { id: 'quiz', name: 'мини-тест' },
     { id: 'assignment', name: 'сдача' },
-    { id: 'exam', name: 'экзамен' }
+    { id: 'exam', name: 'экзамен' },
+    { id: 'todo', name: 'дело' }
   ];
+
+  /** Тип «дело»: курс не обязателен, на водопад не влияет. */
+  var TODO_TYPE = 'todo';
+
+  function typeName(id) {
+    return (TYPES.filter(function (x) { return x.id === id; })[0] || { name: id }).name;
+  }
 
   /** Пять пунктов воскресного чек-листа (раздел 6.3). */
   var CHECKLIST = [
@@ -586,7 +599,7 @@ window.Radar = (function () {
     var left = U.diffDays(t, e.date);
     var cls = e.done ? 'dim' : (left <= 3 && left >= 0 ? 'r' : (left < 0 ? 'dim' : ''));
     var track = CONTENT.trackForCourse(e.course);
-    var type = (TYPES.filter(function (x) { return x.id === e.type; })[0] || { name: e.type }).name;
+    var type = typeName(e.type);
     // карточка вопросов в списке событий: с 14.09 (2.7.6, M3) она в ближайших,
     // и сырой тип «questions» без заголовка ничего не говорил
     if (e.type === 'questions') type = 'вопросы · ' + (e.title || '');
@@ -598,7 +611,8 @@ window.Radar = (function () {
       (e.course ? U.esc(e.course) + ' · ' : '') + U.esc(type) + '</div>' +
       '<div class="s mono ' + cls + '">' + U.fmtShort(e.date) + ' · ' +
       (left < 0 ? 'прошло' : (left === 0 ? 'сегодня' : (left === 1 ? 'завтра' : 'через ' + U.days(left)))) +
-      (track || !e.course ? '' : ' · уроки по нему не назначаются') +
+      // дело (2.7.7) урок дня не назначает никогда — пометка про курс без дорожки ему не нужна
+      (track || !e.course || e.type === TODO_TYPE ? '' : ' · уроки по нему не назначаются') +
       (e.note ? ' · ' + U.esc(e.note) : '') + '</div></button>' +
       '<button class="rmini" data-event-done="' + U.esc(e.id) + '" aria-label="' +
       (e.done ? 'Вернуть событие в список' : 'Отметить событие пройденным') + '">' +
@@ -691,14 +705,16 @@ window.Radar = (function () {
     var courses = Object.keys(CONTENT.COURSE_TRACK).concat(CONTENT.COURSES_NO_TRACK);
     var def = existing ? existing.date : U.addDays(State.today(), 7);
     var known = existing ? courses.indexOf(existing.course) >= 0 : true;
-    var startCourse = existing ? (known ? existing.course : 'other') : courses[0];
+    // 2.7.7 (Э5): событие без курса открывается на чипе «без курса»
+    var startCourse = existing ? (!existing.course ? 'none' : (known ? existing.course : 'other')) : courses[0];
     var startType = existing ? existing.type : TYPES[0].id;
     UI.sheet({
       title: isQuestions ? 'Карточка вопросов' : (existing ? 'Событие радара' : 'Новое событие'),
       sub: isQuestions
         ? 'Заголовок и дата. Тип у карточки вопросов не меняется — иначе она уйдёт ' +
         'с экрана вместе с записанными ответами.'
-        : 'Код курса — как он записан в твоём расписании. Тип, дата. Заметка — по желанию.',
+        : 'Код курса — как он записан в твоём расписании. Тип, дата. Заметка — по желанию. ' +
+        'У «дела» курс не обязателен, и урок дня оно не назначает.',
       body:
         (isQuestions
           ? '<input class="txt" data-title placeholder="заголовок карточки" value="' +
@@ -707,7 +723,9 @@ window.Radar = (function () {
             return '<button class="chip' + (c === startCourse ? ' on' : '') + '" data-course="' + U.esc(c) +
               '" aria-pressed="' + (c === startCourse) + '">' + U.esc(c) + '</button>';
           }).join('') + '<button class="chip' + (startCourse === 'other' ? ' on' : '') +
-          '" data-course="other" aria-pressed="' + (startCourse === 'other') + '">свой…</button></div>' +
+          '" data-course="other" aria-pressed="' + (startCourse === 'other') + '">свой…</button>' +
+          '<button class="chip' + (startCourse === 'none' ? ' on' : '') +
+          '" data-course="none" aria-pressed="' + (startCourse === 'none') + '">без курса</button></div>' +
           '<input class="txt' + (startCourse === 'other' ? '' : ' hidden') + '" data-other placeholder="код курса" value="' +
           (startCourse === 'other' ? U.esc(existing.course) : '') + '">') +
         '<div class="chips" data-types>' +
@@ -742,6 +760,7 @@ window.Radar = (function () {
           el.classList.add('on');
           el.setAttribute('aria-pressed', 'true');
           course = el.dataset.course;
+          err.textContent = '';
           other.classList.toggle('hidden', course !== 'other');
           if (course === 'other') other.focus();
         });
@@ -772,12 +791,16 @@ window.Radar = (function () {
             UI.toast('Карточка вопросов обновлена', 'ok');
             return;
           }
-          var code = course === 'other' ? (other.value || '').trim().toUpperCase() : course;
-          // событие без курса (2.7.6: запись к консультанту, письмо) так и сохраняется
-          var courseless = !!existing && !existing.course && course === 'other';
+          var code = course === 'other' ? (other.value || '').trim().toUpperCase() : (course === 'none' ? '' : course);
+          // событие без курса (2.7.6: запись к консультанту, письмо) так и сохраняется;
+          // 2.7.7 (Э5): у «дела» курс не обязателен вовсе
+          var courseless = type === TODO_TYPE ||
+            (!!existing && !existing.course && (course === 'other' || course === 'none'));
           if (!code && !courseless) {
-            err.textContent = 'Впиши код курса — по нему приложение находит дорожку.';
-            other.focus();
+            err.textContent = course === 'none'
+              ? 'Без курса — только «дело». Тесту и сдаче нужен код курса: по нему приложение находит дорожку.'
+              : 'Впиши код курса — по нему приложение находит дорожку.';
+            if (course === 'other') other.focus();
             return;
           }
           var item = existing || { id: U.uid(), done: false };
@@ -788,7 +811,8 @@ window.Radar = (function () {
           if (!existing) State.s.radar.push(item);
           State.touch();
           close();
-          UI.toast(existing ? 'Событие ' + code + ' обновлено' : 'Событие ' + code + ' в радаре', 'ok');
+          var label = code || typeName(type);
+          UI.toast(existing ? 'Событие ' + label + ' обновлено' : 'Событие ' + label + ' в радаре', 'ok');
         };
       }
     });
@@ -900,7 +924,7 @@ window.Radar = (function () {
   App.register('radar', { render: render, mount: mount });
 
   return {
-    CHECKLIST: CHECKLIST, SEED_TODOS: SEED_TODOS, TYPES: TYPES,
+    CHECKLIST: CHECKLIST, SEED_TODOS: SEED_TODOS, TYPES: TYPES, TODO_TYPE: TODO_TYPE, typeName: typeName,
     QUESTIONS_SEED: QUESTIONS_SEED, QUESTIONS_UNTIL: QUESTIONS_UNTIL,
     seedQuestions: seedQuestions, questionsBlock: questionsBlock,
     questionsOnToday: questionsOnToday, questionsSection: questionsSection,
