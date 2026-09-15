@@ -63,7 +63,7 @@
       var st = State.migrate(src);
       var rep = State.migrationReport276();
 
-      eq(st.meta.migrations, ['2.7.6'], 'маркер выполнения записан');
+      eq(st.meta.migrations, ['2.7.6', '2.7.7'], 'маркер выполнения записан (и 2.7.7 следом)');
       eq(st.meta.version, 3, 'схема осталась третьей');
       eq(st.meta.updatedAt, STAMP, 'updatedAt миграция не двигает');
 
@@ -81,7 +81,7 @@
         note: 'Квиз MHF4U — разделы 1.1–1.3 (таблица 7×9 + модуль)' }, 'схема события — как у «+ событие»');
       ok(st.radar.every(function (e) {
         return e.type === 'questions' || Radar.TYPES.some(function (t) { return t.id === e.type; });
-      }), 'новых типов событий нет');
+      }), 'типы событий — из Radar.TYPES (2.7.7: пять из них — «дело»)');
       eq(byId(st.radar, 'ev-2026-09-14-guidance').course, '', 'у записи к консультанту курса нет');
       eq(CONTENT.trackForCourse(byId(st.radar, 'ev-2026-09-16-ics3ue-zoom').course), 'cs', 'ICS3UE → информатика');
       eq(CONTENT.trackForCourse(byId(st.radar, 'ev-2026-09-25-eng2d-poetry').course), 'write', 'ENG2D → письмо');
@@ -169,7 +169,7 @@
       eq(Radar.migrateTodos(), 0, 'после 2.7.6 дела плана не переписываются');
       // push отправляет State.s целиком — маркер уезжает в облако вместе с состоянием,
       // и pull на втором устройстве шаг 2.7.6 уже не запускает
-      eq(State.s.meta.migrations, ['2.7.6'], 'маркер лежит в состоянии, которое уходит в облако');
+      eq(State.s.meta.migrations, ['2.7.6', '2.7.7'], 'маркер лежит в состоянии, которое уходит в облако');
       State.replace(clone(State.s), true);
       eq(State.migrationReport276(), null, 'приехавшее с маркером состояние повторно не мигрирует');
     });
@@ -191,7 +191,7 @@
       eq(fq.items.length, 3, 'снова три пункта');
       eq(fq.title, 'Консультант, пн 14.09 — три вопроса', 'заголовок M3');
       eq([fq.items[0].done, fq.items[0].note], [true, 'распечатку дадут в среду'], 'отметка и ответ целы');
-      eq(fixed.meta.migrations, ['2.7.6'], 'маркер один');
+      eq(fixed.meta.migrations, ['2.7.6', '2.7.7'], 'маркер каждого пакета один');
     });
   });
 

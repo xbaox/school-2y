@@ -986,7 +986,9 @@ window.App = (function () {
     ['State', 'startHw'], ['PROMPTS', 'hwBlock'],
     // 2.7.6: заголовок ИТОГа, свои уроки дорожки, колода и план дня, миграция
     ['PROMPTS', 'headerMatches'], ['Waterfall', 'nextOwnLesson'], ['State', 'enrollWords'],
-    ['State', 'cardsStep'], ['State', 'planOf'], ['State', 'isM3Card']
+    ['State', 'cardsStep'], ['State', 'planOf'], ['State', 'isM3Card'],
+    // 2.7.7: дедлайн заранее, миграция событий-дел
+    ['Waterfall', 'schoolDays'], ['State', 'migrationReport277']
   ];
 
   function mixedBundle() {
@@ -1023,7 +1025,8 @@ window.App = (function () {
     if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
     // миграция 2.7.6 прошла при load() в памяти: сохраняем маркер без подъёма
     // updatedAt — load() сам не пишет, а «новее» правка состояние не делает
-    if (State.migrationReport276 && State.migrationReport276()) State.save();
+    if ((State.migrationReport276 && State.migrationReport276()) ||
+      (State.migrationReport277 && State.migrationReport277())) State.save();
     register('today', Today);
     buildShell();
     booted = true;
