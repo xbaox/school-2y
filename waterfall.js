@@ -9,7 +9,8 @@
    6. Шаблон недели. Воскресенье — радар-день, урок не назначается.
    Дорожка без доступных уроков пропускается всеми правилами.
    Общий блок (track: 'all', финалы Б16) назначают только дедлайн и шаблон
-   недели: радар, свежесть, светофор и долги смотрят на свои блоки дорожки.
+   недели: радар, свежесть, светофор и долги смотрят на свои блоки дорожки,
+   а шаблон отдаёт общий блок, лишь когда своих уроков в фазе нет ни у кого.
    ============================================================ */
 
 window.Waterfall = (function () {
@@ -230,26 +231,56 @@ window.Waterfall = (function () {
     };
   }
 
-  /** 5. Шаблон недели. Четверг чередует информатику и бизнес по чётности недели. */
+  /** Дорожки слота дня по шаблону; четверг чередует информатику и бизнес по чётности недели. */
+  function slotTracks(iso) {
+    var slot = WEEK[U.weekday(iso)];
+    if (!slot) return [];
+    if (slot !== 'alt') return [slot];
+    var evenWeek = Math.abs(U.diffDays('2026-08-17', U.weekStart(iso)) / 7) % 2 === 0;
+    return evenWeek ? ['cs', 'biz'] : ['biz', 'cs'];
+  }
+
+  function trackLower(id) { return State.trackName(id).toLowerCase(); }
+
+  /**
+   * 5. Шаблон недели.
+   * 2.7.7 (Э2): дорожка слота без своих незакрытых уроков в фазе пропускается —
+   * урок берёт следующая по шаблону дорожка со своими уроками: слоты идут
+   * вперёд от сегодняшнего (чт → пт → сб → пн …; у воскресенья дорожки нет).
+   * У инфы и бизнеса своих блоков в Ф1 нет, и шаблон отдавал четверг общему
+   * блоку — финалам Б16 в начале октября. Общий блок шаблон отдаёт, только
+   * когда своих уроков в фазе нет ни у одной дорожки.
+   */
   function ruleTemplate(t, exclude) {
     var wd = U.weekday(t);
-    var slot = WEEK[wd];
-    if (!slot) return null;
-    var wanted;
-    if (slot === 'alt') {
-      var evenWeek = Math.abs(U.diffDays('2026-08-17', U.weekStart(t)) / 7) % 2 === 0;
-      wanted = evenWeek ? ['cs', 'biz'] : ['biz', 'cs'];
-    } else {
-      wanted = [slot];
+    var wanted = slotTracks(t).filter(function (x) { return x !== exclude; });
+    if (!wanted.length) return null;
+    var phase = State.currentPhase(t);
+    for (var k = 0; k < 7; k++) {
+      var list = k ? slotTracks(U.addDays(t, k)) : wanted;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] === exclude) continue;
+        var own = nextOwnLesson(list[i], phase);
+        if (!own) continue;
+        return {
+          track: list[i],
+          lessonId: own,
+          reason: {
+            kind: 'plan',
+            text: 'шаблон: ' + WD_NAME[wd] + ' — ' +
+              (k ? wanted.map(trackLower).join('/') + ' без уроков, дальше ' : '') + trackLower(list[i])
+          }
+        };
+      }
     }
+    // своих уроков в фазе нет ни у одной дорожки — общая очередь дорожки
+    // слота (pick берёт State.nextLessonInTrack), в ней и общий блок
     var track = firstAvailable(wanted, exclude);
     if (!track) return null;
     return {
       track: track,
-      // свой урок фазы — в порядке сроков; своих нет (инфа и бизнес в Ф1) —
-      // общая очередь дорожки, в ней и общий блок: его шаблон брать может
-      lessonId: nextOwnLesson(track, State.currentPhase(t)),
-      reason: { kind: 'plan', text: 'шаблон: ' + WD_NAME[wd] + ' — ' + State.trackName(track).toLowerCase() }
+      lessonId: null,
+      reason: { kind: 'plan', text: 'шаблон: ' + WD_NAME[wd] + ' — ' + trackLower(track) }
     };
   }
 
@@ -478,7 +509,8 @@ window.Waterfall = (function () {
     { kind: 'debts', n: 6, name: 'Долги', cond: '≥ 5 незакрытых слабых мест по дорожке', act: '→ она' },
     {
       kind: 'plan', n: 7, name: 'Шаблон недели',
-      cond: 'пн мат · вт письмо · ср мат · чт инфа/бизнес · пт мат · сб письмо ⭐ · вс радар', act: '→ по шаблону'
+      cond: 'пн мат · вт письмо · ср мат · чт инфа/бизнес · пт мат · сб письмо ⭐ · вс радар; ' +
+        'у дорожки дня нет своих уроков в фазе — следующая по шаблону', act: '→ по шаблону'
     }
   ];
 
@@ -510,7 +542,7 @@ window.Waterfall = (function () {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
     hasLessonsNow: hasLessonsNow, nextOwnLesson: nextOwnLesson,
-    ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday, schoolDays: schoolDays,
+    ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday, ruleTemplate: ruleTemplate, schoolDays: schoolDays,
     EXPLAIN: EXPLAIN,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };
