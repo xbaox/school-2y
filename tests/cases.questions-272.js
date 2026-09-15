@@ -98,9 +98,9 @@
 
     // отмеченный пункт и записанный ответ видны в разметке
     ev().items[0].done = true;
-    ev().items[0].note = 'ICS3U, Brightspace, дома';
+    ev().items[0].note = 'ICS3UE, Brightspace, дома';
     var html2 = Radar.questionsBlock('2026-09-08');
-    ok(html2.indexOf('value="ICS3U, Brightspace, дома"') > 0, 'ответ в поле');
+    ok(html2.indexOf('value="ICS3UE, Brightspace, дома"') > 0, 'ответ в поле');
     ok(html2.indexOf('1 из 8') > 0, 'счётчик вырос');
   });
 

@@ -9,7 +9,8 @@ describe('маппинг курсов на дорожки (раздел 9)', fun
   eq(CONTENT.trackForCourse('ENG4U'), 'write', 'английский 12');
   eq(CONTENT.trackForCourse('OSSLT'), 'write', 'тест грамотности');
   eq(CONTENT.trackForCourse('IELTS'), 'write', 'языковой экзамен');
-  eq(CONTENT.trackForCourse('ICS3U'), 'cs', 'информатика');
+  eq(CONTENT.trackForCourse('ICS3U'), 'cs', 'информатика: старый код в событиях радара');
+  eq(CONTENT.trackForCourse('ICS3UE'), 'cs', 'информатика: код курса с 2.7.6');
   eq(CONTENT.trackForCourse('BMI3C'), 'biz', 'маркетинг');
   eq(CONTENT.trackForCourse('BOH4M'), 'biz', 'лидерство');
   eq(CONTENT.trackForCourse('eslao'), 'write', 'ESL по префиксу, регистр не важен');
