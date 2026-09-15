@@ -1746,12 +1746,36 @@ window.State = (function () {
     return b ? b.track : null;
   }
 
-  /** Следующий непройденный урок дорожки (доктрина 5). Блоки — по порядку номеров. */
-  function nextLessonInTrack(trackId, phaseId) {
-    var ids = Object.keys(s.blocks).sort(function (a, b) { return blockNum(a) - blockNum(b); });
+  function phaseIndex(phaseId) {
+    for (var i = 0; i < PHASES.length; i++) if (PHASES[i].id === phaseId) return i;
+    return PHASES.length;
+  }
+
+  /**
+   * Порядок очереди блоков (2.7.7, Э6): фаза → срок блока (без срока — в конце
+   * фазы) → номер. Этап 7 пакета 2.7.6 развёл номер и срок у письма (Б12 20.12,
+   * Б14 22.11): очередь по номеру отдавала Б12, пока горел Б14. Внутри фазы это
+   * ровно порядок водопада — Waterfall.nextOwnLesson зовёт эту же функцию.
+   */
+  function compareBlocks(a, b) {
+    var ba = s.blocks[a], bb = s.blocks[b];
+    var pa = phaseIndex(ba.phase), pb = phaseIndex(bb.phase);
+    if (pa !== pb) return pa - pb;
+    var da = ba.deadline || '9999', db = bb.deadline || '9999';
+    if (da !== db) return da < db ? -1 : 1;
+    return blockNum(a) - blockNum(b);
+  }
+
+  /**
+   * Следующий непройденный урок дорожки (доктрина 5), в порядке compareBlocks.
+   * Общий блок (track: 'all') стоит в очереди каждой дорожки; ownOnly — только
+   * свои блоки дорожки (Waterfall.nextOwnLesson).
+   */
+  function nextLessonInTrack(trackId, phaseId, ownOnly) {
+    var ids = Object.keys(s.blocks).sort(compareBlocks);
     for (var i = 0; i < ids.length; i++) {
       var b = s.blocks[ids[i]];
-      if (trackId && b.track !== trackId && b.track !== 'all') continue;
+      if (trackId && b.track !== trackId && (ownOnly || b.track !== 'all')) continue;
       if (phaseId && b.phase !== phaseId) continue;
       var list = activeLessons(ids[i]);
       for (var j = 0; j < list.length; j++) {
@@ -1762,7 +1786,7 @@ window.State = (function () {
     return null;
   }
 
-  /** Следующий непройденный урок вообще (по порядку блоков). */
+  /** Следующий непройденный урок вообще (в порядке очереди блоков). */
   function nextLesson() { return nextLessonInTrack(null, null); }
 
   /**

@@ -196,7 +196,7 @@
     });
     State.s.tracks.forEach(function (tr) { if (!tr.embedded) tr.lastLessonDate = '2026-11-01'; });
     eq(Waterfall.nextOwnLesson('write', 'p1'), 'B14.1', 'очередь письма: Б14 (срок 22.11) раньше Б12 (20.12)');
-    eq(State.nextLessonInTrack('write'), 'B12.1', 'сквозная очередь дорожки — прежняя, по номеру');
+    eq(State.nextLessonInTrack('write'), 'B14.1', '2.7.7 (Э6): сквозная очередь дорожки — тоже по сроку');
     withToday('2026-11-03', function () {
       var p = Waterfall.pick('2026-11-03');
       eq([p.lessonId, p.reason.kind], ['B14.1', 'plan'], 'вторник по шаблону — Б14.1');
