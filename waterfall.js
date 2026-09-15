@@ -374,7 +374,13 @@ window.Waterfall = (function () {
     }
     var same = State.nextLesson();
     if (!same || same === firstLessonId || isAll(same)) return null;
-    return { lessonId: same, reason: NO_OTHER };
+    // 2.7.7 (ревью): общая очередь ставит свои блоки раньше общего — после
+    // урока общего блока отсюда приходит урок другой дорожки (К после Б16),
+    // и бейдж «другой дорожки нет» про него соврал бы
+    return {
+      lessonId: same,
+      reason: State.lessonTrack(same) === firstTrack ? NO_OTHER : { kind: 'plan', text: 'второй урок: свободная дорожка' }
+    };
   }
 
   /**

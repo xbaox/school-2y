@@ -78,6 +78,21 @@
     });
   });
 
+  describe('2.7.7 ревью: второй урок после просроченного Б16 — бейдж по дорожке урока', function () {
+    withToday('2027-02-09', function () {
+      november(function () {
+        ['B11', 'B12', 'B14'].forEach(function (b) { closeBlock(b, '2027-01-29'); });
+      });
+      State.s.tracks.forEach(function (t) { if (!t.embedded) t.lastLessonDate = '2027-02-08'; });
+      var first = Waterfall.pick('2027-02-09');
+      eq([first.lessonId, first.reason.kind], ['B16.1', 'deadline'], 'первый — просроченный общий блок');
+      var two = Waterfall.second('2027-02-09', first.lessonId);
+      eq([two.lessonId, State.lessonTrack(two.lessonId), two.reason.text], ['B53.1', 'math', 'второй урок: свободная дорожка'],
+        'второй — К другой дорожки, а не «другой дорожки нет»');
+      eq(Waterfall.second('2027-02-09', 'B53.1'), null, 'после К: остались К и общий блок — второго урока нет');
+    });
+  });
+
   describe('2.7.7 ревью: срок Б14 сдвинут за 30.01 — очередь письма не отдаёт Б16', function () {
     withToday('2026-11-02', function () {
       november(function () { closeBlock('B12', '2026-10-30'); State.setDeadline('B14', '2027-02-05'); });
