@@ -602,9 +602,7 @@ textarea.txt{min-height:120px;resize:vertical;font-family:var(--mono);font-size:
 
 /* ---------- незакрытый вчерашний урок ---------- */
 
-.pending{border-color:rgba(250,204,21,.4);margin-bottom:12px}
-.pending .t{font-size:14px;font-weight:600;color:var(--warn)}
-.pending .s{font-size:12px;color:var(--muted);margin-top:2px}
+.pendline{margin:0 0 8px}
 
 /* ---------- строка минималки на «Сегодня» ---------- */
 
