@@ -238,6 +238,9 @@ window.Lesson = (function () {
    * Незавершённый урок (7.8): промпт скопирован, итог не вставлен
    * до 04:00 следующего дня. Ищем не только вчера: после пары дней
    * без приложения незакрытый урок иначе тихо пропадал.
+   * 2.7.7 (ревью): урок, чей промпт скопирован сегодня, пропускается, а поиск
+   * идёт дальше — им уже занимаются, но старший незакрытый урок из-за него не
+   * гаснет.
    */
   function findPending(todayIso) {
     for (var back = 1; back <= PENDING_WINDOW; back++) {
@@ -249,7 +252,8 @@ window.Lesson = (function () {
         // ДЗ-урок в copied не пишется, а закрыть его можно только в свой день
         return !State.isHw(id) && (!st || !st.done) &&
           (d.lessons || []).indexOf(id) < 0 &&
-          (d.dropped || []).indexOf(id) < 0;
+          (d.dropped || []).indexOf(id) < 0 &&
+          !State.promptCopied(id, todayIso);
       });
       if (open.length) return { date: date, lessonId: open[0] };
     }
@@ -260,12 +264,13 @@ window.Lesson = (function () {
    * Незавершённый урок на «Сегодня» (2.7.7) — одна информационная строка,
    * без кнопок. Урок не привязан к календарю (доктрина, п. 5): он и так
    * остался в очереди и закрывается обычным ИТОГом, догонять его не нужно
-   * (п. 4). Скопированный сегодня урок строку гасит — им уже занимаются.
+   * (п. 4). Урок, скопированный сегодня, в строку не попадает — им уже
+   * занимаются (findPending ищет дальше).
    */
   function unfinished(todayIso) {
     var t = todayIso || State.today();
     var p = findPending(t);
-    if (!p || State.promptCopied(p.lessonId, t)) return '';
+    if (!p) return '';
     var back = U.diffDays(p.date, t);
     return '<div class="tiny dim center pendline">' +
       (back === 1 ? 'Вчерашний урок не закрыт' : 'Урок от ' + U.esc(U.fmtShort(p.date)) + ' не закрыт') +

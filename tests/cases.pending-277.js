@@ -105,6 +105,33 @@
     });
   });
 
+  describe('2.7.7 ревью: скопированный сегодня урок не гасит строку старшего незакрытого', function () {
+    fresh('S1');
+    State.markPromptCopied('B2.1', MON);
+    State.markPromptCopied('B8.1', TUE);
+    withToday(WED, function () {
+      eq(pendLines(App.Today.render())[0],
+        '<div class="tiny dim center pendline">Вчерашний урок не закрыт · Б8.1 — остался в очереди</div>', 'сначала ближайший');
+      State.markPromptCopied('B8.1', WED);
+      eq(Lesson.findPending(WED), { date: MON, lessonId: 'B2.1' }, 'Б8.1 взят сегодня — поиск идёт дальше');
+      eq(pendLines(App.Today.render())[0],
+        '<div class="tiny dim center pendline">Урок от ' + U.fmtShort(MON) + ' не закрыт · Б2.1 — остался в очереди</div>',
+        'строка — про Б2.1');
+      State.markPromptCopied('B2.1', WED);
+      eq(pendLines(App.Today.render()).length, 0, 'оба взяты сегодня — строки нет');
+    });
+
+    // полная вчера: два урока, оба не закрыты; первый взят сегодня — строка про второй
+    fresh('S1');
+    State.markPromptCopied('B2.1', TUE);
+    State.markPromptCopied('B8.1', TUE);
+    withToday(WED, function () {
+      State.markPromptCopied('B2.1', WED);
+      eq(Lesson.findPending(WED), { date: TUE, lessonId: 'B8.1' }, 'второй урок того же дня');
+      eq(pendLines(App.Today.render()).length, 1, 'строка осталась');
+    });
+  });
+
   describe('2.7.7 Э9: findPending после 2.7.6 — ДЗ-урок не всплывает, действия не навешаны', function () {
     fresh('S1');
     // ДЗ-урок в copied не пишется; даже если попал — закрыть его прошлым числом нельзя

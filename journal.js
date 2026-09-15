@@ -407,7 +407,7 @@ window.Cards = (function () {
             ' · сегодня ' + count() +
             (State.deckDone() ? ' · очередь пройдена ✓' : '');
         }
-        function step(n) {
+        function step(n, okBefore) {
           if (list2.length < 2) return;
           var was = idx;
           idx = (idx + n + list2.length) % list2.length;
@@ -415,8 +415,9 @@ window.Cards = (function () {
           // очередь считается пройденной, когда с последней карточки
           // шагнули вперёд — а не когда просто её открыли. 2.7.6: и только если
           // сегодня показаны все карточки колоды — «← назад» с первой уводит
-          // кольцом на последнюю, и два нажатия отмечали колоду добитой
-          var wasOk = State.cardsStep().ok;
+          // кольцом на последнюю, и два нажатия отмечали колоду добитой.
+          // okBefore — шаг до оценки: оценка сама может его набрать (ревью 2.7.7)
+          var wasOk = okBefore != null ? okBefore : State.cardsStep().ok;
           State.setDeckCursor(idx, { done: n > 0 && was === list2.length - 1 && allSeen(list2) });
           creditStep(wasOk);             // 2.7.7 (Э7): добитая колода ставит шаг сама
           paint();                       // отметку ставит сам paint, по ключу карточки
@@ -428,14 +429,18 @@ window.Cards = (function () {
           var c = list2[idx];
           if (!c || c.type !== 'word') return;
           var was = State.wordStatus(c.en);
+          // 2.7.7 (ревью): «знал» уводит повтор из колоды — колода короче, и шаг
+          // набирается самой оценкой. Переход «не набран → набран» ловим от
+          // состояния ДО оценки, иначе автоотметка и тост терялись
+          var okBefore = State.cardsStep().ok;
           var rec = State.gradeWord(c.en, el.dataset.know === '1');
           if (rec && rec.status === 'known' && was !== 'known') {
             UI.toast('«' + c.en + '» выучено — вернётся через ' + U.days(State.SRS_INTERVALS[0]), 'ok');
           } else if (rec && was === 'known' && rec.status !== 'known') {
             UI.toast('«' + c.en + '» вернулось в работу', '');
           }
-          if (list2.length < 2) { flipped = false; paint(); return; }
-          step(1);
+          if (list2.length < 2) { flipped = false; creditStep(okBefore); paint(); return; }
+          step(1, okBefore);
         });
         paint();
       }
