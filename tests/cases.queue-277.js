@@ -29,8 +29,10 @@
     eq(State.nextLesson(), 'B14.1', 'и общая очередь');
     eq(State.nextLessonInTrack('math'), 'B15.1', 'математика: Б15 (17.01)');
     closeBlock('B15', '2026-11-02');
-    eq(State.nextLessonInTrack('math'), 'B53.1', 'затем свой блок без срока — К; общий Б16 — после своих');
-    eq(Waterfall.nextOwnLesson('math', 'p1'), 'B53.1', 'та же очередь у водопада');
+    // 2.7.8 (Б1): уроков К в очереди нет — их назначает только суббота
+    eq(State.nextLessonInTrack('math'), 'B16.1', 'затем общий Б16: К в очереди дорожки не стоит');
+    eq(Waterfall.nextOwnLesson('math', 'p1'), null, 'у водопада своих уроков математики нет — К не в счёт');
+    eq(State.nextContestLesson('p1'), 'B53.1', 'К — своей очередью');
     closeBlock('B53', '2026-11-02');
     eq(State.nextLessonInTrack('math'), 'B16.1', 'своих не осталось — общий блок Б16');
     eq(Waterfall.nextOwnLesson('math', 'p1'), null, 'своя очередь общий блок не берёт');
@@ -65,7 +67,8 @@
       november(function () { closeBlock('B14', '2026-10-30'); State.setDeadline('B12', null); });
       eq(State.nextLessonInTrack('write'), 'B12.1', 'письмо: свой Б12 без срока раньше общего Б16');
       eq(State.nextLessonInTrack('write'), Waterfall.nextOwnLesson('write', 'p1'), 'та же очередь, что у водопада');
-      eq(swapRows(), ['B11.1', 'B12.1', 'B16.1', 'B16.1'], 'свап: у письма Б12, у информатики и бизнеса — общий блок');
+      eq(swapRows(), ['B11.1', 'B12.1', 'B16.1', 'B16.1', 'B53.1'],
+        'свап: у письма Б12, у информатики и бизнеса — общий блок; 2.7.8 — строка К последней');
       var first = Waterfall.pick('2026-11-02');
       eq([first.lessonId, first.reason.text], ['B11.1', 'шаблон: понедельник — математика'], 'первый урок');
       var two = Waterfall.second('2026-11-02', 'B11.1');
@@ -78,18 +81,23 @@
     });
   });
 
+  /* 2.7.8 (Б1): К в запасной путь не попадает — сцена та же, но другим уроком
+     дорожки остаётся Б11 без срока (срок снят руками). */
   describe('2.7.7 ревью: второй урок после просроченного Б16 — бейдж по дорожке урока', function () {
     withToday('2027-02-09', function () {
       november(function () {
-        ['B11', 'B12', 'B14'].forEach(function (b) { closeBlock(b, '2027-01-29'); });
+        ['B12', 'B14'].forEach(function (b) { closeBlock(b, '2027-01-29'); });
+        State.setDeadline('B11', null);
       });
       State.s.tracks.forEach(function (t) { if (!t.embedded) t.lastLessonDate = '2027-02-08'; });
       var first = Waterfall.pick('2027-02-09');
       eq([first.lessonId, first.reason.kind], ['B16.1', 'deadline'], 'первый — просроченный общий блок');
       var two = Waterfall.second('2027-02-09', first.lessonId);
-      eq([two.lessonId, State.lessonTrack(two.lessonId), two.reason.text], ['B53.1', 'math', 'второй урок: свободная дорожка'],
-        'второй — К другой дорожки, а не «другой дорожки нет»');
-      eq(Waterfall.second('2027-02-09', 'B53.1'), null, 'после К: остались К и общий блок — второго урока нет');
+      eq([two.lessonId, State.lessonTrack(two.lessonId), two.reason.text], ['B11.1', 'math', 'второй урок: свободная дорожка'],
+        'второй — Б11 другой дорожки, а не «другой дорожки нет»');
+      eq(Waterfall.second('2027-02-09', 'B11.1'), null, 'после Б11: остались Б11 и общий блок — второго урока нет');
+      closeBlock('B11', '2027-01-29');
+      eq(Waterfall.second('2027-02-09', first.lessonId), null, '2.7.8: остались К и общий блок — К вторым уроком не приходит');
     });
   });
 

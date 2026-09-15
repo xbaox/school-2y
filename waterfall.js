@@ -11,6 +11,9 @@
    Общий блок (track: 'all', финалы Б16) назначают только дедлайн и шаблон
    недели: радар, свежесть, светофор и долги смотрят на свои блоки дорожки,
    а шаблон отдаёт общий блок, лишь когда своих уроков в фазе нет ни у кого.
+   Уроки К (конкурсные, type: 'contest') назначает только суббота ⭐: очередь
+   дорожки их не содержит (State.nextLessonInTrack, 2.7.8), дедлайн и светофор
+   блок К пропускают; в свапе К — отдельная строка.
    ============================================================ */
 
 window.Waterfall = (function () {
@@ -47,7 +50,9 @@ window.Waterfall = (function () {
   function nextOwnLesson(trackId, phaseId) {
     // 2.7.6 (ревью): свои блоки — по сроку, при равном сроке и без срока — по
     // номеру. 2.7.7 (Э6): тот же порядок нужен и сквозной очереди дорожки
-    // (экран «Программа», запасной путь) — одна функция на оба
+    // (экран «Программа», запасной путь) — одна функция на оба.
+    // 2.7.8 (Б1): уроки К своими уроками математики не считаются — дорожка,
+    // у которой остался только К, в будних правилах пропускается
     if (!trackId || !phaseId) return null;
     return State.nextLessonInTrack(trackId, phaseId, true);
   }
@@ -140,7 +145,8 @@ window.Waterfall = (function () {
    * чем учебных дней (пн–пт) от сегодня до срока включительно: 16.09 у Б7
    * (срок вс 20.09) три урока на три будня — ждать просрочки уже поздно.
    * Несколько блоков — ранний срок первым; общий блок (Б16) правило тоже
-   * берёт, но не вторым уроком полной.
+   * берёт, но не вторым уроком полной. Блок К — нет (2.7.8, Б1): срока у него
+   * нет, а срок, поставленный руками, не отдаёт конкурсные задачи в будни.
    *
    * Раньше горящий дедлайн влиял на выбор только через светофор (правило 3),
    * а тот ловит лишь красный. Блок с одним оставшимся уроком и дедлайном
@@ -159,6 +165,7 @@ window.Waterfall = (function () {
       var b = State.s.blocks[ids[i]];
       if (!b.deadline) continue;
       if (b.track === exclude) continue;
+      if (contestBlock(ids[i])) continue;
       // общий блок вторым уроком не берётся (second): горящий заранее, он
       // обрывал бы перебор, и второй урок оставался бы пустым
       if (exclude && b.track === 'all') continue;
@@ -190,8 +197,9 @@ window.Waterfall = (function () {
     });
     for (var i = 0; i < ids.length; i++) {
       var b = State.s.blocks[ids[i]];
-      // общий блок светофор не назначает: его берут дедлайн и шаблон недели
-      if (b.track === exclude || b.track === 'all') continue;
+      // общий блок светофор не назначает: его берут дедлайн и шаблон недели;
+      // блок К — только суббота (2.7.8, Б1)
+      if (b.track === exclude || b.track === 'all' || contestBlock(ids[i])) continue;
       var st = State.blockPace(ids[i]);
       if (!st || st.color !== 'red' || st.done) continue;
       var next = nextInBlock(ids[i]);
@@ -309,6 +317,11 @@ window.Waterfall = (function () {
 
   var RULES = [ruleSaturday, ruleDeadline, ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
 
+  /** Блок К: в нём есть конкурсные уроки (2.7.8, Б1) — будние правила его не берут. */
+  function contestBlock(blockId) {
+    return State.activeLessons(blockId).some(PROMPTS.isContest);
+  }
+
   /** Следующий незакрытый урок блока; пропущенные водопад не назначает. */
   function nextInBlock(blockId) {
     var list = State.activeLessons(blockId);
@@ -375,8 +388,9 @@ window.Waterfall = (function () {
     var same = State.nextLesson();
     if (!same || same === firstLessonId || isAll(same)) return null;
     // 2.7.7 (ревью): общая очередь ставит свои блоки раньше общего — после
-    // урока общего блока отсюда приходит урок другой дорожки (К после Б16),
-    // и бейдж «другой дорожки нет» про него соврал бы
+    // урока общего блока отсюда приходит урок другой дорожки (свой блок без
+    // срока после Б16; К с 2.7.8 в очередь не входит), и бейдж «другой
+    // дорожки нет» про него соврал бы
     return {
       lessonId: same,
       reason: State.lessonTrack(same) === firstTrack ? NO_OTHER : { kind: 'plan', text: 'второй урок: свободная дорожка' }
@@ -412,14 +426,21 @@ window.Waterfall = (function () {
     // именно в текущей фазе — так и написано в подписи. Сквозная очередь
     // (nextLessonInTrack без фазы) ведёт дальше, но подпись говорит о фазе.
     // 2.7.6: общий блок своим уроком дорожки не считается — тот же предикат,
-    // что у свежести, иначе полоска звала бы к дорожке, которую она не назначит
+    // что у свежести, иначе полоска звала бы к дорожке, которую она не назначит.
+    // 2.7.8 (Б1): уроки К — тоже: в будни их не назначает ни одно правило
     return nextOwnLesson(trackId, State.currentPhase()) != null;
+  }
+
+  /** У дорожки в текущей фазе остались только уроки К — серая полоска так и говорит. */
+  function contestOnly(trackId) {
+    var k = State.nextContestLesson(State.currentPhase());
+    return !!k && State.lessonTrack(k) === trackId;
   }
 
   function freshText(trackId, days) {
     var tr = State.track(trackId);
     if (tr && tr.embedded) return 'в каждом уроке';
-    if (!hasLessonsNow(trackId)) return 'нет уроков в этой фазе';
+    if (!hasLessonsNow(trackId)) return contestOnly(trackId) ? 'только К по субботам' : 'нет уроков в этой фазе';
     if (days == null) return 'уроков не было';
     // дорожка без единого урока считается от онбординга — число честное,
     // но подписать его надо так, чтобы не выглядело пропущенным уроком
@@ -461,6 +482,23 @@ window.Waterfall = (function () {
 
   /* ---------- ручной свап ---------- */
 
+  /**
+   * Строка К в свапе (2.7.8, Б1): очередь математики конкурсных уроков не
+   * отдаёт, поэтому К выбирается отдельно — в любой день, как любая дорожка.
+   * Уроки К закрыты — строка остаётся, но неактивна: видно, что блок пройден.
+   */
+  function contestRow() {
+    var kb = State.contestBlockId();
+    if (!kb) return '';
+    var next = State.nextContestLesson();
+    var l = next ? CONTENT.lesson(next) : null;
+    return '<button class="swap-row" ' + (next ? 'data-pick="' + U.esc(next) + '"' : 'disabled') + '>' +
+      '<div class="tname">' + UI.trackDot(State.block(kb).track) + ' ' + U.esc(State.blockLabel(kb)) + ' · субботы ⭐</div>' +
+      '<div class="s">' + (l ? U.esc(State.lessonLabel(next) + ' · ' + l.title) : 'уроки К пройдены') + '</div>' +
+      '<div class="tdays none">по субботам</div>' +
+      '</button>';
+  }
+
   function openSwap() {
     var t = State.today();
     var rows = State.s.tracks.filter(function (tr) { return !tr.embedded; }).map(function (tr) {
@@ -473,7 +511,7 @@ window.Waterfall = (function () {
         '<div class="tdays ' + (next && hasLessonsNow(tr.id) ? freshColor(f) : 'none') + '">' +
         U.esc(freshText(tr.id, f)) + '</div>' +
         '</button>';
-    }).join('');
+    }).join('') + contestRow();
 
     UI.sheet({
       title: 'Поменять урок',
@@ -498,7 +536,10 @@ window.Waterfall = (function () {
   /* ---------- объяснение выбора: правило выбора урока ---------- */
 
   var EXPLAIN = [
-    { kind: 'contest', n: 1, name: 'Суббота ⭐', cond: 'суббота, и в фазе остался конкурсный урок', act: '→ блок К' },
+    {
+      kind: 'contest', n: 1, name: 'Суббота ⭐',
+      cond: 'суббота, и в фазе остался конкурсный урок; в другие дни К не назначается — только свапом', act: '→ блок К'
+    },
     {
       kind: 'deadline', n: 2, name: 'Дедлайн',
       cond: 'срок блока сегодня или позади, урок в нём не закрыт — или незакрытых уроков не меньше, чем будних дней до срока',
@@ -544,6 +585,7 @@ window.Waterfall = (function () {
     miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
     hasLessonsNow: hasLessonsNow, nextOwnLesson: nextOwnLesson,
     ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday, ruleTemplate: ruleTemplate, schoolDays: schoolDays,
+    ruleRadar: ruleRadar, ruleFreshness: ruleFreshness, rulePace: rulePace, ruleDebts: ruleDebts,
     EXPLAIN: EXPLAIN,
     FRESH_RULE_DAYS: FRESH_RULE_DAYS, DEBTS_RULE_COUNT: DEBTS_RULE_COUNT, WEEK: WEEK
   };

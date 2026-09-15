@@ -1776,9 +1776,20 @@ window.State = (function () {
   }
 
   /**
+   * Конкурсный урок блока К (type: 'contest' — тот же признак, что
+   * PROMPTS.isContest). 2.7.8 (Б1): его назначает только правило «Суббота ⭐»
+   * и ручной свап (отдельная строка К); очередь дорожки его пропускает.
+   */
+  function isContestLesson(l) { return !!(l && l.type === 'contest'); }
+
+  /**
    * Следующий непройденный урок дорожки (доктрина 5), в порядке compareBlocks.
    * Общий блок (track: 'all') стоит в очереди каждой дорожки; ownOnly — только
    * свои блоки дорожки (Waterfall.nextOwnLesson).
+   * 2.7.8 (Б1): уроков К в очереди нет. К считался своим блоком математики
+   * без срока: когда свои блоки математики закрыты, шаблон, свежесть, радар,
+   * долги и запасные пути отдавали конкурсные задачи в будни. К ждёт субботы
+   * (Waterfall.ruleSaturday), вне субботы — State.nextContestLesson и свап.
    */
   function nextLessonInTrack(trackId, phaseId, ownOnly) {
     var ids = Object.keys(s.blocks).sort(compareBlocks);
@@ -1788,6 +1799,7 @@ window.State = (function () {
       if (phaseId && b.phase !== phaseId) continue;
       var list = activeLessons(ids[i]);
       for (var j = 0; j < list.length; j++) {
+        if (isContestLesson(list[j])) continue;
         var st = s.lessons[list[j].id];
         if (!st || !st.done) return list[j].id;
       }
@@ -1795,8 +1807,33 @@ window.State = (function () {
     return null;
   }
 
-  /** Следующий непройденный урок вообще (в порядке очереди блоков). */
+  /** Следующий непройденный урок вообще (в порядке очереди блоков; без К). */
   function nextLesson() { return nextLessonInTrack(null, null); }
+
+  /**
+   * Следующий незакрытый урок К (2.7.8, Б1) — строка К в свапе «Поменять урок».
+   * phaseId — только в этой фазе; без него — сквозной, как очередь дорожки.
+   */
+  function nextContestLesson(phaseId) {
+    var ids = Object.keys(s.blocks).sort(compareBlocks);
+    for (var i = 0; i < ids.length; i++) {
+      if (phaseId && s.blocks[ids[i]].phase !== phaseId) continue;
+      var list = activeLessons(ids[i]);
+      for (var j = 0; j < list.length; j++) {
+        if (!isContestLesson(list[j])) continue;
+        var st = s.lessons[list[j].id];
+        if (!st || !st.done) return list[j].id;
+      }
+    }
+    return null;
+  }
+
+  /** Блок К (первый в очереди блок с конкурсными уроками) или null — строка К в свапе только при нём. */
+  function contestBlockId() {
+    var ids = Object.keys(s.blocks).sort(compareBlocks);
+    for (var i = 0; i < ids.length; i++) if (activeLessons(ids[i]).some(isContestLesson)) return ids[i];
+    return null;
+  }
 
   /**
    * Свежесть дорожки в днях.
@@ -2895,6 +2932,7 @@ window.State = (function () {
     readyForNextStage: readyForNextStage, nextStageOffer: nextStageOffer,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
+    nextContestLesson: nextContestLesson, contestBlockId: contestBlockId,
     freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,
     markVideoWatched: markVideoWatched, videoWatched: videoWatched,
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
