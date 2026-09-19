@@ -24,8 +24,13 @@ window.Sync = (function () {
   var AUTH_LOST = 'Облако не узнало вход — зайди заново';
 
   var SESSION_KEY = 'study-system-v2-session';
-  /** Метка последнего успешного push. Переживает закрытие вкладки — по ней
-      при следующем запуске видно, что локальные правки ещё не уехали. */
+  /** 2.8.1 (A1): lastSyncedAt — updatedAt того состояния, с которым устройство
+      последний раз сошлось с облаком (успешный pull или push). Живёт только
+      в этом браузере и в облако не уходит: { user, at }. Переживает закрытие
+      вкладки — по ней видно, что локальные правки ещё не уехали. */
+  var SYNCED_KEY = 'study-system-v2-synced';
+  /** Метка 2.8.0 и раньше — время последнего push. Читается один раз как
+      lastSyncedAt, пока новой метки нет, и убирается при первой записи. */
   var PUSHED_KEY = 'study-system-v2-pushed';
   /** Метка «вход отвалился». Переживает перезагрузку: сессия при этом стёрта,
       и без метки протухший вход выглядел бы как «просто не подключено» —
@@ -53,20 +58,33 @@ window.Sync = (function () {
     return isNaN(n) ? 0 : n;
   }
 
-  function lastPushedAt() {
-    try { return localStorage.getItem(PUSHED_KEY) || null; } catch (e) { return null; }
+  /**
+   * С каким состоянием устройство последний раз сошлось с облаком. Метка
+   * другого аккаунта не считается: вход под другой почтой — другое облако.
+   */
+  function lastSyncedAt() {
+    var uid = session && session.user_id;
+    try {
+      var raw = localStorage.getItem(SYNCED_KEY);
+      if (!raw) return localStorage.getItem(PUSHED_KEY) || null;
+      var o = JSON.parse(raw);
+      if (!o || !o.at) return null;
+      if (uid && o.user && o.user !== uid) return null;
+      return o.at;
+    } catch (e) { return null; }
   }
 
-  function setLastPushedAt(iso) {
+  function setLastSyncedAt(iso) {
     try {
-      if (iso) localStorage.setItem(PUSHED_KEY, iso);
-      else localStorage.removeItem(PUSHED_KEY);
+      localStorage.removeItem(PUSHED_KEY);
+      if (iso) localStorage.setItem(SYNCED_KEY, JSON.stringify({ user: (session && session.user_id) || null, at: iso }));
+      else localStorage.removeItem(SYNCED_KEY);
     } catch (e) { /* приватный режим — переживём */ }
   }
 
   /** Есть ли локальные правки, которые ещё не уехали в облако. */
   function hasUnpushed() {
-    return ts(State.s.meta.updatedAt) > ts(lastPushedAt());
+    return ts(State.s.meta.updatedAt) > ts(lastSyncedAt());
   }
 
   /** Есть ли вообще что отдавать: пустое состояние облако затирать не должно. */
@@ -198,7 +216,7 @@ window.Sync = (function () {
   /** Облако перестало узнавать вход: сессию гасим, дальше решает пользователь. */
   function sessionLost() {
     saveSession(null);
-    setLastPushedAt(null);
+    setLastSyncedAt(null);
     pending = false;
     setAuthLost(true);          // до setStatus: слушатели уже спрашивают признак
     setStatus('error', AUTH_LOST);
@@ -265,7 +283,7 @@ window.Sync = (function () {
   function signOut() {
     if (signedIn()) req('/auth/v1/logout', { method: 'POST' }).catch(function () { });
     saveSession(null);
-    setLastPushedAt(null);
+    setLastSyncedAt(null);
     setAuthLost(false);
     pending = false;
     lastSync = null;
@@ -299,7 +317,7 @@ window.Sync = (function () {
       var localAt = State.s.meta.updatedAt || '';
       if (force || ts(cloudAt) > ts(localAt)) {
         State.replace(row.state);
-        setLastPushedAt(cloudAt);          // ровно это состояние в облаке и лежит
+        setLastSyncedAt(cloudAt);          // ровно это состояние в облаке и лежит
         State.syncContent();               // новый пакет контента — уже локальная правка
         // облако могло приехать с состоянием до посева карточки вопросов —
         // достраиваем его тут же, иначе пункты вернутся только к следующей загрузке
@@ -341,7 +359,7 @@ window.Sync = (function () {
         });
       }
       busy = false;
-      setLastPushedAt(stamp);
+      setLastSyncedAt(stamp);
       lastSync = new Date().toISOString();
       setStatus('idle');
       if (pending) { pending = false; return push(); }
@@ -390,7 +408,7 @@ window.Sync = (function () {
     if (!signedIn()) { setStatus(lost ? 'error' : 'off', lost ? AUTH_LOST : null); return; }
     setAuthLost(false);
     setStatus('idle');
-    if (navigator.onLine && lastPushedAt() && hasUnpushed()) push();
+    if (navigator.onLine && lastSyncedAt() && hasUnpushed()) push();
     else pull();
   }
 
@@ -465,7 +483,7 @@ window.Sync = (function () {
     state: state, status: statusText,
     init: init, signIn: signIn, signOut: signOut, pull: pull, push: push,
     onLocalChange: onLocalChange, flush: flush, onChange: onChange,
-    lastPushedAt: lastPushedAt, hasUnpushed: hasUnpushed,
+    lastSyncedAt: lastSyncedAt, lastPushedAt: lastSyncedAt, hasUnpushed: hasUnpushed,
     loginFormHtml: loginFormHtml, wireLoginForm: wireLoginForm,
     get email() { return session && session.email; }
   };
