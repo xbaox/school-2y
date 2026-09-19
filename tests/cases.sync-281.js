@@ -114,15 +114,17 @@ window.__cloud281 = (function () {
     if (url.indexOf('/auth/v1/') < 0) {
       dataN++;
       if (C.holdAt[dataN]) {
+        // 'now' — ответ собран в момент запроса и только доставляется позже
+        var early = C.holdAt[dataN] === 'now' ? answer(url, o) : null;
         return new Promise(function (resolve) {
-          C.held.push(function () { resolve(answer(url, o)); });
+          C.held.push(function () { resolve(early || answer(url, o)); });
         });
       }
     }
     return answer(url, o);
   };
   C.dataCount = function () { return dataN; };
-  C.holdNext = function (k) { C.holdAt[dataN + (k || 1)] = true; };
+  C.holdNext = function (k, mode) { C.holdAt[dataN + (k || 1)] = mode || true; };
   C.release = function () { var h = C.held.shift(); if (h) h(); };
 
   return C;
@@ -659,5 +661,242 @@ window.__cloud281 = (function () {
         eq(State.s.stats.bestStreak, 11, 'своё на месте');
       });
     }));
+  });
+})();
+
+/* ---------- 2.8.1 A5: два устройства, офлайн, устаревший ответ ---------- */
+(function () {
+  'use strict';
+  var T = window.__sync281, CL = T.CL;
+
+  describe('2.8.1 A5: два устройства по очереди — без конфликта', function () {
+    defer('A → B → A: каждое берёт чужое и отдаёт своё, снимков нет', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      var a = T.synced('A', st), b = T.synced('B', st);
+      T.use(a);
+      return Sync.whenIdle().then(function () {
+        T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; s.days['2026-09-10'] = { level: 'min', addons: [], lessons: [], points: 1 }; });
+        return Sync.sync();
+      }).then(function () {
+        T.use(b);
+        return Sync.whenIdle();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, !!State.s.days['2026-09-10']], [6, true], 'B взял правку A');
+        T.edit('2026-09-11T09:00:00.000Z', function (s) { s.stats.bestStreak = 7; s.days['2026-09-11'] = { level: 'min', addons: [], lessons: [], points: 1 }; });
+        return Sync.sync();
+      }).then(function () {
+        T.use(a);
+        return Sync.whenIdle();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, Object.keys(State.s.days).sort()], [7, ['2026-09-10', '2026-09-11']],
+          'A взял правку B, своё — на месте');
+        eq(Sync.snapshots().length, 0, 'снимков нет');
+        eq(Sync.state().conflict, false, 'плашки нет');
+        eq(CL.writes, 2, 'в облако — ровно две записи');
+        eq(Sync.lastSyncedAt(), '2026-09-11T09:00:00.000Z', 'A сошёлся с облаком');
+      });
+    }));
+  });
+
+  describe('2.8.1 A5: офлайн-правки → сеть → чтение первым', function () {
+    defer('без сети — ни одного запроса, очередь; сеть вернулась — GET, потом запись', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        navigator.onLine = false;
+        window.__calls.length = 0;
+        T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 11; });
+        Sync.flush();
+        return Sync.sync();
+      }).then(function (r) {
+        eq([r.ok, r.offline, window.__calls.length, Sync.state().status], [false, true, 0, 'queued'],
+          'офлайн: запросов нет, статус — очередь');
+        navigator.onLine = true;
+        Sync.flush();                     // так зовёт обработчик события online
+        return Sync.whenIdle();
+      }).then(function () {
+        var data = window.__calls.filter(function (c) { return c.url.indexOf('/rest/v1/') >= 0; });
+        eq(data.map(function (c) { return c.method; }), ['GET', 'PATCH'], 'первым — чтение облака');
+        eq(CL.row.state.stats.bestStreak, 11, 'офлайн-правка уехала');
+      });
+    }));
+
+    defer('пока был офлайн, другое устройство записало позже — своё в снимке', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        navigator.onLine = false;
+        T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 11; });
+        CL.put(T.base('2026-09-10T12:00:00.000Z', 22));
+        navigator.onLine = true;
+        Sync.flush();
+        return Sync.whenIdle();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak], [22, 22], 'рабочим — более позднее');
+        eq(Sync.snapshots()[0].state.stats.bestStreak, 11, 'офлайн-правка не пропала — в снимке');
+      });
+    }));
+  });
+
+  describe('2.8.1 A5: ответ прошлого захода не применяется к новому', function () {
+    defer('чтение до выхода пришло после нового входа — выброшено', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(T.base('2026-09-10T09:00:00.000Z', 22));
+      var d = T.synced('A', st);
+      T.use(d, true);
+      CL.holdNext(1, 'now');            // ответ с рекордом 22 застрянет в сети
+      Sync.init();
+      return T.wait(5).then(function () {
+        Sync.signOut();
+        CL.put(T.base('2026-09-10T10:00:00.000Z', 33));
+        return Sync.signIn('a@b.c', 'pass');
+      }).then(function () {
+        return Sync.whenIdle();
+      }).then(function () {
+        eq(State.s.stats.bestStreak, 33, 'новый заход взял свежее облако');
+        CL.release();                   // старый ответ наконец доехал
+        return T.wait(10);
+      }).then(function () {
+        eq(State.s.stats.bestStreak, 33, 'старый ответ ничего не заменил');
+        eq(Sync.lastSyncedAt(), '2026-09-10T10:00:00.000Z', 'и метку не сдвинул');
+        eq(Sync.state().status, 'idle', 'статус не испорчен');
+      });
+    }));
+
+    defer('401 из прошлого захода не гасит новый вход', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st), true);
+      CL.holdNext(1);                   // чтение застрянет; ответ соберётся при отпуске
+      Sync.init();
+      return T.wait(5).then(function () {
+        Sync.signOut();
+        return Sync.signIn('a@b.c', 'pass');
+      }).then(function () {
+        return Sync.whenIdle();
+      }).then(function () {
+        CL.token = 'dead';              // старый запрос получит 401, refresh отбит
+        CL.release();
+        return T.wait(10);
+      }).then(function () {
+        CL.token = 'ok';
+        eq([Sync.signedIn(), Sync.authLost()], [true, false], 'новый вход жив, плашки нет');
+      });
+    }));
+
+    defer('правка во время чтения — облако её не затирает', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(T.base('2026-09-10T09:00:00.000Z', 22));
+      T.use(T.synced('A', st), true);
+      CL.holdNext(1);
+      Sync.init();
+      return T.wait(5).then(function () {
+        // своих правок на момент запроса не было; человек правит, пока ответ в пути
+        T.edit('2026-09-10T09:30:00.000Z', function (s) { s.stats.bestStreak = 11; });
+        CL.release();
+        return Sync.whenIdle();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak], [11, 11],
+          'решение по состоянию на момент ответа: своё новее — рабочее и в облаке');
+        eq(Sync.snapshots()[0].state.stats.bestStreak, 22, 'облачное — в снимке');
+      });
+    }));
+  });
+
+  describe('2.8.1 A5: устройство 2.7.7 со старыми данными не затирает облако', function () {
+    function oldDevice(pushed) {
+      var old = T.base('2026-09-05T08:00:00.000Z', 3);
+      // старый пакет контента: подпись блока, которую новый пакет перепишет
+      old.blocks = { B9: { phase: 'P1', track: 'math', title: 'старое', deadline: null, done: false, note: 'старая подпись' } };
+      var d = T.device('old');
+      d.store['study-system-v2'] = JSON.stringify(old);
+      d.store['study-system-v2-session'] = T.session();
+      if (pushed) d.store['study-system-v2-pushed'] = pushed;       // метка 2.7.7
+      return d;
+    }
+
+    function boot() {
+      // как App.boot, без экрана: загрузка, миграции, контент, посев
+      State.load();
+      State.applyAutoMode();
+      State.syncContent();
+      if (Radar.migrateTodos) Radar.migrateTodos();
+      if (Radar.seedQuestions) Radar.seedQuestions();
+      Sync.init();
+      return Sync.whenIdle();
+    }
+
+    [['метка 2.7.7 = его updatedAt', '2026-09-05T08:00:00.000Z', false],
+      ['метка 2.7.7 старше — были неотправленные правки', '2026-09-01T08:00:00.000Z', true],
+      ['метки нет вовсе', null, true]].forEach(function (c) {
+      defer(c[0], T.guard(function () {
+        var cloud = T.base('2026-09-18T20:00:00.000Z', 57);
+        cloud.days['2026-09-18'] = { level: 'min', addons: [], lessons: [], points: 1 };
+        CL.reset(); CL.put(cloud);
+        var before = JSON.stringify(CL.row);
+        T.use(oldDevice(c[1]), true);
+        window.__calls.length = 0;
+        return boot().then(function () {
+          eq(window.__calls.filter(function (x) { return x.url.indexOf('/rest/v1/') >= 0; })[0].method, 'GET',
+            'первый запрос — чтение');
+          eq(JSON.stringify(CL.row), before, 'облако не тронуто');
+          eq(CL.writes, 0, 'записей нет');
+          eq([State.s.stats.bestStreak, !!State.s.days['2026-09-18']], [57, true], 'устройство взяло облако');
+          eq(Sync.snapshots().length ? Sync.snapshots()[0].state.stats.bestStreak : null, c[2] ? 3 : null,
+            c[2] ? 'старое своё — в снимке' : 'снимка нет — нечего было терять');
+        });
+      }));
+    });
+  });
+})();
+
+/* ---------- 2.8.1 A5: правки старта, выводимые из пакета, даты и дней, updatedAt не двигают ---------- */
+(function () {
+  'use strict';
+  var STAMP = '2026-09-01T00:00:00.000Z';
+
+  function quiet(fn) {
+    var real = UI.toast, pushes = 0, realSync = Sync.onLocalChange;
+    UI.toast = function () {};
+    Sync.onLocalChange = function () { pushes++; };
+    try { fn(); } finally { UI.toast = real; Sync.onLocalChange = realSync; }
+    return pushes;
+  }
+
+  describe('2.8.1 A5: старт устройства не делает его «новее» облака', function () {
+    withToday('2026-09-19', function () {
+      State.reset();
+      State.syncContent();
+      State.s.blocks.B11.note = 'подпись прошлого пакета';
+      State.s.meta.updatedAt = STAMP;
+      var pushes = quiet(function () { eq(State.syncContent(), true, 'пакет переписал подпись блока'); });
+      eq([State.s.meta.updatedAt, pushes], [STAMP, 0], 'контент: updatedAt на месте, синк не дёрнут');
+
+      State.reset();
+      State.s.settings.mode = 'summer';
+      State.s.settings.autoSchoolDone = false;
+      State.s.meta.updatedAt = STAMP;
+      pushes = quiet(function () { eq(State.applyAutoMode(), true, 'режим сменился на «Школу»'); });
+      eq([State.mode(), State.s.meta.updatedAt, pushes], ['school', STAMP, 0], 'автосмена режима: updatedAt на месте');
+
+      // серия держалась, потом четыре пустых дня (чужие дни ещё не забраны)
+      State.reset();
+      State.syncContent();
+      State.setMode('school');
+      State.s.step.position = 3;
+      State.s.step.cycleStart = '2026-09-08';
+      ['2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14'].forEach(function (d) {
+        State.s.days[d] = { level: 'min', addons: [], lessons: [], points: 1, minimalSteps: [true, true] };
+        State.recount(d);
+      });
+      State.s.meta.updatedAt = STAMP;
+      pushes = quiet(function () { StepsFlow.check(); });
+      eq(State.s.step.position, 2, 'автооткат ступени случился');
+      eq([State.s.meta.updatedAt, pushes], [STAMP, 0], 'автооткат: updatedAt на месте, синк не дёрнут');
+      State.reset();
+    });
   });
 })();

@@ -1327,7 +1327,10 @@ window.State = (function () {
       s.settings.mode = 'school';
       s.settings.autoSchoolDone = true;
       if (!s.step.cycleStart) s.step.cycleStart = AUTO_SCHOOL_DATE;
-      touch(true);
+      // 2.8.1 (A5): смена выводится из даты и делается на каждом устройстве
+      // само — updatedAt не двигается. Иначе устройство, спавшее с лета,
+      // на старте становилось «новее» облака и выигрывало конфликт синка
+      writeNow();
       return true;
     }
     return false;

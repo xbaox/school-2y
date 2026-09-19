@@ -153,7 +153,12 @@ window.StepsFlow = (function () {
     var entry = { date: State.today(), from: from, to: to, reason: reason };
     if (note) entry.note = note;
     s.history.push(entry);
-    State.touch();
+    // 2.8.1 (A5): автооткат выводится из дней и идёт на старте раньше синка —
+    // updatedAt он не двигает (как автоотметки 2.7.7–2.7.8). Иначе устройство,
+    // не забравшее чужие дни, «видело» сломанную серию, становилось «новее»
+    // облака и перебивало его. Другое устройство откатит ступень само.
+    if (reason === 'auto-down') { State.save(); State.emit(); }
+    else State.touch();
     return true;
   }
 
@@ -281,12 +286,12 @@ window.StepsFlow = (function () {
     // конец разгрузки — позиция возвращается сама, сказать об этом надо один раз
     if (s.deloadUntil && t > s.deloadUntil && s.deloadNotified !== s.deloadUntil) {
       s.deloadNotified = s.deloadUntil;
-      State.touch(true);
+      State.save();                  // отметка показа — не правка человека (2.8.1)
       UI.toast('Разгрузка закончилась — ступень ' + STEPS.label(s.position) + '.', 'ok');
     }
 
     if (!State.isSchool()) return;              // летом шкала неактивна
-    if (!s.cycleStart) { s.cycleStart = t; State.touch(true); }
+    if (!s.cycleStart) { s.cycleStart = t; State.save(); }   // выводится из даты (2.8.1)
 
     if (checkDemotion()) return;
     // 2.7.0 (ТЗ 4.4): автоперехода вверх нет. Ступень поднимает только
