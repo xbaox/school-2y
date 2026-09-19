@@ -348,7 +348,7 @@
     def: '(x − a) is a factor of p(x) if and only if p(a) = 0; two directions — a zero gives a factor, a factor gives a zero; used to start factoring cubics',
     ex: 'p(1) = 0 for x³ − 7x + 6, so (x − 1) is a factor; P(1) = 0 → x − 1 is a factor',
     non: 'p(a) = 0 meaning x = a is the only zero; P(1) = 4 → x − 1 is not a factor, but x − 1 is still a divisor with remainder 4',
-    ru: 'Теорема о корне (factor theorem): (x − a) — множитель p(x) тогда и только тогда, когда p(a) = 0.'
+    ru: 'Теорема о множителе (о корне), factor theorem: (x − a) — множитель p(x) тогда и только тогда, когда p(a) = 0.'
   },
   'synthetic division': {
     en: 'synthetic division',

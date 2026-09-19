@@ -327,7 +327,7 @@
           ],
           words: [
             { en: 'remainder theorem', ru: 'теорема об остатке' },
-            { en: 'factor theorem', ru: 'теорема о множителе' },
+            { en: 'factor theorem', ru: 'теорема о множителе (о корне)' },
             { en: 'divisor', ru: 'делитель' },
             { en: 'quotient', ru: 'частное' },
             { en: 'remainder', ru: 'остаток' },
