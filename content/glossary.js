@@ -356,5 +356,63 @@
     ex: '2x³ + x² − 7x + 3 divided by x + 1 with the row 2, 1, −7, 3 and a = −1',
     non: 'long division written in full',
     ru: 'Синтетическое деление — быстрый способ деления на (x − a) по одним коэффициентам (в русской школе — схема Горнера; в Онтарио — synthetic division).'
+  },
+
+  /* ---------- Б9 (2.8.0): разложение, уравнения, неравенства ---------- */
+  'integral zero theorem': {
+    en: 'integral zero theorem',
+    def: 'if a polynomial with integer coefficients has an integer zero, that zero divides the constant term; gives the list of candidates to test with the factor theorem; candidates are ± the divisors of the constant term',
+    ex: 'x³ − 2x² − 5x + 6 → candidates ±1, ±2, ±3, ±6',
+    non: 'x = 4 for that polynomial — 4 does not divide 6, so it is not a candidate',
+    ru: 'Теорема о целом корне (integral zero theorem): если у многочлена с целыми коэффициентами есть целый нуль, он делит свободный член; кандидаты для проверки теоремой о множителе — ± делители свободного члена.'
+  },
+  'rational zero theorem': {
+    en: 'rational zero theorem',
+    def: 'a rational zero p/q (in lowest terms) has p dividing the constant term and q dividing the leading coefficient; needed when the leading coefficient is not 1',
+    ex: '2x³ − 3x² − 11x + 6 → candidates include ±1/2, ±3/2',
+    non: '2/3 — the denominator 3 does not divide the leading coefficient 2',
+    ru: 'Теорема о рациональном корне (rational zero theorem): у рационального нуля p/q (несократимая дробь) p делит свободный член, а q — старший коэффициент; нужна, когда старший коэффициент не равен 1.'
+  },
+  'factor fully': {
+    en: 'factor fully',
+    def: 'write the polynomial as a product of factors that cannot be factored further over the integers (or reals, if asked); check for a common factor first, then grouping or the factor theorem; a quadratic factor with negative discriminant stays as it is',
+    ex: 'x⁴ − 5x² + 4 = (x − 1)(x + 1)(x − 2)(x + 2)',
+    non: '(x² − 1)(x² − 4) — correct but not fully factored',
+    ru: 'Разложить полностью (factor fully) — записать многочлен произведением множителей, которые дальше не раскладываются над целыми числами (или над действительными, если так сказано); сначала общий множитель, потом группировка или теорема о множителе; квадратный множитель с отрицательным дискриминантом остаётся как есть.'
+  },
+  'sum and difference of cubes': {
+    en: 'difference / sum of cubes',
+    def: 'a³ − b³ = (a − b)(a² + ab + b²), a³ + b³ = (a + b)(a² − ab + b²); the quadratic factor does not factor further over the reals',
+    ex: '8x³ − 27 = (2x − 3)(4x² + 6x + 9)',
+    non: 'x³ − 9 — 9 is not a perfect cube',
+    ru: 'Разность / сумма кубов: a³ − b³ = (a − b)(a² + ab + b²), a³ + b³ = (a + b)(a² − ab + b²); квадратный множитель над действительными числами дальше не раскладывается.'
+  },
+  'family of polynomial functions': {
+    en: 'family of polynomial functions',
+    def: 'all functions f(x) = a(x − r₁)(x − r₂)… with the same zeros and different a ≠ 0; one extra point fixes a',
+    ex: 'f(x) = a(x + 2)²(x − 3) with f(1) = 18 → a = −1',
+    non: 'changing a zero gives a different family, not a member of the same one',
+    ru: 'Семейство многочленных функций — все функции f(x) = a(x − r₁)(x − r₂)… с одними и теми же нулями и разными a ≠ 0; одна дополнительная точка определяет a.'
+  },
+  'sign chart': {
+    en: 'sign chart / interval table',
+    def: 'a table that shows the sign of each factor and of the whole product on each interval between the zeros; the zeros split the number line; the sign changes at a zero of odd order and does not change at a zero of even order',
+    ex: 'x(x − 2)(x + 2) on (0, 2): (+)(−)(+) = −',
+    non: 'testing a single point and writing the answer for the whole line',
+    ru: 'Таблица знаков (sign chart, interval table) — знак каждого множителя и всего произведения на каждом интервале между нулями; нули делят числовую прямую; у нуля нечётной кратности знак меняется, у чётной — нет.'
+  },
+  'interval notation': {
+    en: 'interval notation',
+    def: '[a, b] includes the ends, (a, b) does not; ∪ joins pieces; ±∞ always gets a round bracket; strict inequality → round brackets at the zeros; non-strict → square brackets',
+    ex: 'x < −3 or x > 1 → (−∞, −3) ∪ (1, ∞)',
+    non: '[1, ∞] — infinity is never included',
+    ru: 'Интервальная запись: [a, b] — концы включены, (a, b) — нет; ∪ соединяет куски; у ±∞ всегда круглая скобка; строгое неравенство — круглые скобки у нулей, нестрогое — квадратные.'
+  },
+  'boundary point': {
+    en: 'boundary point (critical value)',
+    def: 'a zero of the polynomial — the only place where the sign can change; include it in the solution only for ≤ or ≥',
+    ex: 'for (x − 1)(x + 3) > 0 the boundary points are 1 and −3',
+    non: 'x = 0 for (x − 1)(x + 3) > 0 — it is a test point, not a boundary',
+    ru: 'Граничная точка (boundary point, critical value) — нуль многочлена, единственное место, где может смениться знак; в ответ входит только при ≤ или ≥.'
   }
 });

@@ -6,14 +6,17 @@
      title, goal, youtube, focus, writing        — как в phase0.js
      terms   — ключи content/glossary.js (или инлайн {en, ru, def, ex, non})
      text    — текст для чтения / условие большой задачи, или null
-     tasks   — 5 опорных заданий: 4 уровня L1–L2 + 1 стретч L3
-               { q, ru, marks, level, key, probe }  (probe — код категории долга)
+     tasks   — опорные задания: Б7–Б8 — 4 уровня L1–L2 + 1 стретч L3;
+               с 2.8.0 — 5 заданий основы L2 + 1 стретч L3
+               { q, ru, marks, level, key, probe }  (probe — код категории долга;
+               ru и probe необязательны: в 2.8.0 задания только по-английски)
                null = задания придут следующим пакетом контента
+     words   — слова урока [{ en, ru }] (с 2.8.0)
      type: 'contest' — субботний урок: 3 задачи { part, q, ru, marks, key }
 
-   Заполнено сейчас: Б7, Б8 (все поля), К.1–К.3.
-   Б9–Б16 и К.4–К.10 — структура; tasks/text/terms приедут:
-     2.8.0: Б9, Б10, К.4–К.6
+   Заполнено сейчас: Б7, Б8 (все поля), К.1–К.3; пакет 2.8.0 — Б9, К.4–К.6.
+   Б10–Б16 и К.7–К.10 — структура; tasks/text/terms приедут:
+     2.8.0б: Б10 (материалы OSSLT)
      2.8.1: Б11–Б16, К.7–К.10
    Все тексты для чтения написаны для урока; цифры в них условные.
    ============================================================ */
@@ -292,19 +295,166 @@
     /* ================= Б9 · математика ================= */
     {
       id: 'B9', track: 'math', title: 'Многочлены-2: теорема о корне, уравнения, неравенства', deadline: '2026-10-18',
-      note: 'Опорные задания и глоссарий — пакет 2.8.0.',
+      note: 'Опорные задания и глоссарий — есть (2.8.0).',
       lessons: [
-        { title: 'Теорема о корне и разложение кубических', goal: 'factor theorem; подбор корня; разложение группировкой; сумма и разность кубов', youtube: 'factor theorem factoring cubic polynomials', focus: 'rational zero test (подбор делителей свободного члена); деление после найденного корня; sum/difference of cubes', writing: '3 предложения: объяснить, почему x − 2 — множитель данного многочлена', terms: [], text: null, tasks: null },
-        { title: 'Уравнения многочленов и их графики', goal: 'решать p(x) = 0 через разложение; связывать корни с графиком', youtube: 'solving polynomial equations by factoring', focus: 'real roots; кратность корня на графике; проверка подстановкой', writing: 'Объяснение решения уравнения 4 предложениями (первое лицо, present simple)', terms: [], text: null, tasks: null },
-        { title: 'Неравенства многочленов: таблица знаков', goal: 'решать p(x) > 0 через нули и таблицу знаков (interval chart)', youtube: 'polynomial inequalities sign chart interval table', focus: 'нули → интервалы → знак на каждом → запись ответа в interval notation', writing: '3 предложения: как таблица знаков даёт ответ неравенства', terms: [], text: null, tasks: null },
-        { title: 'Семейства многочленов + мини-тест Б9', goal: 'family of polynomials через параметр a; повтор блока', youtube: 'families of polynomial functions', focus: 'одинаковые нули, разные a; уравнение по графику; мини-тест 9.1–9.3', writing: 'Разбор ошибки в чужом решении: 3–4 предложения', terms: [], text: null, tasks: null }
+        {
+          title: 'Теоремы об остатке и о множителе',
+          goal: 'Remainder and factor theorems',
+          youtube: 'MHF4U remainder theorem factor theorem',
+          focus: 'remainder theorem; factor theorem; finding an unknown coefficient from a remainder; using the factor theorem to start factoring',
+          writing: '3 предложения: объяснить, почему x − 2 — множитель данного многочлена',
+          terms: ['remainder theorem', 'factor theorem', 'division terms'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Use the remainder theorem to find the remainder when P(x) = 2x³ − 5x² + 3x − 7 is divided by x − 3.',
+              key: 'P(3) = 54 − 45 + 9 − 7 = 11. Marks: 1 for P(3) set up, 1 for the value.' },
+            { level: 'L2', marks: 2,
+              q: 'Use the factor theorem to decide whether x + 2 is a factor of P(x) = x³ + 4x² + x − 6. Show the calculation.',
+              key: 'P(−2) = −8 + 16 − 2 − 6 = 0, so yes, x + 2 is a factor. Marks: 1 for evaluating at −2 (not +2), 1 for the conclusion.' },
+            { level: 'L2', marks: 2,
+              q: 'Find k so that x − 1 is a factor of 3x³ + kx² − 5x + 4.',
+              key: 'P(1) = 3 + k − 5 + 4 = k + 2 = 0 → k = −2. Marks: 1 for P(1) = 0, 1 for k.' },
+            { level: 'L2', marks: 3,
+              q: 'When P(x) = x³ + ax² − 4x + 3 is divided by x − 2, the remainder is 7. Find a.',
+              key: 'P(2) = 8 + 4a − 8 + 3 = 4a + 3 = 7 → a = 1. Marks: 1 for P(2) = 7, 1 for the equation, 1 for a.' },
+            { level: 'L2', marks: 4,
+              q: 'P(x) = x³ − 7x + 6. (a) Show that x − 1 is a factor. (b) Divide and factor P(x) fully.',
+              key: '(a) P(1) = 1 − 7 + 6 = 0. (b) x³ − 7x + 6 = (x − 1)(x² + x − 6) = (x − 1)(x + 3)(x − 2). Marks: 1 for (a), 2 for the quotient x² + x − 6, 1 for the full factoring.' },
+            { level: 'L3', marks: 4,
+              q: 'A polynomial P(x) leaves remainder 5 when divided by x − 1 and remainder −1 when divided by x + 2. Find the remainder when P(x) is divided by (x − 1)(x + 2).',
+              key: 'the remainder has degree < 2, so R(x) = ax + b; R(1) = a + b = 5, R(−2) = −2a + b = −1; subtract: 3a = 6 → a = 2, b = 3 → R(x) = 2x + 3. Marks: 1 for R(x) = ax + b, 1 for each equation, 1 for the answer.' }
+          ],
+          words: [
+            { en: 'remainder theorem', ru: 'теорема об остатке' },
+            { en: 'factor theorem', ru: 'теорема о множителе' },
+            { en: 'divisor', ru: 'делитель' },
+            { en: 'quotient', ru: 'частное' },
+            { en: 'remainder', ru: 'остаток' },
+            { en: 'to divide evenly', ru: 'делиться нацело' }
+          ]
+        },
+        {
+          title: 'Полное разложение многочленов',
+          goal: 'Factoring polynomials fully',
+          youtube: 'MHF4U factoring polynomials integral zero theorem',
+          focus: 'integral zero theorem; rational zero theorem; factoring by grouping; difference and sum of cubes; factoring degree 3–4 fully',
+          writing: 'Разбор ошибки в чужом решении: 3–4 предложения',
+          terms: ['integral zero theorem', 'rational zero theorem', 'factor fully', 'sum and difference of cubes'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'P(x) = x³ − 2x² − 5x + 6. (a) List all possible integer zeros. (b) Find one zero and factor P(x) fully.',
+              key: '(a) ±1, ±2, ±3, ±6. (b) P(1) = 0 → (x − 1)(x² − x − 6) = (x − 1)(x − 3)(x + 2). Marks: 1 for the list, 1 for a zero, 1 for the full factoring.' },
+            { level: 'L2', marks: 3,
+              q: 'Factor fully by grouping: x³ + 3x² − 4x − 12.',
+              key: 'x²(x + 3) − 4(x + 3) = (x + 3)(x² − 4) = (x + 3)(x − 2)(x + 2). Marks: 1 for grouping, 1 for (x + 3)(x² − 4), 1 for the full factoring.' },
+            { level: 'L2', marks: 4,
+              q: 'Factor fully: 2x³ − 3x² − 11x + 6.',
+              key: 'candidates ±1, ±2, ±3, ±6, ±1/2, ±3/2; P(3) = 54 − 27 − 33 + 6 = 0; quotient 2x² + 3x − 2 = (2x − 1)(x + 2); answer (x − 3)(2x − 1)(x + 2). Marks: 1 for candidates, 1 for the zero, 1 for the quotient, 1 for the full factoring.' },
+            { level: 'L2', marks: 2,
+              q: 'Factor fully: 8x³ − 27.',
+              key: 'difference of cubes, a = 2x, b = 3: (2x − 3)(4x² + 6x + 9). Marks: 1 for the linear factor, 1 for the quadratic.' },
+            { level: 'L2', marks: 3,
+              q: 'Factor fully: x⁴ − 5x² + 4.',
+              key: 'treat as a quadratic in x²: (x² − 1)(x² − 4) = (x − 1)(x + 1)(x − 2)(x + 2). Marks: 1 for the substitution idea, 1 for (x² − 1)(x² − 4), 1 for the full factoring.' },
+            { level: 'L3', marks: 5,
+              q: 'Factor fully: x⁴ − 2x³ − 7x² + 8x + 12.',
+              key: 'P(−1) = 1 + 2 − 7 − 8 + 12 = 0 → divide by x + 1: x³ − 3x² − 4x + 12; group: x²(x − 3) − 4(x − 3) = (x − 3)(x² − 4); answer (x + 1)(x − 3)(x − 2)(x + 2). Marks: 1 for a zero, 2 for the cubic quotient, 1 for grouping, 1 for the full factoring.' }
+          ],
+          words: [
+            { en: 'integral zero theorem', ru: 'теорема о целом корне' },
+            { en: 'rational zero theorem', ru: 'теорема о рациональном корне' },
+            { en: 'to factor fully', ru: 'разложить полностью' },
+            { en: 'grouping', ru: 'группировка' },
+            { en: 'difference of cubes', ru: 'разность кубов' },
+            { en: 'constant term', ru: 'свободный член' },
+            { en: 'leading coefficient', ru: 'старший коэффициент' }
+          ]
+        },
+        {
+          title: 'Уравнения, корни, кратность',
+          goal: 'Polynomial equations, roots, multiplicity',
+          youtube: 'MHF4U solving polynomial equations multiplicity',
+          focus: 'solving polynomial equations by factoring; roots and their multiplicity (order); behaviour of the graph at a zero (cross or bounce); family of polynomial functions from given zeros and a point',
+          writing: 'Объяснение решения уравнения 4 предложениями (первое лицо, present simple)',
+          terms: ['zero', 'multiplicity', 'family of polynomial functions'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'Solve x³ − 4x² − 5x = 0.',
+              key: 'x(x² − 4x − 5) = x(x − 5)(x + 1) = 0 → x = 0, 5, −1. Marks: 1 for the common factor x, 1 for the factoring, 1 for all three roots.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve 2x³ + x² − 8x − 4 = 0.',
+              key: 'grouping: x²(2x + 1) − 4(2x + 1) = (2x + 1)(x² − 4) = (2x + 1)(x − 2)(x + 2) → x = −1/2, 2, −2. Marks: 1 for grouping, 1 for the three factors, 2 for the roots (all three).' },
+            { level: 'L2', marks: 3,
+              q: 'Solve x⁴ − 13x² + 36 = 0.',
+              key: '(x² − 4)(x² − 9) = 0 → x = ±2, ±3. Marks: 1 for the quadratic-in-x² idea, 1 for the factors, 1 for all four roots.' },
+            { level: 'L2', marks: 4,
+              q: 'A polynomial function of degree 3 has zeros −2 (order 2) and 3, and its graph passes through (1, 18). Write the equation in factored form.',
+              key: 'f(x) = a(x + 2)²(x − 3); f(1) = a · 9 · (−2) = −18a = 18 → a = −1; f(x) = −(x + 2)²(x − 3). Marks: 1 for the factored family with (x + 2)², 1 for substituting the point, 1 for a, 1 for the final equation.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve x³ + 2x² − 9x − 18 = 0. For each root state its multiplicity and whether the graph crosses or bounces at that x-intercept.',
+              key: 'x²(x + 2) − 9(x + 2) = (x + 2)(x − 3)(x + 3) → x = −3, −2, 3, each of order 1, the graph crosses at all three. Marks: 1 for grouping, 1 for the roots, 1 for the multiplicities, 1 for cross/bounce.' },
+            { level: 'L3', marks: 5,
+              q: 'Find all real solutions of x⁴ + x³ − 7x² − x + 6 = 0.',
+              key: 'P(1) = 0 and P(−1) = 0 → divide by x² − 1: x⁴ + x³ − 7x² − x + 6 = (x² − 1)(x² + x − 6) = (x − 1)(x + 1)(x + 3)(x − 2) → x = 1, −1, −3, 2. Marks: 1 for each of the two easy zeros, 2 for the quotient x² + x − 6, 1 for the full set of roots.' }
+          ],
+          words: [
+            { en: 'root', ru: 'корень (уравнения)' },
+            { en: 'zero', ru: 'нуль (функции)' },
+            { en: 'multiplicity', ru: 'кратность' },
+            { en: 'order', ru: 'порядок (кратность)' },
+            { en: 'to bounce off', ru: 'коснуться и отскочить (об оси)' },
+            { en: 'to cross', ru: 'пересечь' },
+            { en: 'family of functions', ru: 'семейство функций' }
+          ]
+        },
+        {
+          title: 'Многочленные неравенства',
+          goal: 'Polynomial inequalities',
+          youtube: 'MHF4U polynomial inequalities interval table',
+          focus: 'solving factored inequalities with a sign chart (interval table); interval notation; inequalities that need factoring first; strict and non-strict inequalities; a modelling inequality with a restricted domain',
+          writing: '3 предложения: как таблица знаков даёт ответ неравенства',
+          terms: ['sign chart', 'interval notation', 'boundary point'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'Solve (x − 1)(x + 3) > 0. Give the answer in interval notation.',
+              key: 'zeros −3 and 1; the product is positive outside them: (−∞, −3) ∪ (1, ∞). Marks: 1 for the boundary points, 1 for the correct intervals, 1 for the notation with round brackets.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve x³ − 4x ≤ 0.',
+              key: 'x(x − 2)(x + 2) ≤ 0; signs: x < −2: −; −2 < x < 0: +; 0 < x < 2: −; x > 2: +; include the zeros: (−∞, −2] ∪ [0, 2]. Marks: 1 for factoring, 1 for the sign chart, 1 for the intervals, 1 for the square brackets.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve x³ + 2x² − 9x − 18 > 0.',
+              key: '(x + 3)(x + 2)(x − 3) > 0; signs: x < −3: −; −3 < x < −2: +; −2 < x < 3: −; x > 3: +; answer (−3, −2) ∪ (3, ∞). Marks: 1 for factoring, 1 for the sign chart, 2 for the answer (both pieces).' },
+            { level: 'L2', marks: 3,
+              q: 'Solve (x − 2)²(x + 1) < 0.',
+              key: '(x − 2)² ≥ 0 and is 0 only at x = 2; the product is negative when x + 1 < 0 and x ≠ 2, so (−∞, −1); note that x = 2 gives 0, which is not < 0. Marks: 1 for the even-order factor, 1 for the interval, 1 for excluding x = 2 correctly (or noting it does not matter here).' },
+            { level: 'L2', marks: 4,
+              q: 'A box has dimensions x cm, (x + 2) cm and (x − 1) cm, where x > 1. For which values of x is the volume less than 30 cm³?',
+              key: 'x(x + 2)(x − 1) < 30 → x³ + x² − 2x − 30 < 0; x = 3 is a zero: (x − 3)(x² + 4x + 10) < 0; the quadratic has discriminant 16 − 40 < 0, so it is always positive → x − 3 < 0 → x < 3; with the domain: 1 < x < 3. Marks: 1 for the inequality, 1 for the zero x = 3, 1 for the always-positive quadratic, 1 for the domain restriction.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve x⁴ − 5x² + 4 ≤ 0.',
+              key: '(x − 1)(x + 1)(x − 2)(x + 2) ≤ 0; signs: |x| > 2: +; 1 < |x| < 2: −; |x| < 1: +; answer [−2, −1] ∪ [1, 2]. Marks: 1 for factoring, 1 for the sign chart, 2 for the answer (both pieces, square brackets).' }
+          ],
+          words: [
+            { en: 'inequality', ru: 'неравенство' },
+            { en: 'interval notation', ru: 'интервальная запись' },
+            { en: 'sign chart', ru: 'таблица знаков' },
+            { en: 'boundary point', ru: 'граничная точка' },
+            { en: 'test point', ru: 'пробная точка' },
+            { en: 'union (∪)', ru: 'объединение' },
+            { en: 'strict / non-strict inequality', ru: 'строгое / нестрогое неравенство' }
+          ]
+        }
       ]
     },
 
     /* ================= Б10 · письмо и чтение ================= */
     {
       id: 'B10', track: 'write', title: 'Абзац-мнение и новостная заметка: формат OSSLT', deadline: '2026-11-01',
-      note: 'OSSLT — провинциальный тест грамотности, условие диплома; конец ноября 2026, точная дата до 15.10. Опорные задания — пакет 2.8.0 (или 2.8.1, если материалы придут позже).',
+      note: 'Материалы OSSLT — из окна английского, пакет 2.8.0б.',
       lessons: [
         { title: 'Абзац-мнение: структура', goal: 'topic sentence с мнением + 2 причины с поддержкой + concluding sentence', youtube: 'OSSLT opinion paragraph structure', focus: 'I believe / In my opinion + because; связки First, Second, Finally; поддержка каждой причины примером', writing: 'Абзац-мнение на школьную тему, 6–8 предложений + чистовик', terms: [], text: null, tasks: null },
         { title: 'Новостная заметка: заголовок, lead, 5W', goal: 'структура news report: headline, lead с who/what/where/when/why, «перевёрнутая пирамида», цитаты, нейтральный тон', youtube: 'OSSLT news report how to write', focus: 'факты первыми, мнение автора отсутствует; цитата с указанием говорящего; прошедшее время', writing: 'Заметка по картинке-заданию OSSLT, 3 абзаца', terms: [], text: null, tasks: null },
@@ -450,9 +600,82 @@
               key: '(a) p(x) = (x − 1)(x − 2)(x + 3) = x³ − 7x + 6 → b = 0, c = −7, d = 6 (2; тот же многочлен, что в 7.4). (b) нули −3, 1, 2; старший коэффициент положительный → p > 0 на (−3, 1) ∪ (2, ∞); проверка p(0) = 6 > 0 (3). (c) степень 3 — не больше трёх нулей (1).' }
           ]
         },
-        { type: 'contest', title: 'Геометрия: площади и подобие', goal: 'три задачи', focus: 'площади через разбиение; подобные треугольники; координаты', tasks: null },
-        { type: 'contest', title: 'Комбинаторика: подсчёт', goal: 'три задачи', focus: 'правило произведения; перестановки с ограничениями; дополнение', tasks: null },
-        { type: 'contest', title: 'Функции и графики', goal: 'три задачи', focus: 'композиция; обратная функция; график по условиям', tasks: null },
+        {
+          type: 'contest',
+          title: 'Цифры и делимость',
+          goal: 'Digits and divisibility',
+          focus: 'digit equations; inclusion–exclusion counting; equations in positive integers via factoring',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'A two-digit number equals four times the sum of its digits, and its units digit is 3 more than its tens digit. Find the number.',
+              key: '10a + b = 4(a + b) → 6a = 3b → b = 2a; b − a = 3 → a = 3, b = 6 → 36 (check: 4 · 9 = 36).' },
+            { part: 'A', marks: 3,
+              q: 'How many positive integers n ≤ 100 are divisible by 3 or by 5 but not by 15?',
+              key: 'multiples of 3: 33; of 5: 20; of 15: 6; divisible by 3 or 5: 33 + 20 − 6 = 47; remove the 6 multiples of 15: 41.' },
+            { part: 'B', marks: 5,
+              q: 'Find all pairs of positive integers (a, b) with a ≤ b such that 1/a + 1/b = 1/4.',
+              key: '4(a + b) = ab → ab − 4a − 4b + 16 = 16 → (a − 4)(b − 4) = 16; factor pairs of 16 with a ≤ b: (1, 16), (2, 8), (4, 4) → (a, b) = (5, 20), (6, 12), (8, 8). Negative factor pairs give a ≤ 0, rejected. Marks: 1 for clearing denominators, 2 for the factored form (a − 4)(b − 4) = 16, 1 for all three pairs, 1 for rejecting the negative cases.' }
+          ],
+          words: [
+            { en: 'two-digit number', ru: 'двузначное число' },
+            { en: 'units digit / tens digit', ru: 'цифра единиц / десятков' },
+            { en: 'divisible by', ru: 'делится на' },
+            { en: 'at most', ru: 'не более' },
+            { en: 'ordered pair', ru: 'упорядоченная пара' },
+            { en: 'positive integer', ru: 'натуральное число' }
+          ]
+        },
+        {
+          type: 'contest',
+          title: 'Длины и площади',
+          goal: 'Lengths and areas',
+          focus: 'perimeter–diagonal–area of a rectangle via (l + w)²; line through a point and the triangle with the axes; altitude in an isosceles triangle and the Pythagorean theorem',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'A rectangle has perimeter 34 and diagonal 13. Find its area.',
+              key: 'l + w = 17, l² + w² = 169; (l + w)² = 289 = 169 + 2lw → lw = 60.' },
+            { part: 'A', marks: 3,
+              q: 'The line y = 2x + b passes through (3, 1). Find the area of the triangle formed by this line and the coordinate axes.',
+              key: 'b = 1 − 6 = −5; y = 2x − 5; intercepts x = 5/2 and y = −5; area = ½ · 5/2 · 5 = 25/4 = 6.25.' },
+            { part: 'B', marks: 5,
+              q: 'In triangle ABC, AB = AC = 10 and BC = 12. Point D lies on BC with BD = 4. Find the exact length of AD.',
+              key: 'let M be the midpoint of BC; AM ⟂ BC (isosceles), BM = 6, AM = √(100 − 36) = 8; DM = 6 − 4 = 2; AD = √(8² + 2²) = √68 = 2√17. Marks: 1 for using the midpoint/altitude, 1 for AM = 8, 1 for DM = 2, 1 for the Pythagorean step, 1 for the exact simplified form.' }
+          ],
+          words: [
+            { en: 'perimeter', ru: 'периметр' },
+            { en: 'diagonal', ru: 'диагональ' },
+            { en: 'intercept', ru: 'точка пересечения с осью' },
+            { en: 'isosceles', ru: 'равнобедренный' },
+            { en: 'altitude', ru: 'высота (треугольника)' },
+            { en: 'midpoint', ru: 'середина отрезка' },
+            { en: 'exact value', ru: 'точное значение' }
+          ]
+        },
+        {
+          type: 'contest',
+          title: 'Системы, композиции, подсчёт',
+          goal: 'Systems, compositions, counting',
+          focus: 'a two-variable system from a word problem; equation with compositions f(g(x)) = g(f(x)); counting digit strings with a fixed sum (cases or stars and bars)',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'Pens cost $3 each and notebooks $5 each. Someone buys 12 items for $46. How many notebooks?',
+              key: 'p + n = 12, 3p + 5n = 46 → 3(12 − n) + 5n = 46 → 2n = 10 → n = 5 (and 7 pens).' },
+            { part: 'A', marks: 3,
+              q: 'f(x) = 2x + 1 and g(x) = x² − 2. Find all real x with f(g(x)) = g(f(x)).',
+              key: 'f(g(x)) = 2x² − 3; g(f(x)) = (2x + 1)² − 2 = 4x² + 4x − 1; equal → 2x² + 4x + 2 = 0 → (x + 1)² = 0 → x = −1.' },
+            { part: 'B', marks: 5,
+              q: 'How many four-digit positive integers have digits that add up to 5?',
+              key: 'digits a, b, c, d with a ≥ 1 and a + b + c + d = 5. Put a′ = a − 1 ≥ 0: a′ + b + c + d = 4 with all ≥ 0 → C(4 + 3, 3) = C(7, 3) = 35; no digit can exceed 9, so no case is lost. Alternative by cases on the first digit: a = 1: 15, a = 2: 10, a = 3: 6, a = 4: 3, a = 5: 1 → 35. Marks: 1 for the digit equation with a ≥ 1, 2 for the counting method, 1 for the arithmetic, 1 for checking the ≤ 9 condition.' }
+          ],
+          words: [
+            { en: 'system of equations', ru: 'система уравнений' },
+            { en: 'composition', ru: 'композиция (функций)' },
+            { en: 'to add up to', ru: 'давать в сумме' },
+            { en: 'four-digit', ru: 'четырёхзначный' },
+            { en: 'case', ru: 'случай (при разборе)' },
+            { en: 'to justify', ru: 'обосновать' }
+          ]
+        },
         { type: 'contest', title: 'Показательные и логарифмы', goal: 'три задачи', focus: 'уравнения с одинаковым основанием; законы логарифмов; рост', tasks: null },
         { type: 'contest', title: 'Тригонометрия и окружность', goal: 'три задачи', focus: 'особые углы; тождества; геометрия окружности', tasks: null },
         { type: 'contest', title: 'Последовательности и суммы', goal: 'три задачи', focus: 'арифметическая и геометрическая прогрессии; телескопические суммы', tasks: null },
