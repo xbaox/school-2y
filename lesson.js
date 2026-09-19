@@ -241,6 +241,10 @@ window.Lesson = (function () {
    * 2.7.7 (ревью): урок, чей промпт скопирован сегодня, пропускается, а поиск
    * идёт дальше — им уже занимаются, но старший незакрытый урок из-за него не
    * гаснет.
+   * 2.7.8: Lesson.dropLesson («Урок не состоялся») убран — с 2.7.7 его никто не
+   * звал. Отметку dropped на дне, оставленную старой сборкой, поиск по-прежнему
+   * уважает; новая её не пишет. Незакрытый урок закрывается обычным ИТОГом
+   * сегодняшним числом: он и так остался в очереди (доктрина, п. 5).
    */
   function findPending(todayIso) {
     for (var back = 1; back <= PENDING_WINDOW; back++) {
@@ -368,23 +372,6 @@ window.Lesson = (function () {
     U.on(host, 'click', '[data-lesson-words]', function (e, el) {
       if (window.Cards) Cards.openLessonWords(el.dataset.lessonWords);
     });
-  }
-
-  /**
-   * «Урок не состоялся» (7.8): промпт скопировали, но урок не провели.
-   * Урок возвращается в очередь без штрафа — done не ставится, очки дня
-   * не трогаются, напоминание гаснет. Отметка живёт на дне, а не на уроке:
-   * бросить его сегодня и провести завтра — нормальный сценарий.
-   * С 2.7.7 кнопки на «Сегодня» нет (строка без действий); отметку dropped
-   * из старых состояний findPending по-прежнему уважает.
-   */
-  function dropLesson(lessonId, dateIso) {
-    var d = State.day(dateIso || State.today(), true);
-    d.dropped = d.dropped || [];
-    if (d.dropped.indexOf(lessonId) < 0) d.dropped.push(lessonId);
-    if (d.pick === lessonId) { d.pick = null; d.pickReason = null; }
-    State.touch();
-    return d;
   }
 
   var COPY_GUARD_MS = 700;   // палец на телефоне легко срабатывает дважды
@@ -554,7 +541,7 @@ window.Lesson = (function () {
   return {
     pick: pick, current: current, remember: remember, card: card, mount: mount,
     openSummary: openSummary, copyPrompt: copyPrompt, isDone: isDone, programSlot: programSlot,
-    findPending: findPending, dropLesson: dropLesson,
+    findPending: findPending,
     PENDING_WINDOW: PENDING_WINDOW, whyText: whyText,
     ofDayLine: ofDayLine, dayIndex: dayIndex, pendingCard: unfinished, dayLesson: dayLesson
   };

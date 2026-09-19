@@ -1,5 +1,7 @@
 /* Этап 7.3 (релиз 2.6.0): незавершённый урок на живом кейсе B2.4 —
-   промпт скопирован 26.08, урок брошен на середине, итога нет. */
+   промпт скопирован 26.08, урок брошен на середине, итога нет.
+   2.7.8: «Урок не состоялся» (Lesson.dropLesson) убран — старая отметка dropped
+   уважается, урок закрывается обычным ИТОГом сегодняшним числом. */
 
 (function () {
   'use strict';
@@ -47,15 +49,17 @@
     eq(Lesson.PENDING_WINDOW, 7, 'окно семь дней');
   });
 
-  describe('брошенный урок: «Урок не состоялся» возвращает его в очередь без штрафа', function () {
+  describe('брошенный урок: старая отметка «Урок не состоялся» — урок в очереди без штрафа', function () {
     scene();
     var before = State.points(COPIED);
     eq(before, 1, 'норма в плане, урок не закрыт — очко за сделанную минималку');
 
-    Lesson.dropLesson('B2.4', COPIED);
+    // 2.7.8: Lesson.dropLesson убран — кнопки не было с 2.7.7. Отметку dropped,
+    // оставленную старой сборкой, кладём на день руками
+    eq(typeof Lesson.dropLesson, 'undefined', 'Lesson.dropLesson убран');
+    State.s.days[COPIED].dropped = ['B2.4'];
 
     eq(State.points(COPIED), before, 'очки дня не изменились — штрафа нет');
-    eq(State.s.days[COPIED].dropped, ['B2.4'], 'урок помечен несостоявшимся');
     eq(State.s.lessons['B2.4'].done, false, 'урок не закрыт');
     eq(State.s.summaries.length, 5, 'итог не появился');
     eq(State.s.stats.lessonsDone, 5, 'счётчик закрытых уроков не вырос');
@@ -63,26 +67,39 @@
     eq(Lesson.pendingCard(NEXT), '', 'напоминание погасло');
     eq(Lesson.findPending(NEXT), null, 'и больше не находится');
 
-    // главное: урок вернулся в очередь и водопад снова его предложит
+    // главное: урок в очереди, и водопад снова его предложит
     eq(State.nextLessonInTrack('math'), 'B2.4', 'B2.4 снова следующий по математике');
     eq(Waterfall.nextInBlock('B2'), 'B2.4', 'и внутри блока Б2 тоже');
     eq(State.blockProgress('B2').remaining, 1, 'блок по-прежнему ждёт один урок');
     eq(State.block('B2').done, false, 'и не считается закрытым');
   });
 
-  describe('брошенный урок: повторная отметка ничего не ломает', function () {
-    scene();
-    Lesson.dropLesson('B2.4', COPIED);
-    Lesson.dropLesson('B2.4', COPIED);
-    eq(State.s.days[COPIED].dropped, ['B2.4'], 'в списке он один');
-
-    // а если урок всё-таки провели позже — обычное закрытие работает
-    var res = State.applySummary('B2.4', {
+  function itog() {
+    return {
       score: 7, level: 'L2', topics: 'повтор', words: [], debts: [], cleared: [],
       warmup: [], writing: '', raw: ''
-    }, { date: NEXT });
+    };
+  }
+
+  describe('брошенный урок: закрывается обычным ИТОГом сегодняшним числом', function () {
+    // 2.7.8 (ТЗ 7.8): строка без кнопок; урок остался в очереди, и его ИТОГ
+    // вставляется как обычно — днём вставки, не днём копирования
+    scene();
+    var res = State.applySummary('B2.4', itog(), { date: NEXT });
     eq(res.ok, true, 'итог принят');
     eq(State.s.lessons['B2.4'].done, true, 'урок закрыт');
+    eq(State.s.lessons['B2.4'].date, NEXT, 'числом вставки, а не днём копирования');
+    eq(State.s.days[NEXT].lessons, ['B2.4'], 'урок лёг в сегодняшний день');
+    eq(State.s.days[COPIED].lessons, [], 'вчерашний день урока не получил');
+    eq(State.points(COPIED), 1, 'и очков вчерашнего дня не прибавилось');
+    eq(Lesson.findPending(NEXT), null, 'незакрытого урока больше нет');
+    eq(Lesson.pendingCard(NEXT), '', 'строка погасла');
     eq(State.block('B2').done, true, 'и блок Б2 закрылся');
+
+    // старая отметка dropped закрытию не мешает
+    scene();
+    State.s.days[COPIED].dropped = ['B2.4'];
+    res = State.applySummary('B2.4', itog(), { date: NEXT });
+    eq([res.ok, State.s.lessons['B2.4'].done], [true, true], 'урок с отметкой dropped закрывается так же');
   });
 })();
