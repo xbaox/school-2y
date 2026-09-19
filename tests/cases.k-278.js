@@ -299,6 +299,34 @@
     });
   });
 
+  describe('2.8.0 A4: полная норма — «Урок 2» при одном К пишет про субботу и даёт свап', function () {
+    function item(iso, id) {
+      return App.planItems(iso, State.day(iso)).filter(function (x) { return x.id === id; })[0];
+    }
+    withToday(TUE, function () {
+      scene(ALL_OWN);
+      closeLessons(['B16.1', 'B16.2', 'B16.3'], '2026-09-19');
+      var d = State.day(TUE, true);
+      d.plan = 'full'; d.level = 'full';
+      eq(Waterfall.pick(TUE).lessonId, 'B16.4', 'первый урок — последний Б16');
+      closeLessons(['B16.4'], TUE);
+      d.lessons = ['B16.4'];
+      var k = State.saturdayContestLesson();
+      var l2 = item(TUE, 'l2');
+      eq(l2.sub, 'будних уроков нет — ' + State.lessonLabel(k) + ' в субботу', '«Урок 2» — как «Урок 1»');
+      ok(l2.body.indexOf('data-swap') >= 0, 'с кнопкой свапа');
+    });
+    withToday(SAT, function () {
+      scene(ALL_OWN.concat(['B16']));
+      var d = State.day(SAT, true);
+      d.plan = 'full'; d.level = 'full';
+      var first = Waterfall.pick(SAT).lessonId;
+      closeLessons([first], SAT);
+      d.lessons = [first];
+      eq(item(SAT, 'l2').sub, 'уроков в контенте не осталось', 'в субботу «Урок 2» про субботу не пишет');
+    });
+  });
+
   describe('2.8.0 A2: в Ф1 суббота по-прежнему берёт К текущей фазы', function () {
     withToday(SAT, function () {
       scene();
