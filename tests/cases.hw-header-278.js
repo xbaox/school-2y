@@ -191,7 +191,10 @@
     });
     var H = State.s.hw[HW] || {};
     eq([H.date, H.course, H.score], [MON, 'MHF4U', 8], 'день ДЗ — понедельник, курс — его курс, не null');
-    ok((State.day(MON).lessons || []).indexOf(HW) >= 0, 'урок лёг в понедельник');
+    // 2.8.1 (B2): прошлый день получает запись, но не урок в счёт уровня и серии
+    eq(((State.day(MON) || {}).lessons || []).indexOf(HW), -1, 'в уроки понедельника (уровень, серия) не лёг');
+    eq(State.s.summaries.filter(function (x) { return x.lessonId === HW; }).map(function (x) { return x.date; }),
+      [MON], 'запись — понедельником');
     eq(((State.day(WED) || {}).lessons || []).indexOf(HW), -1, 'день шторки (среда) не тронут');
     eq(State.hwOfDay(MON).course, 'MHF4U', 'и день ДЗ помнит курс');
   });

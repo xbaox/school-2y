@@ -2888,6 +2888,7 @@ window.State = (function () {
   function applySummary(lessonId, parsed, opts) {
     opts = opts || {};
     var date = opts.date || today();
+    var closeDay = date;                  // день, которым закрывают ИТОГ
     var hwp = parseHwId(lessonId);
     // 2.8.0 (A5): ДЗ-урок закрывается днём самого ДЗ (дата — в его id) и с его
     // курсом: ИТОГ ДЗ другого дня, вставленный по id, закрывал день шторки с
@@ -2915,9 +2916,15 @@ window.State = (function () {
       L.date = date;
     }
 
-    var d = day(date, true);
-    if (d.lessons.indexOf(lessonId) < 0) d.lessons.push(lessonId);
-    recount(date);
+    // 2.8.1 (B2): ДЗ-урок прошлого дня — запись, слова и долги ложатся в его
+    // день, но уровень, очки и серия того дня не меняются: задним числом
+    // день без урока не становится днём с уроком (вопрос 25)
+    var pastHw = !!hwp && date < closeDay;
+    if (!pastHw) {
+      var d = day(date, true);
+      if (d.lessons.indexOf(lessonId) < 0) d.lessons.push(lessonId);
+      recount(date);
+    }
 
     var record = {
       lessonId: lessonId, date: date, raw: parsed.raw || '',
