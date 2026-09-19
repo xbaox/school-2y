@@ -42,6 +42,20 @@
     });
   });
 
+  describe('2.8.0 ревью A3: субботы К — столько, сколько уроков К осталось', function () {
+    withToday('2026-10-05', function () {
+      fresh('summer');
+      State.activeLessons('B53').forEach(function (l) {
+        if (l.id !== 'B53.10') State.s.lessons[l.id] = { done: true, score: 8, date: '2026-10-03' };
+      });
+      eq(State.saturdayContestCount(), 1, 'в К остался один урок');
+      eq(['2026-10-10', '2026-10-17', '2026-10-24'].map(function (d) { return U.schoolDay(d, 'summer'); }),
+        [false, true, true], 'ближайшая суббота — К, дальше субботы снова учебные');
+      eq(U.schoolDays('2026-10-05', '2026-11-01', 'summer'), 23, '05.10–01.11: 24 дня пн–сб минус одна суббота К');
+      eq(U.schoolDay('2026-10-03', 'summer'), true, 'прошлая суббота — не К');
+    });
+  });
+
   describe('2.8.0 A3: «Лето» в Ф1 — дедлайн заранее субботу К не считает', function () {
     withToday(THU, function () {
       fresh('summer');
@@ -67,13 +81,16 @@
   });
 
   describe('2.8.0 A3: ДЗ-урок — по единой таблице учебных дней', function () {
-    fresh('school');
-    eq([MON, FRI, SAT, SUN].map(function (d) { return State.hwAvailable(d); }), [true, true, false, false],
-      'в «Школе» — пн–пт, как было');
-    fresh('summer');
-    eq(State.hwAvailable(SAT), false, 'летом суббота с К — нет');
-    closeK();
-    eq(State.hwAvailable(SAT), true, 'летом суббота без К — учебный день');
+    // «сегодня» — понедельник той же недели: суббота К — ближайшая
+    withToday(MON, function () {
+      fresh('school');
+      eq([MON, FRI, SAT, SUN].map(function (d) { return State.hwAvailable(d); }), [true, true, false, false],
+        'в «Школе» — пн–пт, как было');
+      fresh('summer');
+      eq(State.hwAvailable(SAT), false, 'летом суббота с К — нет');
+      closeK();
+      eq(State.hwAvailable(SAT), true, 'летом суббота без К — учебный день');
+    });
   });
 
   describe('2.8.0 A3: светофор — учебные дни по режиму дня', function () {

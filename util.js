@@ -84,9 +84,21 @@ window.U = (function () {
    * Тогда суббота не учебный день ни в каком режиме: урок блока в неё не
    * встанет. Решено самостоятельно: признак — тот же урок, что берёт суббота.
    */
-  function contestSaturday(isoDate) {
-    return weekday(isoDate) === 6 && !!(window.State && State.saturdayContestLesson &&
-      State.saturdayContestLesson(isoDate));
+  function contestSaturday(isoDate, left) {
+    if (weekday(isoDate) !== 6) return false;
+    // ревью 2.8.0: субботы К — только первые N от сегодня, где N — открытые
+    // уроки К (каждая суббота берёт один); прошлые субботы — не К
+    var t = window.State && State.today ? State.today() : today();
+    if (diffDays(t, isoDate) < 0) return false;
+    var k = left != null ? left : contestLeftCount();
+    if (!k) return false;
+    var firstSat = addDays(t, (6 - weekday(t) + 7) % 7);
+    return Math.floor(diffDays(firstSat, isoDate) / 7) < k;
+  }
+
+  /** Открытых уроков К для суббот — один проход по блокам (State.saturdayContestCount). */
+  function contestLeftCount() {
+    return window.State && State.saturdayContestCount ? State.saturdayContestCount() : 0;
   }
 
   /** Учебный ли день дата в режиме mode ('school' | 'summer' | 'bridge'). */
@@ -103,8 +115,9 @@ window.U = (function () {
     for (var i = 0; i < total % 7; i++) if (list.indexOf((wd - 1 + i) % 7 + 1) >= 0) n++;
     // субботы, отданные К, — не учебные (в «Школе» субботы в таблице и так нет)
     if (list.indexOf(6) >= 0) {
-      for (var sat = addDays(from, (6 - wd + 7) % 7); diffDays(sat, to) >= 0; sat = addDays(sat, 7)) {
-        if (contestSaturday(sat)) n--;
+      var left = contestLeftCount();          // один раз на диапазон, не на каждую субботу
+      for (var sat = addDays(from, (6 - wd + 7) % 7); left && diffDays(sat, to) >= 0; sat = addDays(sat, 7)) {
+        if (contestSaturday(sat, left)) n--;
       }
     }
     return n;

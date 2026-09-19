@@ -75,6 +75,22 @@
     eq(r.words.map(function (x) { return x.en; }), ['divisor', 'quotient', 'remainder'], 'три слова — список и правило пропущены');
   });
 
+  describe('2.8.0 ревью A6: правило 18 у урока со списком — тоже «из списка», без противоречия', function () {
+    fresh('S0');
+    var p = PROMPTS.lesson('B53.4', { today: T });
+    ok(p.indexOf('слова 3–5, никогда не больше пяти, — из списка «Слова урока для ИТОГа»') > 0, 'К.4: правило 18 — из списка');
+    eq(p.indexOf('только термины курса Онтарио'), -1, 'и нигде в промпте «только термины курса»');
+    ok(PROMPTS.lesson('B7.1', { today: T }).indexOf('слова 3–5, никогда не больше пяти, — только термины курса Онтарио') > 0,
+      'у Б7.1 без списка правило 18 прежнее');
+  });
+
+  describe('2.8.0 ревью A7: определения теорем не повторяют себя', function () {
+    var r = CONTENT.glossary['remainder theorem'].def, f = CONTENT.glossary['factor theorem'].def;
+    eq((r.match(/the remainder equals/g) || []).length, 1, 'remainder theorem: формулировка одна');
+    eq((f.match(/if and only if/g) || []).length, 1, 'factor theorem: формулировка одна');
+    ok(r.indexOf('works only for linear divisors x − a') > 0 && f.indexOf('two directions') > 0, 'Facts карты на месте');
+  });
+
   State.reset();
   State.syncContent();
 })();

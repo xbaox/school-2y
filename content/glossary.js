@@ -338,14 +338,14 @@
   },
   'remainder theorem': {
     en: 'remainder theorem',
-    def: 'when a polynomial p(x) is divided by (x − a), the remainder equals p(a) — you get the remainder without dividing; when a polynomial P(x) is divided by x − a, the remainder equals P(a); works only for linear divisors x − a; no division needed to find the remainder',
+    def: 'when a polynomial p(x) is divided by (x − a), the remainder equals p(a) — you get the remainder without dividing; works only for linear divisors x − a; no division needed to find the remainder',
     ex: 'p(x) = x² − 1 divided by x − 3: remainder p(3) = 8; P(x) = x² + 1 divided by x − 2 → remainder P(2) = 5',
     non: 'a rule about the quotient (the theorem says nothing about it); dividing by x² − 4 — the theorem does not apply directly',
     ru: 'Теорема об остатке — при делении p(x) на (x − a) остаток равен p(a); остаток находится без деления.'
   },
   'factor theorem': {
     en: 'factor theorem',
-    def: '(x − a) is a factor of p(x) if and only if p(a) = 0; x − a is a factor of P(x) if and only if P(a) = 0; two directions — a zero gives a factor, a factor gives a zero; used to start factoring cubics',
+    def: '(x − a) is a factor of p(x) if and only if p(a) = 0; two directions — a zero gives a factor, a factor gives a zero; used to start factoring cubics',
     ex: 'p(1) = 0 for x³ − 7x + 6, so (x − 1) is a factor; P(1) = 0 → x − 1 is a factor',
     non: 'p(a) = 0 meaning x = a is the only zero; P(1) = 4 → x − 1 is not a factor, but x − 1 is still a divisor with remainder 4',
     ru: 'Теорема о корне (factor theorem): (x − a) — множитель p(x) тогда и только тогда, когда p(a) = 0.'

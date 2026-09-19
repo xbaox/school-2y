@@ -2011,6 +2011,23 @@ window.State = (function () {
     return null;
   }
 
+  /**
+   * Сколько суббот займёт К (2.8.0, ревью A3): открытые уроки К текущей фазы и
+   * прошлых (будущие фазы суббота не берёт). Каждая суббота — один урок К;
+   * после них субботы снова учебные.
+   */
+  function saturdayContestCount(iso) {
+    var ci = phaseIndex(currentPhase(iso)), n = 0;
+    Object.keys(s.blocks).forEach(function (id) {
+      if (phaseIndex(s.blocks[id].phase) > ci) return;
+      activeLessons(id).forEach(function (l) {
+        var st = s.lessons[l.id];
+        if (isContestLesson(l) && !(st && st.done)) n++;
+      });
+    });
+    return n;
+  }
+
   /** Блок К (первый в очереди блок с конкурсными уроками) или null — строка К в свапе только при нём. */
   function contestBlockId() {
     var ids = Object.keys(s.blocks).sort(compareBlocks);
@@ -3129,6 +3146,7 @@ window.State = (function () {
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
     nextContestLesson: nextContestLesson, contestBlockId: contestBlockId, saturdayContestLesson: saturdayContestLesson,
+    saturdayContestCount: saturdayContestCount,
     freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,
     markVideoWatched: markVideoWatched, videoWatched: videoWatched,
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,
