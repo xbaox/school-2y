@@ -2865,6 +2865,10 @@ window.State = (function () {
     opts = opts || {};
     var date = opts.date || today();
     var hwp = parseHwId(lessonId);
+    // 2.8.0 (A5): ДЗ-урок закрывается днём самого ДЗ (дата — в его id) и с его
+    // курсом: ИТОГ ДЗ другого дня, вставленный по id, закрывал день шторки с
+    // курсом null. Норму закрывает ДЗ-урок своего дня, а не сегодняшний
+    if (hwp) date = hwp.date;
     var l = hwp ? null : (window.CONTENT ? CONTENT.lesson(lessonId) : null);
     if (!l && !hwp) return { ok: false, error: 'Урок не найден' };
     var trackId = lessonTrack(lessonId);
