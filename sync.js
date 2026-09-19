@@ -32,6 +32,9 @@ window.Sync = (function () {
   /** Тексты наружу — только человеческие; сырые ответы уходят в console.error. */
   var AUTH_LOST = 'Облако не узнало вход — зайди заново';
   var RACE_LOST = 'Облако меняют с другого устройства прямо сейчас — повторю позже';
+  /** Сеть или облако не ответили вовсе (fetch упал, ответ не пришёл). */
+  var NET_DOWN = 'Нет связи с облаком — повторю сам';
+  var NO_SPACE = 'Память браузера полна — облачное состояние не легло. Скачай JSON в «Резервной копии»';
   var SNAP_FULL = 'Два устройства правили одно и то же, а копию сохранить некуда — ' +
     'память браузера полна. Скачай JSON в «Резервной копии»';
 
@@ -58,6 +61,10 @@ window.Sync = (function () {
   /** Сколько раз подряд заход проигрывает гонку записи, прежде чем отложиться. */
   var RACE_TRIES = 3;
   var PUSH_DEBOUNCE = 2000;
+  /** req — запрос без ответа дольше этого считается сетевой бедой (иначе один
+      зависший fetch держал бы все следующие заходы); retry — повтор после
+      ошибки: 30 с, 1, 2, 4 мин, дальше раз в 5 мин. Тесты их укорачивают. */
+  var LIMITS = { req: 20000, retryBase: 30000, retryMax: 300000 };
 
   var session = null;      // { access_token, refresh_token, expires_at, user_id, email }
   var timer = null;
@@ -72,6 +79,8 @@ window.Sync = (function () {
   var epoch = 0;
   var running = null;      // промис идущего захода — заходы не перекрываются
   var again = false;       // за время захода попросили ещё один
+  var retryTimer = null;
+  var retryN = 0;
 
   function available() { return !!(URL_BASE && ANON_KEY); }
   function signedIn() { return !!(session && session.access_token); }
@@ -99,6 +108,15 @@ window.Sync = (function () {
       if (uid && o.user && o.user !== uid) return null;
       return o.at;
     } catch (e) { return null; }
+  }
+
+  /** Метка схождения стоит от другого аккаунта: вход под другой почтой. */
+  function foreignMarker() {
+    var uid = session && session.user_id;
+    try {
+      var o = JSON.parse(localStorage.getItem(SYNCED_KEY) || 'null');
+      return !!(uid && o && o.user && o.user !== uid);
+    } catch (e) { return false; }
   }
 
   function setLastSyncedAt(iso) {
@@ -248,7 +266,12 @@ window.Sync = (function () {
     // новый updatedAt строго позже всего, что устройство знает: часы могут
     // отставать, и «сейчас» оказалось бы старше облака — копия снова проиграла бы
     var floor = Math.max(ts(State.s.meta.updatedAt), ts(lastSyncedAt()));
-    State.replace(clone(snap.state), true);
+    var before = clone(State.s);
+    if (!State.replace(clone(snap.state), true)) {
+      State.replace(before, true);
+      writeSnapshots(list);
+      return false;
+    }
     State.syncContent();
     if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
     State.touch(true);             // это теперь свежая правка
@@ -296,6 +319,8 @@ window.Sync = (function () {
     running = null;
     again = false;
     if (timer) { clearTimeout(timer); timer = null; }
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    retryN = 0;
   }
 
   /**
@@ -324,7 +349,7 @@ window.Sync = (function () {
    * из облака, а очередь и так догоняет сама.
    */
   function authError() {
-    var e = new Error(AUTH_LOST);
+    var e = herr(AUTH_LOST);
     e.auth = true;
     return e;
   }
@@ -334,6 +359,23 @@ window.Sync = (function () {
     var e = new Error('устаревший ответ');
     e.stale = true;
     return e;
+  }
+
+  /** Ошибка с человеческим текстом — её можно показывать как есть. */
+  function herr(msg) {
+    var e = new Error(msg);
+    e.human = true;
+    return e;
+  }
+
+  /** Незнакомые ошибки (fetch, разбор JSON, обрыв) наружу не выходят. */
+  function humanText(e) { return e && e.human ? e.message : NET_DOWN; }
+
+  /** Таймер, который не держит процесс (в браузере unref нет — это для тестов под node). */
+  function later(fn, ms) {
+    var t = setTimeout(fn, ms);
+    if (t && t.unref) t.unref();
+    return t;
   }
 
   function fromAuth(json) {
@@ -355,11 +397,23 @@ window.Sync = (function () {
     if (session && session.access_token && !opts.noAuth) {
       headers.Authorization = 'Bearer ' + session.access_token;
     }
-    return fetch(URL_BASE + path, {
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var t = null;
+    var sent = fetch(URL_BASE + path, {
       method: opts.method || 'GET',
       headers: headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      signal: ctrl ? ctrl.signal : undefined
     });
+    var timeout = new Promise(function (resolve, reject) {
+      t = later(function () {
+        if (ctrl) { try { ctrl.abort(); } catch (e) { /* уже закрыт */ } }
+        reject(new Error('timeout'));
+      }, LIMITS.req);
+    });
+    return Promise.race([sent, timeout]).then(
+      function (r) { clearTimeout(t); return r; },
+      function (e) { clearTimeout(t); throw e; });
   }
 
   function refreshToken(my) {
@@ -372,7 +426,7 @@ window.Sync = (function () {
       // 400/401/403 — токен отозван или протух насовсем: вход больше не действует.
       // Всё остальное (5xx, шлюз) временно, входа не касается.
       if (r.status === 400 || r.status === 401 || r.status === 403) throw authError();
-      throw new Error('Облако не ответило (ошибка ' + r.status + ')');
+      throw herr('Облако не ответило (ошибка ' + r.status + ')');
     }).then(function (j) {
       // пока ждали, вошли заново: чужой ответ новую сессию не перезаписывает
       if (my !== epoch) throw staleError();
@@ -404,7 +458,7 @@ window.Sync = (function () {
     setStatus('error', AUTH_LOST);
     // emit() рисует «Настройки» только для вошедшего — тут дорисовываем сами
     if (window.App && App.active === 'settings') App.renderScreen('settings');
-    var e = new Error(AUTH_LOST);
+    var e = herr(AUTH_LOST);
     e.authLost = true;
     return e;
   }
@@ -451,16 +505,19 @@ window.Sync = (function () {
     return req('/auth/v1/token?grant_type=password', {
       method: 'POST', noAuth: true, body: { email: email, password: password }
     }).then(function (r) {
-      return r.json().then(function (j) {
+      // шлюз может ответить HTML-страницей — разбор не должен выйти наружу
+      return r.json().then(null, function () { return null; }).then(function (j) {
         if (!r.ok) {
           console.error('[sync] signIn', r.status, j);
-          throw new Error(loginError(r.status));
+          throw herr(loginError(r.status));
         }
+        if (!j || !j.access_token) throw herr('Облако ответило непонятно — повтори вход');
         return j;
       });
     }).then(function (j) {
       if (my !== epoch) throw staleError();
       newEpoch();
+      my = epoch;
       saveSession(fromAuth(j));
       setAuthLost(false);
       setStatus('idle');
@@ -468,9 +525,10 @@ window.Sync = (function () {
       return sync();
     }).catch(function (e) {
       // вход прервали выходом или вторым входом — старый ответ ничего не решает
-      if (e.stale) throw new Error('Вход прерван — повтори');
-      setStatus('error', e.message);
-      throw e;
+      if (e.stale || my !== epoch) throw herr('Вход прерван — повтори');
+      var msg = e.human ? e.message : 'Нет связи с облаком — проверь сеть и повтори';
+      setStatus('error', msg);
+      throw herr(msg);
     });
   }
 
@@ -522,8 +580,39 @@ window.Sync = (function () {
 
   function done(res) {
     lastSync = new Date().toISOString();
+    retryN = 0;
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
     setStatus('idle');
     return res;
+  }
+
+  /** После ошибки заход повторится сам: событие online может и не прийти. */
+  function scheduleRetry() {
+    if (retryTimer || !signedIn()) return;
+    var delay = Math.min(LIMITS.retryBase * Math.pow(2, retryN), LIMITS.retryMax);
+    var my = epoch;
+    retryN++;
+    retryTimer = later(function () {
+      retryTimer = null;
+      if (my === epoch) sync();
+    }, delay);
+  }
+
+  /**
+   * Вторая вкладка того же браузера могла записать состояние поновее того,
+   * что лежит в памяти этой: решать надо по свежему, иначе старое из памяти
+   * ушло бы в облако поверх правок соседней вкладки.
+   */
+  function reloadIfNewerOnDisk() {
+    try {
+      var raw = localStorage.getItem(State.KEY);
+      if (!raw) return false;
+      var disk = JSON.parse(raw);
+      if (ts(disk && disk.meta && disk.meta.updatedAt) <= ts(State.s.meta.updatedAt)) return false;
+      State.load();
+      if (window.App) App.render();
+      return true;
+    } catch (e) { return false; }
   }
 
   function round(opts, my, tries) {
@@ -533,7 +622,7 @@ window.Sync = (function () {
       if (!r.ok) {
         return r.text().then(function (t) {
           console.error('[sync] pull', r.status, t);
-          throw new Error('Облако не отдало состояние (ошибка ' + r.status + ')');
+          throw herr('Облако не отдало состояние (ошибка ' + r.status + ')');
         });
       }
       return r.json();
@@ -542,22 +631,48 @@ window.Sync = (function () {
       return decide(rows && rows[0], opts, my, tries);
     }).catch(function (e) {
       if (e.stale || my !== epoch) return stale();
-      if (!e.authLost) setStatus(navigator.onLine ? 'error' : 'queued', e.message);
-      return { ok: false, error: e.message };
+      if (e.authLost) return { ok: false, error: e.message };
+      var msg = humanText(e);
+      // облако ответило ошибкой — видно строкой; не ответило вовсе — очередь
+      setStatus(e.human && navigator.onLine ? 'error' : 'queued', msg);
+      scheduleRetry();
+      return { ok: false, error: msg };
     });
   }
 
   /** Решение по прочитанному — с локальным состоянием на момент ответа. */
   function decide(row, opts, my, tries) {
+    // соседняя вкладка могла записать новее, чем лежит в памяти этой
+    reloadIfNewerOnDisk();
     var cloud = row && row.state && row.state.meta ? row.state : null;
+    var cloudAt = cloud ? (cloud.meta.updatedAt || row.updated_at || '') : '';
+    var localAt = State.s.meta.updatedAt || '';
+
+    // вход под другой почтой: здешнее состояние — чужого аккаунта. В чужое
+    // облако его не льём: берём облако этого аккаунта, своё — снимком
+    if (foreignMarker()) {
+      if (!cloud) return send(row, cloudAt, opts, my, tries, { empty: true, account: true });
+      if (hasLocalData() && ts(localAt) !== ts(cloudAt)) {
+        if (!addSnapshot(State.s, 'local')) return full();
+        setConflict(true);
+      }
+      if (!apply(cloud, cloudAt)) return noSpace();
+      return done({ ok: true, applied: true, at: cloudAt, account: true });
+    }
+
     if (!cloud) {
       // в облаке пусто — отдаём своё, если оно не пустое
       if (!hasLocalData()) return done({ ok: true, applied: false, empty: true });
-      return send(row, opts, my, tries, { empty: true });
+      return send(row, cloudAt, opts, my, tries, { empty: true });
     }
 
-    var cloudAt = cloud.meta.updatedAt || row.updated_at || '';
-    var localAt = State.s.meta.updatedAt || '';
+    // своего нет вовсе (новое устройство, онбординг) — облако берётся всегда:
+    // пустое состояние со свежим updatedAt не должно перебить настоящее
+    if (!hasLocalData()) {
+      if (!apply(cloud, cloudAt)) return noSpace();
+      return done({ ok: true, applied: true, at: cloudAt });
+    }
+
     var synced = lastSyncedAt();
     var unsent = hasUnpushed();
 
@@ -569,14 +684,14 @@ window.Sync = (function () {
         if (!addSnapshot(State.s, 'local')) return full();
         saved = true;
       }
-      apply(cloud, cloudAt);
+      if (!apply(cloud, cloudAt)) return noSpace();
       return done({ ok: true, applied: true, at: cloudAt, saved: saved });
     }
 
     var changed = !synced || ts(cloudAt) !== ts(synced);
     if (!changed) {
       if (!unsent) return done({ ok: true, applied: false, at: cloudAt });
-      return send(row, opts, my, tries, {});
+      return send(row, cloudAt, opts, my, tries, {});
     }
     // одна и та же правка (тот же updatedAt) — это не конфликт, а схождение
     if (ts(localAt) === ts(cloudAt)) {
@@ -588,7 +703,11 @@ window.Sync = (function () {
     // (клиент до 2.8.1 пишет не глядя): это тоже конфликт, иначе потеря
     // из облака молча доехала бы и сюда
     if (!unsent && ts(cloudAt) > ts(localAt)) {
-      apply(cloud, cloudAt);
+      // 2.8.1 пишет в meta.base, поверх какого облака легла запись. Нет base —
+      // писал клиент до 2.8.1, не глядя в облако: то, что у нас есть, могло
+      // в его запись не попасть. Своё — снимком, без плашки: это страховка
+      if (!cloud.meta.base && !addSnapshot(State.s, 'local')) return full();
+      if (!apply(cloud, cloudAt)) return noSpace();
       return done({ ok: true, applied: true, at: cloudAt });
     }
 
@@ -596,11 +715,11 @@ window.Sync = (function () {
     if (ts(localAt) > ts(cloudAt)) {
       if (!addSnapshot(cloud, 'cloud')) return full();
       setConflict(true);
-      return send(row, opts, my, tries, { conflict: true });
+      return send(row, cloudAt, opts, my, tries, { conflict: true });
     }
     if (!addSnapshot(State.s, 'local')) return full();
+    if (!apply(cloud, cloudAt)) return noSpace();
     setConflict(true);
-    apply(cloud, cloudAt);
     return done({ ok: true, applied: true, at: cloudAt, conflict: true });
   }
 
@@ -609,29 +728,47 @@ window.Sync = (function () {
     return { ok: false, error: SNAP_FULL };
   }
 
-  /** Облако становится локальным состоянием. */
+  function noSpace() {
+    setStatus('error', NO_SPACE);
+    return { ok: false, error: NO_SPACE };
+  }
+
+  /**
+   * Облако становится локальным состоянием. false — память браузера его не
+   * приняла: тогда всё возвращается как было и метка схождения не ставится,
+   * иначе после перезагрузки устройство считало бы себя сошедшимся со
+   * состоянием, которого у него нет.
+   */
   function apply(cloud, cloudAt) {
-    State.replace(cloud);
+    var before = clone(State.s);
+    if (!State.replace(clone(cloud), true)) {
+      State.replace(before, true);
+      return false;
+    }
     setLastSyncedAt(cloudAt);          // ровно это состояние в облаке и лежит
     // контент и посев выводятся из пакета и updatedAt не двигают
     State.syncContent();
     // облако могло приехать с состоянием до посева карточки вопросов —
     // достраиваем его тут же, иначе пункты вернутся только к следующей загрузке
     if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
+    State.emit();
     if (window.App) App.render();
+    return true;
   }
 
   /**
    * Условная запись. Строка есть — PATCH только при том updated_at, что
    * прочитан в начале захода (0 строк в ответе — нас опередили); строки нет —
    * вставка без слияния (409 — нас опередили). Проиграли гонку — заход
-   * повторяется с чтения.
+   * повторяется с чтения. meta.base — updatedAt облака, поверх которого
+   * легла запись; meta.device — кто писал (для снимков на других устройствах).
    */
-  function send(row, opts, my, tries, extra) {
+  function send(row, cloudAt, opts, my, tries, extra) {
     var body = clone(State.s);
     var stamp = body.meta.updatedAt || new Date().toISOString();
     body.meta.updatedAt = stamp;
     body.meta.device = deviceLabel();
+    body.meta.base = cloudAt || 'empty';
     var q;
     if (row) {
       var cond = row.updated_at == null ? 'is.null' : 'eq.' + encodeURIComponent(row.updated_at);
@@ -658,7 +795,7 @@ window.Sync = (function () {
     return q.then(function (won) {
       if (my !== epoch) return stale();
       if (!won) {
-        if (tries + 1 >= RACE_TRIES) throw new Error(RACE_LOST);
+        if (tries + 1 >= RACE_TRIES) throw herr(RACE_LOST);
         return round(opts, my, tries + 1);
       }
       setLastSyncedAt(stamp);
@@ -671,7 +808,7 @@ window.Sync = (function () {
   function fail(r) {
     return r.text().then(function (t) {
       console.error('[sync] push', r.status, t);
-      throw new Error('Облако не приняло состояние (ошибка ' + r.status + ')');
+      throw herr('Облако не приняло состояние (ошибка ' + r.status + ')');
     });
   }
 
@@ -731,6 +868,21 @@ window.Sync = (function () {
       if (document.hidden || !signedIn()) return;
       flush();
     });
+    window.addEventListener('storage', onStorage);
+  }
+
+  /**
+   * Соседняя вкладка того же браузера записала состояние, снимки или плашку.
+   * Состояние поновее — перечитываем, иначе старое из памяти этой вкладки
+   * со следующей правкой легло бы поверх (и ушло бы в облако).
+   */
+  function onStorage(e) {
+    if (!e || !e.key) return;
+    if (e.key === State.KEY) {
+      if (reloadIfNewerOnDisk()) emit();
+      return;
+    }
+    if (e.key === SNAP_KEY || e.key === CONFLICT_KEY) emit();
   }
 
   /* ---------- форма входа (онбординг и настройки) ---------- */
@@ -785,6 +937,7 @@ window.Sync = (function () {
     init: init, signIn: signIn, signOut: signOut, pull: pull, push: push, sync: sync, whenIdle: whenIdle,
     onLocalChange: onLocalChange, flush: flush, onChange: onChange,
     lastSyncedAt: lastSyncedAt, lastPushedAt: lastSyncedAt, hasUnpushed: hasUnpushed,
+    onStorage: onStorage, limits: LIMITS,
     snapshots: snapshots, snapshotFile: snapshotFile, restoreSnapshot: restoreSnapshot, deviceLabel: deviceLabel,
     conflictPending: conflictPending, ackConflict: ackConflict,
     loginFormHtml: loginFormHtml, wireLoginForm: wireLoginForm,

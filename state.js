@@ -1276,10 +1276,12 @@ window.State = (function () {
       e.code === 22 || e.code === 1014;
   }
 
+  /** → true, если состояние легло в память браузера (2.8.1: синку это важно). */
   function writeNow() {
     try {
       localStorage.setItem(KEY, JSON.stringify(s));
       quotaHit = false;
+      return true;
     } catch (e) {
       console.error('Не удалось сохранить состояние:', e);
       // память браузера кончилась: молча терять прогресс нельзя —
@@ -1294,12 +1296,26 @@ window.State = (function () {
           });
         }
       }
+      return false;
     }
   }
 
-  /** Пометить изменение: обновить updatedAt, сохранить, уведомить подписчиков. */
+  function stampOf(v) {
+    var n = Date.parse(v || '');
+    return isNaN(n) ? 0 : n;
+  }
+
+  /**
+   * Пометить изменение: обновить updatedAt, сохранить, уведомить подписчиков.
+   * 2.8.1 (ревью A): updatedAt правки строго позже прежнего и метки схождения
+   * с облаком. Часы устройств расходятся: состояние, пришедшее с «забегающего»
+   * устройства, несёт время из будущего, и правка по местным часам оказалась
+   * бы «старше» — синк счёл бы её отправленной и потерял.
+   */
   function touch(silent) {
-    s.meta.updatedAt = new Date().toISOString();
+    var floor = stampOf(s.meta.updatedAt);
+    if (window.Sync && Sync.lastSyncedAt) floor = Math.max(floor, stampOf(Sync.lastSyncedAt()));
+    s.meta.updatedAt = new Date(Math.max(Date.now(), floor + 1)).toISOString();
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(function () { saveTimer = null; writeNow(); }, 150);
     if (!silent) emit();
@@ -1312,8 +1328,9 @@ window.State = (function () {
   /** Полная замена состояния (импорт JSON, pull из облака). */
   function replace(next, silent) {
     s = migrate(next);
-    writeNow();
+    var saved = writeNow();
     if (!silent) emit();
+    return saved;
   }
 
   function reset() { s = blank(); writeNow(); emit(); }

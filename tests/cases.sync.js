@@ -27,6 +27,7 @@
     State.s.meta.updatedAt = opts.localAt;
     State.s.onboarded = true;
     State.s.days['2026-08-20'] = { level: 'min', addons: [], lessons: [], points: 1 };
+    State.save();                         // 2.8.1: заход сверяет память с диском (соседняя вкладка)
     window.__calls.length = 0;
     navigator.onLine = opts.onLine !== false;
   }
