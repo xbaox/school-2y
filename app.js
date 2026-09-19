@@ -1062,8 +1062,9 @@ window.App = (function () {
     ['State', 'cardsStep'], ['State', 'planOf'], ['State', 'isM3Card'],
     // 2.7.7: дедлайн заранее, миграция событий-дел
     ['Waterfall', 'schoolDays'], ['State', 'migrationReport277'], ['State', 'autoCardsStep'],
-    // 2.7.8: миграция текстов посева
-    ['State', 'migrationReport278']
+    // 2.7.8: К вне будней, учебные дни, строка «следующий», миграция текстов посева
+    ['State', 'nextContestLesson'], ['U', 'schoolDays'], ['U', 'nextSchoolDay'], ['State', 'lessonMode'],
+    ['Waterfall', 'nextLine'], ['State', 'migrationReport278']
   ];
 
   function mixedBundle() {
