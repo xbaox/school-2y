@@ -94,8 +94,10 @@
       var first = Waterfall.pick('2027-02-09');
       eq([first.lessonId, first.reason.kind], ['B16.1', 'deadline'], 'первый — просроченный общий блок');
       var two = Waterfall.second('2027-02-09', first.lessonId);
-      eq([two.lessonId, State.lessonTrack(two.lessonId), two.reason.text], ['B11.1', 'math', 'второй урок: свободная дорожка'],
-        'второй — Б11 другой дорожки, а не «другой дорожки нет»');
+      // 2.8.1: Б16.1 — урок математики (дорожка урока): второй Б11 — та же дорожка,
+      // и бейдж говорит это честно (до 2.8.1 Б16 был «все», и Б11 считался другой)
+      eq([two.lessonId, State.lessonTrack(two.lessonId), two.reason.text], ['B11.1', 'math', 'второй урок: другой дорожки с уроками нет'],
+        'второй — Б11 той же дорожки, бейдж честный');
       eq(Waterfall.second('2027-02-09', 'B11.1'), null, 'после Б11: остались Б11 и общий блок — второго урока нет');
       closeBlock('B11', '2027-01-29');
       eq(Waterfall.second('2027-02-09', first.lessonId), null, '2.7.8: остались К и общий блок — К вторым уроком не приходит');

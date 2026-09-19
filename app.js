@@ -811,7 +811,7 @@ window.App = (function () {
     return {
       id: 'l' + n, tick: 'lesson',
       title: head + ': ' + code + ' „' + (l ? l.title : '') + '“',
-      sub: (n === 2 && full ? 'другая дорожка · ' : '') + State.trackName(b.track),
+      sub: (n === 2 && full ? 'другая дорожка · ' : '') + State.trackName(State.lessonTrack(sel.lessonId) || b.track),
       done: done,
       body: Lesson.card({
         lessonId: sel.lessonId, reason: sel.reason, today: t,
@@ -1034,7 +1034,7 @@ window.App = (function () {
 
     var b = State.block(l.blockId) || {};
     var code = State.blockLabel(l.blockId) + '.' + State.lessonNum(id);
-    return 'Дальше: ' + State.trackName(b.track) + ' · ' + code + ' „' + l.title + '“';
+    return 'Дальше: ' + State.trackName(State.lessonTrack(id) || b.track) + ' · ' + code + ' „' + l.title + '“';
   }
 
   /** Непройденных уроков не осталось — говорим, когда и что начнётся. */

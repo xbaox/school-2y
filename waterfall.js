@@ -367,13 +367,14 @@ window.Waterfall = (function () {
   /** Второй урок полной: другая дорожка; если другой нет — разрешается та же (7.8). */
   function second(todayIso, firstLessonId) {
     var t = todayIso || State.today();
-    // по блоку, как до 2.8.1: поле урока водопад не перестраивает
-    var firstTrack = State.lessonBlockTrack(firstLessonId);
+    // 2.8.1: дорожка первого урока — урока (Б16 — математика), иначе после Б16
+    // вторым шёл бы ещё один урок математики под видом «другой дорожки»
+    var firstTrack = State.lessonTrack(firstLessonId);
     var res = pick(t, { exclude: firstTrack, force: true });
     if (res && res.lessonId && res.lessonId !== firstLessonId && !isAll(res.lessonId)) {
       // водопад мог свалиться в запасной вариант и вернуть ту же дорожку —
       // бейдж обязан сказать это честно, а не «свободная дорожка»
-      if (State.lessonBlockTrack(res.lessonId) === firstTrack) res.reason = NO_OTHER;
+      if (State.lessonTrack(res.lessonId) === firstTrack) res.reason = NO_OTHER;
       return res;
     }
     var same = State.nextLesson();
@@ -384,7 +385,7 @@ window.Waterfall = (function () {
     // дорожки нет» про него соврал бы
     return {
       lessonId: same,
-      reason: State.lessonBlockTrack(same) === firstTrack ? NO_OTHER : { kind: 'plan', text: 'второй урок: свободная дорожка' }
+      reason: State.lessonTrack(same) === firstTrack ? NO_OTHER : { kind: 'plan', text: 'второй урок: свободная дорожка' }
     };
   }
 
@@ -477,7 +478,7 @@ window.Waterfall = (function () {
     }
     var b = State.block(l.blockId) || {};
     return 'следующий: ' + State.lessonLabel(next) + ' · ' + l.title +
-      (b.track === 'all' ? ' · общий блок' : '') +
+      (b.track === 'all' && !l.track ? ' · общий блок' : '') +
       (b.phase && b.phase !== State.currentPhase() ? ' · ' + State.phaseName(b.phase) : '');
   }
 
