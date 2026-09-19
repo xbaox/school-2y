@@ -282,16 +282,16 @@
   },
   'zero': {
     en: 'zero (x-intercept)',
-    def: 'a value of x for which f(x) = 0 — where the graph touches or crosses the x-axis',
-    ex: 'zeros of (x − 1)(x + 3) are 1 and −3',
-    non: 'the y-intercept f(0)',
-    ru: 'Нуль функции (zero, x-intercept) — значение x, при котором f(x) = 0: точка касания или пересечения с осью x. В Онтарио о функции говорят zero, не root.'
+    def: 'a value of x for which f(x) = 0 — where the graph touches or crosses the x-axis; a root of P(x) = 0 is a value of x that makes the equation true; a zero of the function is the same value — the graph meets the x-axis there; "root" is said about the equation, "zero" about the function',
+    ex: 'zeros of (x − 1)(x + 3) are 1 and −3; x = 5 is a root of x² − 25 = 0',
+    non: 'the y-intercept f(0); x = 0 is not a root of x² − 25 = 0 (it gives −25)',
+    ru: 'Нуль функции (zero, x-intercept) — значение x, при котором f(x) = 0: точка касания или пересечения с осью x. Root — о корне уравнения, zero — о нуле функции.'
   },
   'multiplicity': {
     en: 'multiplicity (order) of a zero',
-    def: 'how many times a factor appears; it decides the shape at the zero: order 1 — crosses, order 2 — bounces (touches), order 3 — flattens and crosses',
-    ex: '(x − 1)² gives the zero 1 of order 2 — the graph bounces at x = 1',
-    non: 'the number of zeros',
+    def: 'how many times a factor appears; it decides the shape at the zero: order 1 — crosses, order 2 — bounces (touches), order 3 — flattens and crosses; how many times the factor (x − a) appears in the fully factored form; odd multiplicity — the graph crosses the axis; even — it touches and bounces off; the degree equals the sum of multiplicities',
+    ex: '(x − 1)² gives the zero 1 of order 2 — the graph bounces at x = 1; (x + 2)²(x − 3): zero −2 has order 2 (bounce), 3 has order 1 (cross)',
+    non: 'the number of zeros; "multiplicity 2 because there are two zeros" — the number of zeros is not the order',
     ru: 'Кратность (multiplicity, order) нуля — сколько раз повторяется множитель; определяет форму у нуля: 1 — пересекает, 2 — касается и отскакивает, 3 — выпрямляется и пересекает.'
   },
   'turning point': {
@@ -331,23 +331,23 @@
   },
   'division terms': {
     en: 'dividend / divisor / quotient / remainder',
-    def: 'the polynomial being divided / what you divide by / the result / what is left; check: dividend = divisor × quotient + remainder',
-    ex: 'x² + 3x + 2 = (x + 1)(x + 2) + 0',
-    non: '"answer" for all four',
+    def: 'the polynomial being divided / what you divide by / the result / what is left; check: dividend = divisor × quotient + remainder; P(x) = (divisor)(quotient) + remainder, with degree of remainder less than degree of divisor; checks any division',
+    ex: 'x² + 3x + 2 = (x + 1)(x + 2) + 0; x³ − 7x + 6 = (x − 1)(x² + x − 6) + 0',
+    non: '"answer" for all four; "remainder 2x + 1" when dividing by x − 3 — impossible, the remainder must be a constant',
     ru: 'Делимое / делитель / частное / остаток; проверка: делимое = делитель × частное + остаток.'
   },
   'remainder theorem': {
     en: 'remainder theorem',
-    def: 'when a polynomial p(x) is divided by (x − a), the remainder equals p(a) — you get the remainder without dividing',
-    ex: 'p(x) = x² − 1 divided by x − 3: remainder p(3) = 8',
-    non: 'a rule about the quotient (the theorem says nothing about it)',
+    def: 'when a polynomial p(x) is divided by (x − a), the remainder equals p(a) — you get the remainder without dividing; when a polynomial P(x) is divided by x − a, the remainder equals P(a); works only for linear divisors x − a; no division needed to find the remainder',
+    ex: 'p(x) = x² − 1 divided by x − 3: remainder p(3) = 8; P(x) = x² + 1 divided by x − 2 → remainder P(2) = 5',
+    non: 'a rule about the quotient (the theorem says nothing about it); dividing by x² − 4 — the theorem does not apply directly',
     ru: 'Теорема об остатке — при делении p(x) на (x − a) остаток равен p(a); остаток находится без деления.'
   },
   'factor theorem': {
     en: 'factor theorem',
-    def: '(x − a) is a factor of p(x) if and only if p(a) = 0',
-    ex: 'p(1) = 0 for x³ − 7x + 6, so (x − 1) is a factor',
-    non: 'p(a) = 0 meaning x = a is the only zero',
+    def: '(x − a) is a factor of p(x) if and only if p(a) = 0; x − a is a factor of P(x) if and only if P(a) = 0; two directions — a zero gives a factor, a factor gives a zero; used to start factoring cubics',
+    ex: 'p(1) = 0 for x³ − 7x + 6, so (x − 1) is a factor; P(1) = 0 → x − 1 is a factor',
+    non: 'p(a) = 0 meaning x = a is the only zero; P(1) = 4 → x − 1 is not a factor, but x − 1 is still a divisor with remainder 4',
     ru: 'Теорема о корне (factor theorem): (x − a) — множитель p(x) тогда и только тогда, когда p(a) = 0.'
   },
   'synthetic division': {

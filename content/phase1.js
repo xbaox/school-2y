@@ -302,7 +302,7 @@
           goal: 'Remainder and factor theorems',
           youtube: 'MHF4U remainder theorem factor theorem',
           focus: 'remainder theorem; factor theorem; finding an unknown coefficient from a remainder; using the factor theorem to start factoring',
-          writing: '3 предложения: объяснить, почему x − 2 — множитель данного многочлена',
+          writing: 'Writing (3–4 sentences): explain how the remainder theorem lets you check whether x − a is a factor without dividing.',
           terms: ['remainder theorem', 'factor theorem', 'division terms'],
           text: null,
           tasks: [
@@ -339,7 +339,7 @@
           goal: 'Factoring polynomials fully',
           youtube: 'MHF4U factoring polynomials integral zero theorem',
           focus: 'integral zero theorem; rational zero theorem; factoring by grouping; difference and sum of cubes; factoring degree 3–4 fully',
-          writing: 'Разбор ошибки в чужом решении: 3–4 предложения',
+          writing: 'Writing (3–4 sentences): describe the steps you take to factor a cubic fully, starting from the integral zero theorem.',
           terms: ['integral zero theorem', 'rational zero theorem', 'factor fully', 'sum and difference of cubes'],
           text: null,
           tasks: [
@@ -377,7 +377,7 @@
           goal: 'Polynomial equations, roots, multiplicity',
           youtube: 'MHF4U solving polynomial equations multiplicity',
           focus: 'solving polynomial equations by factoring; roots and their multiplicity (order); behaviour of the graph at a zero (cross or bounce); family of polynomial functions from given zeros and a point',
-          writing: 'Объяснение решения уравнения 4 предложениями (первое лицо, present simple)',
+          writing: 'Writing (3–4 sentences): explain what the multiplicity of a zero tells you about the graph; give one example.',
           terms: ['zero', 'multiplicity', 'family of polynomial functions'],
           text: null,
           tasks: [
@@ -415,7 +415,7 @@
           goal: 'Polynomial inequalities',
           youtube: 'MHF4U polynomial inequalities interval table',
           focus: 'solving factored inequalities with a sign chart (interval table); interval notation; inequalities that need factoring first; strict and non-strict inequalities; a modelling inequality with a restricted domain',
-          writing: '3 предложения: как таблица знаков даёт ответ неравенства',
+          writing: 'Writing (3–4 sentences): explain to a classmate how to build and read a sign chart.',
           terms: ['sign chart', 'interval notation', 'boundary point'],
           text: null,
           tasks: [
@@ -454,7 +454,7 @@
     /* ================= Б10 · письмо и чтение ================= */
     {
       id: 'B10', track: 'write', title: 'Абзац-мнение и новостная заметка: формат OSSLT', deadline: '2026-11-01',
-      note: 'Материалы OSSLT — из окна английского, пакет 2.8.0б.',
+      note: 'Материалы OSSLT — из окна английского, пакет 2.8.0б. OSSLT — конец ноября 2026, точная дата до 15.10.',
       lessons: [
         { title: 'Абзац-мнение: структура', goal: 'topic sentence с мнением + 2 причины с поддержкой + concluding sentence', youtube: 'OSSLT opinion paragraph structure', focus: 'I believe / In my opinion + because; связки First, Second, Finally; поддержка каждой причины примером', writing: 'Абзац-мнение на школьную тему, 6–8 предложений + чистовик', terms: [], text: null, tasks: null },
         { title: 'Новостная заметка: заголовок, lead, 5W', goal: 'структура news report: headline, lead с who/what/where/when/why, «перевёрнутая пирамида», цитаты, нейтральный тон', youtube: 'OSSLT news report how to write', focus: 'факты первыми, мнение автора отсутствует; цитата с указанием говорящего; прошедшее время', writing: 'Заметка по картинке-заданию OSSLT, 3 абзаца', terms: [], text: null, tasks: null },

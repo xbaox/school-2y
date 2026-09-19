@@ -141,6 +141,46 @@
     eq(keys.length, Object.keys(CONTENT.glossary).length, 'сколько записей в файле, столько в глоссарии');
   });
 
+  describe('2.8.0 A7: пять прежних записей глоссария дополнены картами Фрейера пакета', function () {
+    var G = CONTENT.glossary;
+    var cards = {
+      'remainder theorem': ['works only for linear divisors x − a; no division needed to find the remainder',
+        'P(x) = x² + 1 divided by x − 2 → remainder P(2) = 5', 'dividing by x² − 4 — the theorem does not apply directly'],
+      'factor theorem': ['two directions — a zero gives a factor, a factor gives a zero; used to start factoring cubics',
+        'P(1) = 0 → x − 1 is a factor', 'P(1) = 4 → x − 1 is not a factor, but x − 1 is still a divisor with remainder 4'],
+      'division terms': ['with degree of remainder less than degree of divisor; checks any division',
+        'x³ − 7x + 6 = (x − 1)(x² + x − 6) + 0', 'impossible, the remainder must be a constant'],
+      'zero': ['"root" is said about the equation, "zero" about the function',
+        'x = 5 is a root of x² − 25 = 0', 'x = 0 is not a root of x² − 25 = 0 (it gives −25)'],
+      'multiplicity': ['the degree equals the sum of multiplicities',
+        '(x + 2)²(x − 3): zero −2 has order 2 (bounce), 3 has order 1 (cross)', 'the number of zeros is not the order']
+    };
+    Object.keys(cards).forEach(function (k) {
+      var g = G[k], c = cards[k];
+      ok(g.def.indexOf(c[0]) >= 0, k + ': Def и Facts карты в def');
+      ok(g.ex.indexOf(c[1]) >= 0, k + ': Ex карты');
+      ok(g.non.indexOf(c[2]) >= 0, k + ': Non-ex карты');
+    });
+    ok(G['factor theorem'].def.indexOf('(x − a) is a factor of p(x) if and only if p(a) = 0; ') === 0, 'прежнее определение сохранено первым');
+    ok(G.zero.ru.indexOf('Root — о корне уравнения, zero — о нуле функции.') > 0, 'zero: root — о корне уравнения');
+    eq(G.zero.ru.indexOf('говорят zero, не root'), -1, 'прежней фразы нет');
+  });
+
+  describe('2.8.0 A7: письменная работа Б9 и подпись Б10 — дословно', function () {
+    eq(CONTENT.lessons('B9').map(function (l) { return l.writing; }), [
+      'Writing (3–4 sentences): explain how the remainder theorem lets you check whether x − a is a factor without dividing.',
+      'Writing (3–4 sentences): describe the steps you take to factor a cubic fully, starting from the integral zero theorem.',
+      'Writing (3–4 sentences): explain what the multiplicity of a zero tells you about the graph; give one example.',
+      'Writing (3–4 sentences): explain to a classmate how to build and read a sign chart.'
+    ], 'четыре урока');
+    eq(CONTENT.block('B10').note, 'Материалы OSSLT — из окна английского, пакет 2.8.0б. OSSLT — конец ноября 2026, точная дата до 15.10.',
+      'подпись Б10');
+    fresh();
+    State.setStage('S0');
+    ok(PROMPTS.lesson('B9.4', { today: T }).indexOf('Письменная работа урока: Writing (3–4 sentences): explain to a classmate') > 0,
+      'письменная работа доехала в промпт');
+  });
+
   State.reset();
   State.syncContent();
 })();
