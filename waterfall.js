@@ -459,8 +459,33 @@ window.Waterfall = (function () {
     }).join('') + '</div>';
   }
 
-  /** Полные полоски для «Программы» и шторки свапа. */
-  function fullBars(activeTrack) {
+  /**
+   * Строка «следующий: …» под дорожкой на «Программе» (2.7.8, Б5). Очередь —
+   * та же, что у свапа «Поменять урок»: State.nextLessonInTrack без фазы.
+   * Решено самостоятельно: очередь сквозная, как у свапа, — строка говорит ровно
+   * то, что даст тап по этой дорожке в свапе. Урок общего блока (track: 'all')
+   * помечен «общий блок»: у информатики и бизнеса в Ф1 своих уроков нет, и без
+   * пометки строка спорила бы с «нет уроков в этой фазе»; урок другой фазы — с
+   * именем фазы. Встроенной дорожке строка не нужна: своих уроков у неё нет.
+   */
+  function nextLine(trackId) {
+    var tr = State.track(trackId);
+    if (!tr || tr.embedded) return '';
+    var next = State.nextLessonInTrack(trackId);
+    var l = next && window.CONTENT ? CONTENT.lesson(next) : null;
+    if (!l) return 'следующий: уроков в контенте нет';
+    var b = State.block(l.blockId) || {};
+    return 'следующий: ' + State.lessonLabel(next) + ' · ' + l.title +
+      (b.track === 'all' ? ' · общий блок' : '') +
+      (b.phase && b.phase !== State.currentPhase() ? ' · ' + State.phaseName(b.phase) : '');
+  }
+
+  /**
+   * Полные полоски для «Программы» и шторки «Кто получает урок дня».
+   * opts.next — под каждой дорожкой строка nextLine (2.7.8: только «Программа»).
+   */
+  function fullBars(activeTrack, opts) {
+    var withNext = !!(opts && opts.next);
     return '<div class="card fresh">' + State.s.tracks.map(function (tr) {
       var f = State.freshness(tr.id);
       // дорожка без доступных уроков — серая, без цвета срочности
@@ -469,11 +494,14 @@ window.Waterfall = (function () {
       var pct = tr.embedded ? 100 : (idle || f == null ? 100 : U.clamp(Math.round(f / 7 * 100), 6, 100));
       var bg = c === 'r' ? 'bg-r' : (c === 'y' ? 'bg-y' : (c === 'g' ? 'bg-g' : ''));
       var dim = tr.embedded || idle || f == null ? 'opacity:.35' : '';
-      return '<div class="trow' + (activeTrack === tr.id ? ' on' : '') + '" data-track="' + U.esc(tr.id) + '">' +
+      var next = withNext ? nextLine(tr.id) : '';
+      return '<div class="trow' + (activeTrack === tr.id ? ' on' : '') + (next ? ' hasnext' : '') +
+        '" data-track="' + U.esc(tr.id) + '">' +
         '<div class="tname">' + UI.trackDot(tr.id) + ' ' + U.esc(tr.name) + '</div>' +
         '<div class="tbar"><i class="' + bg + '" style="width:' + pct + '%;' + dim +
         (bg ? '' : 'background:var(--line)') + '"></i></div>' +
         '<div class="tdays ' + c + '">' + U.esc(freshText(tr.id, f)) + '</div>' +
+        (next ? '<div class="tnext">' + U.esc(next) + '</div>' : '') +
         '</div>';
     }).join('') + '</div>';
   }
@@ -581,7 +609,7 @@ window.Waterfall = (function () {
 
   return {
     pick: pick, second: second, nextInBlock: nextInBlock, openSwap: openSwap, explain: explain,
-    miniBars: miniBars, fullBars: fullBars, freshColor: freshColor, freshText: freshText,
+    miniBars: miniBars, fullBars: fullBars, nextLine: nextLine, freshColor: freshColor, freshText: freshText,
     hasLessonsNow: hasLessonsNow, nextOwnLesson: nextOwnLesson,
     ruleDeadline: ruleDeadline, ruleSaturday: ruleSaturday, ruleTemplate: ruleTemplate, schoolDays: schoolDays,
     ruleRadar: ruleRadar, ruleFreshness: ruleFreshness, rulePace: rulePace, ruleDebts: ruleDebts,
