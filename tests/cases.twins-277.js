@@ -43,14 +43,17 @@
 
     var HW = 'HW-2026-09-11-math';
     State.startHw('MHF4U', '2026-09-11', 'B7.1');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА НW-2026-09-11-mаth ==='), HW).ok, true, 'id ДЗ с кириллическими Н и а');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Урок по ДЗ · МНF4U ==='), HW).ok, true, 'код курса с кириллическими М и Н');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Урок по ДЗ · MHF4U ==='), HW).ok, true, 'подпись с карточки — как было');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Домашнее задание школы · MHF4U ==='), HW).ok, true,
-      'название из промпта — как было');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Урок по ДЗ · ENG2D ==='), HW).ok, false, 'чужой курс — отказ');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА HW-2026-09-10-math ==='), HW).ok, false, 'ДЗ другого дня — отказ');
-    eq(PROMPTS.parse(itog('=== ИТОГ УРОКА В7.1 ==='), HW).ok, false, 'программный урок за ДЗ не проходит');
+    // 2.7.8: подпись ДЗ-урока принимается только в его день
+    withToday('2026-09-11', function () {
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА НW-2026-09-11-mаth ==='), HW).ok, true, 'id ДЗ с кириллическими Н и а');
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Урок по ДЗ · МНF4U ==='), HW).ok, true, 'код курса с кириллическими М и Н');
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Урок по ДЗ · MHF4U ==='), HW).ok, true, 'подпись с карточки — как было');
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Домашнее задание школы · MHF4U ==='), HW).ok, true,
+        'название из промпта — как было');
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА Урок по ДЗ · ENG2D ==='), HW).ok, false, 'чужой курс — отказ');
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА HW-2026-09-10-math ==='), HW).ok, false, 'ДЗ другого дня — отказ');
+      eq(PROMPTS.parse(itog('=== ИТОГ УРОКА В7.1 ==='), HW).ok, false, 'программный урок за ДЗ не проходит');
+    });
   });
 
   describe('2.7.7 Э10: ни одна подпись не принимается за чужой урок', function () {

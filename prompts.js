@@ -832,13 +832,31 @@ window.PROMPTS = (function () {
       .replace(/[АБВЕКМНОРСТУХ]/g, function (ch) { return HEADER_TWINS[ch]; });
   }
 
+  /** Разбор id ДЗ-урока → { id, date, track } или null (без State — null). */
+  function hwOf(lessonId) {
+    return window.State && State.parseHwId ? State.parseHwId(lessonId) : null;
+  }
+
+  /**
+   * ДЗ-урок другого дня? «Сегодня» — день, которым закрывается итог: окно
+   * вставки передаёт свой (шторка, открытая до 04:00, закрывает прошедший
+   * день), без него — State.today().
+   */
+  function hwOtherDay(hw, todayIso) {
+    return !!hw && hw.date !== (todayIso || State.today());
+  }
+
   /**
    * Чем может называться урок в заголовке: id или подписью. У ДЗ-урока
    * подписей две — с карточки «Сегодня» и из строки «Урок:» его промпта.
+   * 2.7.8: в подписи ДЗ-урока нет даты («Урок по ДЗ · MHF4U» — у каждого дня
+   * по этому курсу), поэтому подпись принимается только у сегодняшнего
+   * ДЗ-урока; ДЗ другого дня — только по id с датой.
    */
-  function headerNames(lessonId) {
+  function headerNames(lessonId, todayIso) {
+    var hw = hwOf(lessonId);
+    if (hwOtherDay(hw, todayIso)) return [String(lessonId)];
     var names = [String(lessonId), labelOf(lessonId)];
-    var hw = window.State && State.parseHwId ? State.parseHwId(lessonId) : null;
     if (hw) {
       var course = (State.hwOfDay(hw.date) || {}).course || ((State.s.hw || {})[lessonId] || {}).course;
       if (course) names.push(hwLesson({ id: lessonId, course: course }).title);
@@ -846,19 +864,27 @@ window.PROMPTS = (function () {
     return names;
   }
 
-  /** Принимается ли токен заголовка для ожидаемого урока. */
-  function headerMatches(token, lessonId) {
+  /** Принимается ли токен заголовка для ожидаемого урока (todayIso — см. hwOtherDay). */
+  function headerMatches(token, lessonId, todayIso) {
     var key = headerKey(token);
     if (!key || !lessonId) return false;
-    return headerNames(lessonId).some(function (n) { return headerKey(n) === key; });
+    return headerNames(lessonId, todayIso).some(function (n) { return headerKey(n) === key; });
   }
 
-  /** «Заголовок не совпадает: ожидается `=== ИТОГ УРОКА B53.1 ===` (урок К.1)». */
-  function headerError(lessonId) {
+  /**
+   * «Заголовок не совпадает: ожидается `=== ИТОГ УРОКА B53.1 ===` (урок К.1)».
+   * ДЗ-урок другого дня (2.7.8) — с днём и с тем, что подпись не пройдёт:
+   * «… (Урок по ДЗ · MHF4U, 11 сен): ДЗ другого дня принимается только по id».
+   */
+  function headerError(lessonId, todayIso) {
     var label = labelOf(lessonId);
-    var isHwId = window.State && State.isHw && State.isHw(lessonId);
+    var hw = hwOf(lessonId);
+    if (hwOtherDay(hw, todayIso)) {
+      return 'Заголовок не совпадает: ожидается `' + headerLine(lessonId) + '` (' +
+        label + ', ' + U.fmtShort(hw.date) + '): ДЗ другого дня принимается только по id';
+    }
     return 'Заголовок не совпадает: ожидается `' + headerLine(lessonId) + '` (' +
-      (isHwId ? label : 'урок ' + label) + ')';
+      (hw ? label : 'урок ' + label) + ')';
   }
 
   /**
@@ -874,19 +900,22 @@ window.PROMPTS = (function () {
    * expectId — урок, который закрывает окно вставки (выбор дня или ДЗ дня).
    * С ним заголовок обязан назвать этот урок — id или подписью, иначе отказ;
    * без него (разбор вне окна) заголовок только читается.
+   * opts.today — день, которым закрывается итог (по умолчанию State.today()):
+   * подпись ДЗ-урока принимается только в его день (2.7.8).
    */
-  function parse(text, expectId) {
+  function parse(text, expectId, opts) {
     var src = String(text || '');
+    var todayIso = (opts && opts.today) || null;
     var m = HEADER_RE.exec(src);
     if (!m) {
-      if (expectId) return { ok: false, error: headerError(expectId), lessonId: null, header: null };
+      if (expectId) return { ok: false, error: headerError(expectId, todayIso), lessonId: null, header: null };
       return { ok: false, error: 'Не вижу формата: нужен блок «=== ИТОГ УРОКА … ===». Попроси ИИ повторить итог по шаблону.' };
     }
     // «=== ИТОГ УРОКА: B53.1 ===» — двоеточие после маркера тоже не часть имени
     var header = String(m[1] || '').replace(/[*_`]/g, '').replace(/^\s*:\s*/, '').trim().replace(/\s+/g, ' ');
-    if (expectId && !headerMatches(header, expectId)) {
+    if (expectId && !headerMatches(header, expectId, todayIso)) {
       return {
-        ok: false, error: headerError(expectId),
+        ok: false, error: headerError(expectId, todayIso),
         lessonId: header.replace(/^Б/i, 'B') || null, header: header || null
       };
     }

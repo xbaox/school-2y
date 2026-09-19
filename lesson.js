@@ -494,8 +494,10 @@ window.Lesson = (function () {
             return;
           }
           // 2.7.6: заголовок обязан назвать этот урок — id или подписью
-          // (B53.1 или К.1); чужой урок и итог без заголовка не принимаются
-          var parsed = PROMPTS.parse(ta.value, lessonId);
+          // (B53.1 или К.1); чужой урок и итог без заголовка не принимаются.
+          // 2.7.8: подпись ДЗ-урока — только в его день; день — тот, которым
+          // закроется итог (шторка, открытая до 04:00, закрывает прошедший)
+          var parsed = PROMPTS.parse(ta.value, lessonId, { today: date });
           if (!parsed.ok) {
             err.textContent = parsed.error;
             return;
