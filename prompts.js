@@ -42,6 +42,8 @@ window.PROMPTS = (function () {
     var stretchNums = [];
     for (var t = 0; t < L.stretch; t++) stretchNums.push(next());
 
+    var hasL3 = !!(lesson && Array.isArray(lesson.tasks) &&
+      lesson.tasks.some(function (x) { return x && x.level === 'L3'; }));
     var half = Math.ceil(L.base / 2);
     var first = baseNums.slice(0, half), second = baseNums.slice(half);
 
@@ -76,8 +78,11 @@ window.PROMPTS = (function () {
           ? 'на этой ступени обязателен: спрашивать не нужно, отказа нет; '
           : 'всегда предлагается: «⭐⭐ или закрываем?» Отказ ничего не снимает; ') +
         'решение — ⭐ в журнал. ' +
-        'Если в опорных заданиях есть L3 — это база: усиль её до конкурсного уровня. ' +
-        'Если опорных нет — составь сам, предварительно решив до конца; ' +
+        // 2.8.0 (A6): стретч L3 в контенте уже конкурсного уровня — берётся как есть
+        (hasL3
+          ? 'Стретч дан в [ОПОРНЫЕ ЗАДАНИЯ] (L3) — бери его как есть, условие не меняй и не усиливай; '
+          : 'Если в опорных заданиях есть L3 — это база: усиль её до конкурсного уровня. ' +
+            'Если опорных нет — составь сам, предварительно решив до конца; ') +
         'решение показываешь после попытки.'),
       '7. Выход (3′): пересказ урока за 60 секунд «как учитель»; «Что взял» — 3 пункта; ' +
       '«Связка»; ИТОГ.'
@@ -157,6 +162,18 @@ window.PROMPTS = (function () {
   var WORDS_RULE = 'В строке «Слова» — от 3 до 5 терминов, никогда не больше пяти; только термины курса Онтарио ' +
     'по теме урока, общих английских слов там нет.';
   var HEADER_NOTE = 'Первую строку — заголовок — скопируй дословно';
+  // 2.8.0 (A6): у урока есть свой список слов (lesson.words) — ИТОГ берёт из него
+  var WORDS_LIST_NOTE = 'Слова урока для ИТОГа';
+  var WORDS_RULE_LIST = 'В строке «Слова» — от 3 до 5 слов из списка «' + WORDS_LIST_NOTE +
+    '», никогда не больше пяти.';
+
+  /** «Слова урока для ИТОГа: термин — перевод; …» или null, если списка у урока нет. */
+  function lessonWordsLine(lessonId) {
+    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
+    var w = (l && Array.isArray(l.words) ? l.words : []).filter(function (x) { return x && x.en; });
+    if (!w.length) return null;
+    return WORDS_LIST_NOTE + ': ' + w.map(function (x) { return x.en + ' — ' + x.ru; }).join('; ');
+  }
 
   /**
    * Строка-инструкция из [ФИНАЛ], которую ИИ переписал внутрь блока (2.7.8,
@@ -166,10 +183,11 @@ window.PROMPTS = (function () {
   function noteKey(s) { return String(s || '').toLowerCase().replace(/[^a-zа-яё0-9]+/g, ''); }
   // начала строк-инструкций — и их половин, если ИИ перенёс строку
   var NOTE_KEYS = [
-    'В строке «Слова» — от 3 до 5 терминов',
+    'В строке «Слова» — от 3 до 5',
     'только термины курса Онтарио по теме урока',
     HEADER_NOTE,
-    'подпись урока ('
+    'подпись урока (',
+    WORDS_LIST_NOTE                    // 2.8.0: список слов урока тоже не данные итога
   ].map(noteKey);
 
   // Ключ — одни буквы и цифры: маркеры списка, цитаты, жирный, кавычки и
@@ -180,6 +198,7 @@ window.PROMPTS = (function () {
   }
 
   function finalBlock(lessonId, contest) {
+    var wordsLine = lessonWordsLine(lessonId);
     return [
       '[ФИНАЛ] — выдай «ИТОГ УРОКА» строго в этом формате, без лишнего текста внутри блока:',
       // 2.7.6: ИИ подставлял в заголовок подпись урока (К.1) вместо id (B53.1),
@@ -189,8 +208,10 @@ window.PROMPTS = (function () {
       // 2.7.8: слов 3–5 — столько мест под новые слова в колоде дня (5); шестое–
       // восьмое ждали следующих дней. Предел живёт здесь: парсер число не режет.
       // Строка не начинается со «Слова»: скопированная в блок, она не станет полем,
-      // а парсер её пропустит (isItogNote)
-      WORDS_RULE,
+      // а парсер её пропустит (isItogNote). 2.8.0 (A6): есть список слов урока —
+      // слова ИТОГа из него; нет — термины курса по теме, как было
+      wordsLine ? WORDS_RULE_LIST : WORDS_RULE,
+      wordsLine,
       '',
       headerLine(lessonId),
       'Пройдено: <темы одной строкой>',
@@ -206,7 +227,7 @@ window.PROMPTS = (function () {
       '=== КОНЕЦ ===',
       '',
       'После ИТОГа — ровно одна строка: «5–10 минут без экрана, потом 5 минут карточек — перед сном». Больше ничего.'
-    ].join('\n');
+    ].filter(function (x) { return x !== null; }).join('\n');
   }
 
 
@@ -640,7 +661,7 @@ window.PROMPTS = (function () {
       contest ? null : '',
       contest ? null : warmupBlock(trackId, lessonId),
       contest ? null : '',
-      contest ? contestStages() : stagesBlock(p, youtube, saturday, null, spare),
+      contest ? contestStages() : stagesBlock(p, youtube, saturday, hw ? null : lesson, spare),
       '',
       finalBlock(lessonId, contest),
       '',
