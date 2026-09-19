@@ -554,3 +554,110 @@ window.__cloud281 = (function () {
     }));
   });
 })();
+
+/* ---------- 2.8.1 A4: истёкший вход — правки остаются и уезжают после входа ---------- */
+(function () {
+  'use strict';
+  var T = window.__sync281, CL = T.CL;
+
+  function signInAgain() {
+    CL.token = 'ok';
+    return Sync.signIn('a@b.c', 'pass').then(function () { return Sync.whenIdle(); });
+  }
+
+  /** A сошёлся с облаком, правит; вход отваливается на первом же заходе. */
+  function lostWithEdits() {
+    var st = T.base('2026-09-10T08:00:00.000Z', 5);
+    CL.reset(); CL.put(st);
+    var d = T.synced('A', st);
+    d.store['study-system-v2-session'] = JSON.stringify({
+      access_token: 'tok', refresh_token: 'ref', expires_at: Date.now() - 1000, user_id: 'u1', email: 'a@b.c'
+    });
+    T.use(d, true);
+    T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 11; });
+    CL.token = 'dead';
+    Sync.init();
+    return Sync.whenIdle();
+  }
+
+  describe('2.8.1 A4: истёкший вход', function () {
+    defer('вход отвалился — правки на месте, метка схождения цела', T.guard(function () {
+      return lostWithEdits().then(function () {
+        eq([Sync.signedIn(), Sync.authLost()], [false, true], 'вход потерян, плашка');
+        eq(State.s.stats.bestStreak, 11, 'правка на месте');
+        eq(Sync.lastSyncedAt(), '2026-09-10T08:00:00.000Z', 'lastSyncedAt не стёрт');
+        eq(Sync.hasUnpushed(), true, 'правка числится неотправленной');
+        eq(CL.row.state.stats.bestStreak, 5, 'облако не тронуто');
+      });
+    }));
+
+    defer('правки без входа копятся; после входа — чтение, потом отправка', T.guard(function () {
+      return lostWithEdits().then(function () {
+        T.edit('2026-09-10T09:30:00.000Z', function (s) { s.stats.bestStreak = 12; });
+        window.__calls.length = 0;
+        return signInAgain();
+      }).then(function () {
+        var data = window.__calls.filter(function (c) { return c.url.indexOf('/rest/v1/') >= 0; });
+        eq(data.map(function (c) { return c.method; }), ['GET', 'PATCH'], 'чтение, потом запись');
+        eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak], [12, 12], 'правки уехали');
+        eq(Sync.snapshots().length, 0, 'конфликта не было');
+        eq(Sync.authLost(), false, 'плашка ушла');
+      });
+    }));
+
+    defer('пока входа не было, другое устройство писало раньше — своё побеждает, чужое в снимке', T.guard(function () {
+      return lostWithEdits().then(function () {
+        CL.put(T.base('2026-09-10T08:30:00.000Z', 22));
+        return signInAgain();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak], [11, 11], 'своё в облаке');
+        eq(Sync.snapshots()[0].state.stats.bestStreak, 22, 'чужое — в снимке');
+      });
+    }));
+
+    defer('другое устройство писало позже — облако рабочее, но своё не пропало', T.guard(function () {
+      return lostWithEdits().then(function () {
+        CL.put(T.base('2026-09-10T10:00:00.000Z', 22));
+        return signInAgain();
+      }).then(function () {
+        eq(State.s.stats.bestStreak, 22, 'рабочим стало облако');
+        eq(Sync.snapshots()[0].side, 'local', 'своё — в снимке');
+        eq(Sync.snapshots()[0].state.stats.bestStreak, 11, 'целиком');
+        ok(T.banner().indexOf('Конфликты синка') >= 0, 'плашка конфликта');
+      });
+    }));
+
+    defer('вход отвалился посреди записи — ничего не заменено, после входа уехало', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st), true);
+      T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 11; });
+      window.__fetch = function (url, o) {
+        // чтение прошло, а на записи токен уже не узнают, refresh отбит
+        if (o && o.method === 'PATCH') CL.token = 'dead';
+        return CL.fetch(url, o);
+      };
+      Sync.init();
+      return Sync.whenIdle().then(function () {
+        eq([Sync.signedIn(), State.s.stats.bestStreak, CL.row.state.stats.bestStreak], [false, 11, 5],
+          'вход потерян, своё на месте, облако прежнее');
+        window.__fetch = CL.fetch;
+        return signInAgain();
+      }).then(function () {
+        eq(CL.row.state.stats.bestStreak, 11, 'после входа правка уехала');
+      });
+    }));
+
+    defer('перезапуск без входа ничего не отправляет и ничего не забирает', T.guard(function () {
+      return lostWithEdits().then(function () {
+        var n = window.__calls.length;
+        Sync.init();
+        Sync.flush();
+        return Sync.sync();
+      }).then(function (r) {
+        eq(r.ok, false, 'без входа заход не идёт');
+        eq(State.s.stats.bestStreak, 11, 'своё на месте');
+      });
+    }));
+  });
+})();
