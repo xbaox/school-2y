@@ -101,6 +101,33 @@
     });
   });
 
+  describe('2.8.0 ревью: на S0 мест основы четыре — пятое опорное задание запасное, не «обязательное»', function () {
+    fresh();
+    State.setStage('S0');
+    var p = PROMPTS.lesson('B9.1', { today: T });
+    var l = CONTENT.lesson('B9.1');
+    ok(p.indexOf('Основа 4. (L2, 3 marks) ' + l.tasks[3].q) > 0, 'четыре задания — основа');
+    ok(p.indexOf('Запасное 1. (L2, 4 marks) ' + l.tasks[4].q) > 0, 'пятое — запасное');
+    eq(p.indexOf('Основа 5.'), -1, '«Основы 5» нет');
+    ok(p.indexOf('Запасные опорные задания (1) — сверх мест ступени: после стретча, ' +
+      'если осталось время; в счёт не входят.') > 0, 'план урока говорит, куда оно идёт');
+    ok(p.indexOf('Запасное 1: ' + l.tasks[4].key) > p.indexOf('=== КЛЮЧИ'), 'и ключ подписан так же');
+    ok(p.indexOf('Счёт: сумма баллов за Основу 1–4') > 0, 'счёт — по местам ступени, как раньше');
+
+    State.setStage('S1');
+    var p1 = PROMPTS.lesson('B9.1', { today: T });
+    eq([p1.indexOf('Запасное'), p1.indexOf('Запасные опорные')], [-1, -1], 'на S1 мест хватает — запасных нет');
+  });
+
+  describe('2.8.0 ревью: у заданий без русской строки «RU: —» не печатается', function () {
+    fresh();
+    State.setStage('S0');
+    eq(PROMPTS.lesson('B9.1', { today: T }).indexOf('RU: —'), -1, 'B9.1');
+    eq(PROMPTS.lesson('B53.4', { today: T }).indexOf('RU: —'), -1, 'B53.4');
+    ok(PROMPTS.lesson('B7.1', { today: T }).indexOf('  /  RU: ' + CONTENT.lesson('B7.1').tasks[0].ru) > 0,
+      'у Б7 русская строка на месте');
+  });
+
   describe('2.8.0 C2: глоссарий — новые термины целиком, без повторов ключей', function () {
     ['integral zero theorem', 'rational zero theorem', 'factor fully', 'sum and difference of cubes',
       'family of polynomial functions', 'sign chart', 'interval notation', 'boundary point'].forEach(function (key) {

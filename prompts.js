@@ -26,7 +26,7 @@ window.PROMPTS = (function () {
    * письмо, стретч. Скелет один на все ступени; меняются номера и то,
    * сколько заданий основы преподаватель достраивает по образцу опорных.
    */
-  function stagesBlock(p, youtube, saturday, lesson) {
+  function stagesBlock(p, youtube, saturday, lesson, spare) {
     var L = p.slots || { warm: 2, base: 4, write: 1, stretch: 1 };
     var total = L.warm + L.base + L.write + L.stretch;
     var sprint = p.sprintLabel || SPRINT_FALLBACK;
@@ -93,6 +93,13 @@ window.PROMPTS = (function () {
       'приведённая к 10, округление до 0.5; разогрев и стретч в счёт не входят.');
     lines.push('Уровень в ИТОГе: L2 — основа пройдена не меньше чем наполовину; ' +
       'L3 — взят стретч; L1 — стоп до основы.');
+    // 2.8.0: опорных заданий основы больше, чем мест на ступени (Б9: пять при
+    // четырёх на S0). Места задаёт шкала ступени — их не трогаем; лишние идут
+    // запасными, и промпт говорит это прямо, а не «все обязательны»
+    if (spare > 0) {
+      lines.push('Запасные опорные задания (' + spare + ') — сверх мест ступени: после стретча, ' +
+        'если осталось время; в счёт не входят.');
+    }
 
     // ступень просит больше заданий, чем дал контент — так и скажем
     var given = (lesson && lesson.tasks) || [];
@@ -322,7 +329,7 @@ window.PROMPTS = (function () {
    * Задания уровня L2 и ниже идут «Основой» по порядку, единственное L3 —
    * «Стретчем ⭐». Заданий нет — так и сказано, чтобы ИИ не решал за контент.
    */
-  function tasksBlock(lesson) {
+  function tasksBlock(lesson, baseSlots) {
     var tasks = lesson && lesson.tasks;
     if (!Array.isArray(tasks) || !tasks.length) {
       return '[ОПОРНЫЕ ЗАДАНИЯ]\nопорные задания придут следующим пакетом контента; ' +
@@ -330,15 +337,19 @@ window.PROMPTS = (function () {
     }
     var base = tasks.filter(function (t) { return !isStretch(t); });
     var stretch = tasks.filter(isStretch);
-    var lines = ['[ОПОРНЫЕ ЗАДАНИЯ] — обязательны и идут в этом порядке; условие менять нельзя.'];
+    var cap = baseSlots > 0 && base.length > baseSlots ? baseSlots : base.length;
+    var lines = ['[ОПОРНЫЕ ЗАДАНИЯ] — обязательны и идут в этом порядке; условие менять нельзя.' +
+      (cap < base.length ? ' Запасные — только если осталось время после стретча.' : '')];
+    // 2.8.0: у заданий пакета 2.8.0 русской строки нет (урок идёт по-английски) —
+    // «RU: —» читалось бы как пропуск, поэтому без неё строки нет вовсе
+    function ru(t) { return t.ru ? '  /  RU: ' + t.ru : ''; }
     base.forEach(function (t, i) {
-      lines.push('Основа ' + (i + 1) + '. (' + (t.level || 'L2') + ', ' + marks(t) + ') ' + t.q +
-        '  /  RU: ' + (t.ru || '—') +
+      lines.push((i < cap ? 'Основа ' + (i + 1) : 'Запасное ' + (i - cap + 1)) +
+        '. (' + (t.level || 'L2') + ', ' + marks(t) + ') ' + t.q + ru(t) +
         (t.probe ? '  /  проверяет: ' + t.probe : ''));
     });
     stretch.forEach(function (t) {
-      lines.push('Стретч ⭐ (' + (t.level || 'L3') + ', ' + marks(t) + ') ' + t.q +
-        '  /  RU: ' + (t.ru || '—') +
+      lines.push('Стретч ⭐ (' + (t.level || 'L3') + ', ' + marks(t) + ') ' + t.q + ru(t) +
         (t.probe ? '  /  проверяет: ' + t.probe : ''));
     });
     return lines.join('\n');
@@ -354,7 +365,7 @@ window.PROMPTS = (function () {
     tasks.forEach(function (t, i) {
       lines.push((i + 1) + '. Часть ' + (t.part || 'A') + ' (' + marks(t) + ') ' +
         (t.part === 'B' ? '— полное решение с записью ходов. ' : '— короткий ответ. ') + t.q +
-        '  /  RU: ' + (t.ru || '—'));
+        (t.ru ? '  /  RU: ' + t.ru : ''));
     });
     return lines.join('\n');
   }
@@ -375,7 +386,7 @@ window.PROMPTS = (function () {
       '1 — чек-лист языка чист'
   };
 
-  function keysBlock(lesson, contest, trackId) {
+  function keysBlock(lesson, contest, trackId, baseSlots) {
     var tasks = (lesson && lesson.tasks) || [];
     var lines = ['=== КЛЮЧИ — для преподавателя; ученик не читает ==='];
     if (!tasks.length) {
@@ -385,8 +396,11 @@ window.PROMPTS = (function () {
     } else {
       var n = 0;
       tasks.forEach(function (t) {
-        if (isStretch(t)) lines.push('Стретч: ' + (t.key || '—'));
-        else lines.push('Основа ' + (++n) + ': ' + (t.key || '—'));
+        if (isStretch(t)) { lines.push('Стретч: ' + (t.key || '—')); return; }
+        n++;
+        // 2.8.0: сверх мест ступени — «Запасное», как в [ОПОРНЫЕ ЗАДАНИЯ]
+        lines.push((baseSlots > 0 && n > baseSlots ? 'Запасное ' + (n - baseSlots) : 'Основа ' + n) +
+          ': ' + (t.key || '—'));
       });
     }
     if (!contest && lesson && lesson.writing) {
@@ -579,6 +593,11 @@ window.PROMPTS = (function () {
     // Порядок блоков — ТЗ 4.2, и он не случайный: контракт первым, ключи
     // последними. Ключ, увиденный раньше попытки, обесценивает урок.
     var gloss = glossaryBlock(lesson, trackId);
+    // места основы на ступени и опорные задания сверх них (2.8.0)
+    var baseSlots = (p.slots || { base: 4 }).base;
+    var baseGiven = !hw && !contest && Array.isArray(lesson.tasks)
+      ? lesson.tasks.filter(function (t) { return !isStretch(t); }).length : 0;
+    var spare = Math.max(0, baseGiven - baseSlots);
     var text = textBlock(lesson);
     return [
       'Ты — мой персональный преподаватель школьной программы Онтарио.',
@@ -613,7 +632,7 @@ window.PROMPTS = (function () {
       gloss ? '' : null,
       text,
       text ? '' : null,
-      hw ? hwBlock(p) : (contest ? contestTasksBlock(lesson) : tasksBlock(lesson)),
+      hw ? hwBlock(p) : (contest ? contestTasksBlock(lesson) : tasksBlock(lesson, baseSlots)),
       '',
       debtsBlock(trackId),
       '',
@@ -621,11 +640,11 @@ window.PROMPTS = (function () {
       contest ? null : '',
       contest ? null : warmupBlock(trackId, lessonId),
       contest ? null : '',
-      contest ? contestStages() : stagesBlock(p, youtube, saturday),
+      contest ? contestStages() : stagesBlock(p, youtube, saturday, null, spare),
       '',
       finalBlock(lessonId, contest),
       '',
-      hw ? hwWritingBlock(trackId) : keysBlock(lesson, contest, trackId)
+      hw ? hwWritingBlock(trackId) : keysBlock(lesson, contest, trackId, baseSlots)
     ].filter(function (l) { return l !== null; }).join('\n');
   }
 
