@@ -81,6 +81,9 @@ window.Sync = (function () {
   var again = false;       // за время захода попросили ещё один
   var retryTimer = null;
   var retryN = 0;
+  /** updatedAt записи, ответ на которую не дошёл (таймаут, обрыв): облако с
+      этим штампом — наше собственное, а не чужая правка. */
+  var ATTEMPT_KEY = 'study-system-v2-attempt';
 
   function available() { return !!(URL_BASE && ANON_KEY); }
   function signedIn() { return !!(session && session.access_token); }
@@ -411,7 +414,18 @@ window.Sync = (function () {
         reject(new Error('timeout'));
       }, LIMITS.req);
     });
-    return Promise.race([sent, timeout]).then(
+    // таймаут покрывает и чтение тела: заголовки могут прийти, а тело — нет,
+    // и заход висел бы в «синхронизирую…» до перезагрузки
+    var whole = sent.then(function (r) {
+      return r.text().then(function (text) {
+        return {
+          ok: r.ok, status: r.status,
+          text: function () { return Promise.resolve(text); },
+          json: function () { return Promise.resolve().then(function () { return JSON.parse(text); }); }
+        };
+      });
+    });
+    return Promise.race([whole, timeout]).then(
       function (r) { clearTimeout(t); return r; },
       function (e) { clearTimeout(t); throw e; });
   }
@@ -606,9 +620,18 @@ window.Sync = (function () {
   function reloadIfNewerOnDisk() {
     try {
       var raw = localStorage.getItem(State.KEY);
-      if (!raw) return false;
+      if (!raw || !State.diskStamp) return false;
       var disk = JSON.parse(raw);
-      if (ts(disk && disk.meta && disk.meta.updatedAt) <= ts(State.s.meta.updatedAt)) return false;
+      var at = disk && disk.meta && disk.meta.updatedAt;
+      // на диске то, что эта вкладка сама записала или прочла, — никто не писал
+      if (ts(at) === ts(State.diskStamp())) return false;
+      // соседняя вкладка записала — неважно, новее или старее («Забрать из
+      // облака», другой аккаунт кладут и более старое). Своей несохранённой
+      // правки нет — перечитываем; есть — чужое не выбрасываем, а в снимок
+      if (ts(State.s.meta.updatedAt) !== ts(State.diskStamp())) {
+        addSnapshot(disk, 'local');
+        return false;
+      }
       State.load();
       if (window.App) App.render();
       return true;
@@ -648,15 +671,19 @@ window.Sync = (function () {
     var cloudAt = cloud ? (cloud.meta.updatedAt || row.updated_at || '') : '';
     var localAt = State.s.meta.updatedAt || '';
 
+    // запись, ответ на которую не дошёл, всё-таки легла: облако — наше
+    var attempt = readAttempt();
+    if (attempt && cloud && ts(attempt) === ts(cloudAt)) setLastSyncedAt(cloudAt);
+    if (attempt) writeAttempt(null);
+
     // вход под другой почтой: здешнее состояние — чужого аккаунта. В чужое
     // облако его не льём: берём облако этого аккаунта, своё — снимком
     if (foreignMarker()) {
       if (!cloud) return send(row, cloudAt, opts, my, tries, { empty: true, account: true });
-      if (hasLocalData() && ts(localAt) !== ts(cloudAt)) {
-        if (!addSnapshot(State.s, 'local')) return full();
-        setConflict(true);
-      }
+      var keep = hasLocalData() && ts(localAt) !== ts(cloudAt);
+      if (keep && !addSnapshot(State.s, 'local')) return full();
       if (!apply(cloud, cloudAt)) return noSpace();
+      if (keep) setConflict(true);
       return done({ ok: true, applied: true, at: cloudAt, account: true });
     }
 
@@ -706,13 +733,15 @@ window.Sync = (function () {
       // 2.8.1 пишет в meta.base, поверх какого облака легла запись. Нет base —
       // писал клиент до 2.8.1, не глядя в облако: то, что у нас есть, могло
       // в его запись не попасть. Своё — снимком, без плашки: это страховка
-      if (!cloud.meta.base && !addSnapshot(State.s, 'local')) return full();
+      if (!writtenBy281(cloud) && !addSnapshot(State.s, 'local')) return full();
       if (!apply(cloud, cloudAt)) return noSpace();
       return done({ ok: true, applied: true, at: cloudAt });
     }
 
-    // конфликт: рабочим остаётся состояние с большим updatedAt
-    if (ts(localAt) > ts(cloudAt)) {
+    // конфликт: рабочим остаётся состояние с большим updatedAt. Устройство,
+    // ни разу не сходившееся с этим облаком (онбординг без входа, потом вход
+    // из Настроек), своих «правок поверх облака» не имеет — рабочим облако
+    if (synced && ts(localAt) > ts(cloudAt)) {
       if (!addSnapshot(cloud, 'cloud')) return full();
       setConflict(true);
       return send(row, cloudAt, opts, my, tries, { conflict: true });
@@ -721,6 +750,23 @@ window.Sync = (function () {
     if (!apply(cloud, cloudAt)) return noSpace();
     setConflict(true);
     return done({ ok: true, applied: true, at: cloudAt, conflict: true });
+  }
+
+  /** Запись сделана 2.8.1 — её meta.base можно верить. */
+  function writtenBy281(st) {
+    var m = (st && st.meta) || {};
+    return !!(m.base && m.writtenAt && ts(m.writtenAt) === ts(m.updatedAt));
+  }
+
+  function readAttempt() {
+    try { return localStorage.getItem(ATTEMPT_KEY) || null; } catch (e) { return null; }
+  }
+
+  function writeAttempt(v) {
+    try {
+      if (v) localStorage.setItem(ATTEMPT_KEY, v);
+      else localStorage.removeItem(ATTEMPT_KEY);
+    } catch (e) { /* приватный режим — переживём */ }
   }
 
   function full() {
@@ -746,6 +792,12 @@ window.Sync = (function () {
       return false;
     }
     setLastSyncedAt(cloudAt);          // ровно это состояние в облаке и лежит
+    // служебные поля записи — облачные: в экспорт, снимки и чужой push
+    // (клиент до 2.8.1 отдал бы их обратно как свои) они не идут
+    delete State.s.meta.base;
+    delete State.s.meta.device;
+    delete State.s.meta.writtenAt;
+    State.save();
     // контент и посев выводятся из пакета и updatedAt не двигают
     State.syncContent();
     // облако могло приехать с состоянием до посева карточки вопросов —
@@ -769,6 +821,10 @@ window.Sync = (function () {
     body.meta.updatedAt = stamp;
     body.meta.device = deviceLabel();
     body.meta.base = cloudAt || 'empty';
+    // writtenAt === updatedAt — признак записи 2.8.1: клиент до 2.8.1, забравший
+    // такое состояние, при своей правке сдвинет updatedAt, и признак пропадёт
+    body.meta.writtenAt = stamp;
+    writeAttempt(stamp);
     var q;
     if (row) {
       var cond = row.updated_at == null ? 'is.null' : 'eq.' + encodeURIComponent(row.updated_at);
@@ -798,6 +854,7 @@ window.Sync = (function () {
         if (tries + 1 >= RACE_TRIES) throw herr(RACE_LOST);
         return round(opts, my, tries + 1);
       }
+      writeAttempt(null);
       setLastSyncedAt(stamp);
       var res = { ok: true, pushed: true, at: stamp };
       Object.keys(extra || {}).forEach(function (k) { res[k] = extra[k]; });
@@ -880,6 +937,15 @@ window.Sync = (function () {
     if (!e || !e.key) return;
     if (e.key === State.KEY) {
       if (reloadIfNewerOnDisk()) emit();
+      return;
+    }
+    if (e.key === SESSION_KEY) {
+      // соседняя вкладка вошла, вышла или сменила аккаунт — берём её сессию,
+      // всё, что было в полёте у этой, больше ничего не решает
+      loadSession();
+      loadAuthLost();
+      newEpoch();
+      if (signedIn()) { setStatus('idle'); sync(); } else setStatus(lost ? 'error' : 'off', lost ? AUTH_LOST : null);
       return;
     }
     if (e.key === SNAP_KEY || e.key === CONFLICT_KEY) emit();

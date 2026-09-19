@@ -837,7 +837,7 @@ window.__cloud281 = (function () {
       ['метки нет вовсе', null, true, true]].forEach(function (c) {
       defer(c[0], T.guard(function () {
         var cloud = T.base('2026-09-18T20:00:00.000Z', 57);
-        if (c[3]) cloud.meta.base = '2026-09-17T20:00:00.000Z';
+        if (c[3]) { cloud.meta.base = '2026-09-17T20:00:00.000Z'; cloud.meta.writtenAt = cloud.meta.updatedAt; }
         cloud.days['2026-09-18'] = { level: 'min', addons: [], lessons: [], points: 1 };
         CL.reset(); CL.put(cloud);
         var before = JSON.stringify(CL.row);
@@ -1123,7 +1123,9 @@ window.__cloud281 = (function () {
       return Sync.signIn('a@b.c', 'p').then(function () { ok(false, 'вход не должен пройти'); }, function (e) {
         eq(e.message, 'Нет связи с облаком — проверь сеть и повтори', 'нет сети');
         window.__fetch = function () {
-          return Promise.resolve({ ok: false, status: 502, json: function () { return Promise.reject(new SyntaxError('Unexpected token <')); } });
+          return Promise.resolve({ ok: false, status: 502,
+            text: function () { return Promise.resolve('<html>Bad gateway</html>'); },
+            json: function () { return Promise.reject(new SyntaxError('Unexpected token <')); } });
         };
         return Sync.signIn('a@b.c', 'p');
       }).then(function () { ok(false, 'вход не должен пройти'); }, function (e) {
@@ -1171,6 +1173,170 @@ window.__cloud281 = (function () {
           'в памяти — прежнее, метка — прежняя');
         eq(JSON.parse(STORE['study-system-v2']).stats.bestStreak, 5, 'на диске — прежнее');
         eq(Sync.state().status, 'error', 'ошибка видна');
+      });
+    }));
+  });
+})();
+
+/* ---------- 2.8.1, ревью части A, второй круг ---------- */
+(function () {
+  'use strict';
+  var T = window.__sync281, CL = T.CL, STORE = window.__store;
+
+  /** Облако, записанное 2.8.1 поверх base. */
+  function by281(at, best, base) {
+    var c = T.base(at, best);
+    c.meta.base = base; c.meta.writtenAt = at;
+    return c;
+  }
+
+  describe('2.8.1 ревью A-2: тело ответа не пришло — таймаут, а не вечное «синхронизирую»', function () {
+    defer('заголовки пришли, тело нет', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      var realReq = Sync.limits.req;
+      Sync.limits.req = 20;
+      T.use(T.synced('A', st), true);
+      T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
+      var stall = true;
+      window.__fetch = function (url, o) {
+        if (stall && url.indexOf('/rest/v1/') >= 0) {
+          return Promise.resolve({ ok: true, status: 200, text: function () { return new Promise(function () {}); } });
+        }
+        return CL.fetch(url, o);
+      };
+      Sync.init();
+      return Sync.whenIdle().then(function () {
+        eq(Sync.state().status, 'queued', 'заход закончился очередью');
+        stall = false;
+        return Sync.sync();
+      }).then(function () {
+        Sync.limits.req = realReq;
+        eq(CL.row.state.stats.bestStreak, 6, 'следующий заход прошёл');
+      }, function (e) { Sync.limits.req = realReq; throw e; });
+    }));
+  });
+
+  describe('2.8.1 ревью A-2: запись легла, ответ опоздал — не ложный конфликт', function () {
+    defer('PATCH прошёл, ответ по таймауту; правка после — просто отправляется', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      var realReq = Sync.limits.req;
+      Sync.limits.req = 20;
+      T.use(T.synced('A', st), true);
+      T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
+      var late = true;
+      window.__fetch = function (url, o) {
+        if (late && o && o.method === 'PATCH') {
+          late = false;
+          CL.fetch(url, o);               // облако запись приняло
+          return new Promise(function () {});   // а ответ не дошёл
+        }
+        return CL.fetch(url, o);
+      };
+      Sync.init();
+      return Sync.whenIdle().then(function () {
+        eq(CL.row.state.stats.bestStreak, 6, 'в облаке — наша запись');
+        T.edit('2026-09-10T09:05:00.000Z', function (s) { s.stats.bestStreak = 7; });
+        return Sync.sync();
+      }).then(function (r) {
+        Sync.limits.req = realReq;
+        eq([r.conflict, CL.row.state.stats.bestStreak], [undefined, 7], 'правка уехала без конфликта');
+        eq([Sync.snapshots().length, Sync.state().conflict], [0, false], 'ни снимка, ни плашки');
+      }, function (e) { Sync.limits.req = realReq; throw e; });
+    }));
+  });
+
+  describe('2.8.1 ревью A-2: соседняя вкладка записала более старое', function () {
+    defer('«Забрать из облака» в соседней вкладке — эта перечитывает и не отдаёт своё обратно', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
+        // соседняя вкладка забрала облако (updatedAt старше) и записала его на диск
+        STORE['study-system-v2'] = JSON.stringify(st);
+        Sync.onStorage({ key: 'study-system-v2' });
+        eq(State.s.stats.bestStreak, 5, 'перечитали — на диске теперь облако');
+        return Sync.sync();
+      }).then(function () {
+        eq(CL.row.state.stats.bestStreak, 5, 'своё старое обратно не ушло');
+      });
+    }));
+
+    defer('своя несохранённая правка — чужая запись ложится снимком', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        State.s.stats.bestStreak = 6;
+        State.touch(true);                // запись на диск — через 150 мс
+        var other = T.base('2026-09-10T09:30:00.000Z', 44);
+        STORE['study-system-v2'] = JSON.stringify(other);
+        Sync.onStorage({ key: 'study-system-v2' });
+        eq(State.s.stats.bestStreak, 6, 'своя правка в памяти цела');
+        eq(Sync.snapshots()[0].state.stats.bestStreak, 44, 'запись соседней вкладки — снимком');
+        return T.wait(200);
+      });
+    }));
+
+    defer('соседняя вкладка вышла — эта тоже', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        delete STORE['study-system-v2-session'];
+        Sync.onStorage({ key: 'study-system-v2-session' });
+        eq([Sync.signedIn(), Sync.state().status], [false, 'off'], 'вход погашен и здесь');
+      });
+    }));
+  });
+
+  describe('2.8.1 ревью A-2: признак записи 2.8.1 — writtenAt === updatedAt', function () {
+    defer('клиент до 2.8.1 унёс meta.base и правил — снимок страховки на месте', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 9);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        var old = by281('2026-09-11T08:00:00.000Z', 1, 'x');
+        old.meta.updatedAt = '2026-09-12T08:00:00.000Z';   // его правка сдвинула updatedAt
+        CL.put(old);
+        return Sync.sync();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, Sync.snapshots().length], [1, 1], 'облако взято, своё — снимком');
+      });
+    }));
+
+    defer('запись 2.8.1 — без страховочного снимка; служебные поля в локальное не идут', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 9);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        var c = by281('2026-09-11T08:00:00.000Z', 10, st.meta.updatedAt);
+        c.meta.device = 'Mac · Safari · abcd';
+        CL.put(c);
+        return Sync.sync();
+      }).then(function () {
+        eq([State.s.stats.bestStreak, Sync.snapshots().length], [10, 0], 'взято без снимка');
+        eq([State.s.meta.base, State.s.meta.device, State.s.meta.writtenAt], [undefined, undefined, undefined],
+          'base, device, writtenAt в локальном состоянии нет');
+        eq(JSON.parse(STORE['study-system-v2']).meta.base, undefined, 'и на диске тоже');
+      });
+    }));
+  });
+
+  describe('2.8.1 ревью A-2: онбординг без входа, потом вход из Настроек', function () {
+    defer('метки нет, своё почти пустое и «новее» — рабочим облако, своё снимком', T.guard(function () {
+      var cloud = by281('2026-09-01T08:00:00.000Z', 42, 'empty');
+      CL.reset(); CL.put(cloud);
+      T.use(T.device('new'), true);
+      State.reset();
+      State.s.onboarded = true;
+      State.touch(true);
+      State.save();
+      return Sync.signIn('a@b.c', 'pass').then(function () {
+        eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak, CL.writes], [42, 42, 0], 'облако рабочее и не тронуто');
+        eq(Sync.snapshots()[0].side, 'local', 'своё — снимком');
       });
     }));
   });

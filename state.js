@@ -453,6 +453,9 @@ window.State = (function () {
   var s = blank();
   var listeners = [];
   var saveTimer = null;
+  /** 2.8.1 (ревью A): updatedAt того, что эта вкладка последней записала или
+      прочла из памяти браузера. Не совпадает с диском — писала соседняя вкладка. */
+  var diskAt = null;
 
   /* ---------- хранение ---------- */
 
@@ -462,6 +465,7 @@ window.State = (function () {
     if (raw) {
       try {
         var parsed = JSON.parse(raw);
+        diskAt = (parsed && parsed.meta && parsed.meta.updatedAt) || null;
         s = migrate(parsed);
       } catch (e) {
         console.warn('Состояние повреждено, стартуем с чистого:', e);
@@ -1281,6 +1285,7 @@ window.State = (function () {
     try {
       localStorage.setItem(KEY, JSON.stringify(s));
       quotaHit = false;
+      diskAt = s.meta.updatedAt || null;
       return true;
     } catch (e) {
       console.error('Не удалось сохранить состояние:', e);
@@ -3148,6 +3153,7 @@ window.State = (function () {
     P0_DEADLINES: P0_DEADLINES,
     isSkipped: isSkipped, activeLessons: activeLessons,
     blank: blank, load: load, touch: touch, save: writeNow, replace: replace, reset: reset,
+    diskStamp: function () { return diskAt; },
     migrate: migrate, repairDebts: repairDebts, repairWords: repairWords,
     WORD_FIXES: WORD_FIXES, validateImport: validateImport,
     DEBT_CATS: DEBT_CATS, debtCat: debtCat, catsForTrack: catsForTrack,
