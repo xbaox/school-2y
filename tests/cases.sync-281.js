@@ -1010,7 +1010,7 @@ window.__cloud281 = (function () {
         eq(State.s.stats.bestStreak, 1, 'облако применено — правило «новее побеждает»');
         var sn = Sync.snapshots();
         eq([sn.length, sn[0].side, sn[0].state.stats.bestStreak, !!sn[0].state.days['2026-09-10']],
-          [1, 'local', 9, true], 'своё — снимком целиком');
+          [1, 'safety', 9, true], 'своё — страховочным снимком целиком');
         eq(Sync.state().conflict, false, 'плашки нет — это страховка, а не конфликт');
       });
     }));
@@ -1055,7 +1055,7 @@ window.__cloud281 = (function () {
     defer('запрос без ответа — таймаут, очередь, заходы не встают', T.guard(function () {
       var st = T.base('2026-09-10T08:00:00.000Z', 5);
       CL.reset(); CL.put(st);
-      var realReq = Sync.limits.req;
+      var realReq = Sync.limits.req, realBpm = Sync.limits.bytesPerMs;
       Sync.limits.req = 20;
       T.use(T.synced('A', st), true);
       T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
@@ -1071,9 +1071,9 @@ window.__cloud281 = (function () {
         hang = false;
         return Sync.sync();
       }).then(function () {
-        Sync.limits.req = realReq;
+        Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm;
         eq(CL.row.state.stats.bestStreak, 6, 'следующий заход прошёл');
-      }, function (e) { Sync.limits.req = realReq; throw e; });
+      }, function (e) { Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm; throw e; });
     }));
 
     defer('облако ответило ошибкой — заход повторится сам', T.guard(function () {
@@ -1194,8 +1194,9 @@ window.__cloud281 = (function () {
     defer('заголовки пришли, тело нет', T.guard(function () {
       var st = T.base('2026-09-10T08:00:00.000Z', 5);
       CL.reset(); CL.put(st);
-      var realReq = Sync.limits.req;
+      var realReq = Sync.limits.req, realBpm = Sync.limits.bytesPerMs;
       Sync.limits.req = 20;
+      Sync.limits.bytesPerMs = 1e9;           // без надбавки за размер тела
       T.use(T.synced('A', st), true);
       T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
       var stall = true;
@@ -1211,9 +1212,9 @@ window.__cloud281 = (function () {
         stall = false;
         return Sync.sync();
       }).then(function () {
-        Sync.limits.req = realReq;
+        Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm;
         eq(CL.row.state.stats.bestStreak, 6, 'следующий заход прошёл');
-      }, function (e) { Sync.limits.req = realReq; throw e; });
+      }, function (e) { Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm; throw e; });
     }));
   });
 
@@ -1221,8 +1222,9 @@ window.__cloud281 = (function () {
     defer('PATCH прошёл, ответ по таймауту; правка после — просто отправляется', T.guard(function () {
       var st = T.base('2026-09-10T08:00:00.000Z', 5);
       CL.reset(); CL.put(st);
-      var realReq = Sync.limits.req;
+      var realReq = Sync.limits.req, realBpm = Sync.limits.bytesPerMs;
       Sync.limits.req = 20;
+      Sync.limits.bytesPerMs = 1e9;           // без надбавки за размер тела
       T.use(T.synced('A', st), true);
       T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
       var late = true;
@@ -1240,10 +1242,10 @@ window.__cloud281 = (function () {
         T.edit('2026-09-10T09:05:00.000Z', function (s) { s.stats.bestStreak = 7; });
         return Sync.sync();
       }).then(function (r) {
-        Sync.limits.req = realReq;
+        Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm;
         eq([r.conflict, CL.row.state.stats.bestStreak], [undefined, 7], 'правка уехала без конфликта');
         eq([Sync.snapshots().length, Sync.state().conflict], [0, false], 'ни снимка, ни плашки');
-      }, function (e) { Sync.limits.req = realReq; throw e; });
+      }, function (e) { Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm; throw e; });
     }));
   });
 
@@ -1338,6 +1340,130 @@ window.__cloud281 = (function () {
         eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak, CL.writes], [42, 42, 0], 'облако рабочее и не тронуто');
         eq(Sync.snapshots()[0].side, 'local', 'своё — снимком');
       });
+    }));
+  });
+})();
+
+/* ---------- 2.8.1, ревью части A, третий круг ---------- */
+(function () {
+  'use strict';
+  var T = window.__sync281, CL = T.CL, STORE = window.__store;
+
+  describe('2.8.1 ревью A-3: одинаковый updatedAt на двух устройствах — не схождение', function () {
+    defer('облако «из будущего», оба правят — правка A не теряется', T.guard(function () {
+      var future = new Date(Date.now() + 86400000).toISOString();
+      var c0 = T.base(future, 5);
+      CL.reset(); CL.put(c0);
+      var a = T.synced('A', c0), b = T.synced('B', c0);
+      T.use(a);
+      return Sync.whenIdle().then(function () {
+        State.s.stats.bestStreak = 11; State.touch(true);     // A: C0 + 1
+        return Sync.sync();
+      }).then(function () {
+        eq(CL.row.state.stats.bestStreak, 11, 'A в облаке');
+        T.use(b, true);
+        State.s.stats.bestStreak = 22; State.touch(true);     // B: тоже C0 + 1
+        eq(State.s.meta.updatedAt, CL.row.state.meta.updatedAt, 'штампы совпали');
+        Sync.init();
+        return Sync.whenIdle();
+      }).then(function () {
+        var all = [State.s.stats.bestStreak, CL.row.state.stats.bestStreak]
+          .concat(Sync.snapshots().map(function (x) { return x.state.stats.bestStreak; }));
+        ok(all.indexOf(11) >= 0 && all.indexOf(22) >= 0, 'обе правки целы (рабочее, облако или снимок): ' + all.join(','));
+        ok(Sync.snapshots().length >= 1 && Sync.state().conflict, 'снимок и плашка');
+      });
+    }));
+  });
+
+  describe('2.8.1 ревью A-3: страховочные снимки не вытесняют копию конфликта', function () {
+    defer('копия конфликта и три записи клиента 2.8.0', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st), true);
+      T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 11; });
+      CL.put(T.base('2026-09-10T10:00:00.000Z', 22));
+      Sync.init();
+      var chain = Sync.whenIdle();
+      [1, 2, 3].forEach(function (i) {
+        chain = chain.then(function () {
+          CL.put(T.base('2026-09-1' + i + 'T12:00:00.000Z', 30 + i));   // 2.8.0 пишет не глядя
+          return Sync.sync();
+        });
+      });
+      return chain.then(function () {
+        var sn = Sync.snapshots();
+        ok(sn.some(function (x) { return x.side === 'local' && x.state.stats.bestStreak === 11; }), 'копия конфликта на месте');
+        eq(sn.filter(function (x) { return x.side === 'safety'; }).length, 1, 'страховочная — одна');
+        ok(sn.length <= 3, 'не больше трёх');
+      });
+    }));
+  });
+
+  describe('2.8.1 ревью A-3: первый вход на устройстве с настоящими данными', function () {
+    defer('облако старше — рабочим остаётся своё, облако снимком', T.guard(function () {
+      CL.reset(); CL.put(T.base('2026-01-10T08:00:00.000Z', 3));
+      T.use(T.device('X'), true);
+      T.edit('2026-09-10T08:00:00.000Z', function (s) {
+        s.onboarded = true; s.stats.bestStreak = 40;
+        s.days['2026-09-10'] = { level: 'min', addons: [], lessons: [], points: 1 };
+      });
+      return Sync.signIn('a@b.c', 'pass').then(function () {
+        eq([State.s.stats.bestStreak, CL.row.state.stats.bestStreak], [40, 40], 'своё рабочее и в облаке');
+        eq(Sync.snapshots()[0].state.stats.bestStreak, 3, 'облако — снимком');
+      });
+    }));
+  });
+
+  describe('2.8.1 ревью A-3: запись соседней вкладки в окно сохранения — с плашкой', function () {
+    defer('снимок «соседняя вкладка» и плашка', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      T.use(T.synced('A', st));
+      return Sync.whenIdle().then(function () {
+        State.s.stats.bestStreak = 6;
+        State.touch(true);
+        STORE['study-system-v2'] = JSON.stringify(T.base('2026-09-10T09:30:00.000Z', 44));
+        Sync.onStorage({ key: 'study-system-v2' });
+        var sn = Sync.snapshots()[0];
+        eq([sn.side, sn.device, sn.state.stats.bestStreak], ['tab', 'соседняя вкладка этого браузера', 44], 'снимок');
+        eq(Sync.state().conflict, true, 'плашка');
+        return T.wait(200);
+      });
+    }));
+  });
+
+  describe('2.8.1 ревью A-3: метка попытки не снимается, пока облако на её базе', function () {
+    defer('чужой заход во время записи не превращает опоздавший ответ в конфликт', T.guard(function () {
+      var st = T.base('2026-09-10T08:00:00.000Z', 5);
+      CL.reset(); CL.put(st);
+      var realReq = Sync.limits.req, realBpm = Sync.limits.bytesPerMs;
+      Sync.limits.req = 20;
+      Sync.limits.bytesPerMs = 1e9;           // без надбавки за размер тела
+      T.use(T.synced('A', st), true);
+      T.edit('2026-09-10T09:00:00.000Z', function (s) { s.stats.bestStreak = 6; });
+      var late = true;
+      window.__fetch = function (url, o) {
+        if (late && o && o.method === 'PATCH') {
+          late = false;
+          var body = o.body;
+          setTimeout(function () { CL.fetch(url, { method: 'PATCH', body: body }); }, 30);  // ляжет позже
+          return new Promise(function () {});
+        }
+        return CL.fetch(url, o);
+      };
+      Sync.init();
+      return Sync.whenIdle().then(function () {
+        // другая вкладка успела прочитать облако на базе — метка должна пережить
+        var a = JSON.parse(STORE['study-system-v2-attempt'] || 'null');
+        ok(!!a, 'метка попытки есть');
+        return T.wait(60);
+      }).then(function () {
+        T.edit('2026-09-10T09:05:00.000Z', function (s) { s.stats.bestStreak = 7; });
+        return Sync.sync();
+      }).then(function (r) {
+        Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm;
+        eq([r.conflict, CL.row.state.stats.bestStreak, Sync.snapshots().length], [undefined, 7, 0], 'без ложного конфликта');
+      }, function (e) { Sync.limits.req = realReq; Sync.limits.bytesPerMs = realBpm; throw e; });
     }));
   });
 })();

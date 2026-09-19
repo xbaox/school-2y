@@ -64,7 +64,7 @@ window.Sync = (function () {
   /** req — запрос без ответа дольше этого считается сетевой бедой (иначе один
       зависший fetch держал бы все следующие заходы); retry — повтор после
       ошибки: 30 с, 1, 2, 4 мин, дальше раз в 5 мин. Тесты их укорачивают. */
-  var LIMITS = { req: 20000, retryBase: 30000, retryMax: 300000 };
+  var LIMITS = { req: 20000, retryBase: 30000, retryMax: 300000, bytesPerMs: 2 };
 
   var session = null;      // { access_token, refresh_token, expires_at, user_id, email }
   var timer = null;
@@ -216,7 +216,8 @@ window.Sync = (function () {
       savedAt: new Date().toISOString(),
       updatedAt: meta.updatedAt || null,
       side: side,
-      device: side === 'cloud' ? (meta.device || 'другое устройство') : deviceLabel(),
+      device: side === 'cloud' ? (meta.device || 'другое устройство') :
+        (side === 'tab' ? 'соседняя вкладка этого браузера' : deviceLabel()),
       state: st
     };
   }
@@ -232,7 +233,26 @@ window.Sync = (function () {
       return !(x.side === side && ts(x.updatedAt) === ts(e.updatedAt));
     });
     list.unshift(e);
-    return writeSnapshots(list.slice(0, SNAP_MAX));
+    return writeSnapshots(trim(list));
+  }
+
+  /**
+   * Три последние копии. Страховочная ('safety': облако записала версия до
+   * 2.8.1) — не больше одной и уходит первой: она не должна вытеснять копию
+   * настоящего конфликта, о которой говорит плашка.
+   */
+  function trim(list) {
+    var seenSafety = false;
+    var out = list.filter(function (x) {
+      if (x.side !== 'safety') return true;
+      if (seenSafety) return false;
+      seenSafety = true;
+      return true;
+    });
+    if (out.length > SNAP_MAX && seenSafety) {
+      out = out.filter(function (x) { return x.side !== 'safety'; });
+    }
+    return out.slice(0, SNAP_MAX);
   }
 
   function conflictPending() {
@@ -412,7 +432,7 @@ window.Sync = (function () {
       t = later(function () {
         if (ctrl) { try { ctrl.abort(); } catch (e) { /* уже закрыт */ } }
         reject(new Error('timeout'));
-      }, LIMITS.req);
+      }, LIMITS.req + (opts.body ? Math.round(JSON.stringify(opts.body).length / LIMITS.bytesPerMs) : 0));
     });
     // таймаут покрывает и чтение тела: заголовки могут прийти, а тело — нет,
     // и заход висел бы в «синхронизирую…» до перезагрузки
@@ -629,7 +649,7 @@ window.Sync = (function () {
       // облака», другой аккаунт кладут и более старое). Своей несохранённой
       // правки нет — перечитываем; есть — чужое не выбрасываем, а в снимок
       if (ts(State.s.meta.updatedAt) !== ts(State.diskStamp())) {
-        addSnapshot(disk, 'local');
+        if (addSnapshot(disk, 'tab')) setConflict(true);
         return false;
       }
       State.load();
@@ -673,8 +693,14 @@ window.Sync = (function () {
 
     // запись, ответ на которую не дошёл, всё-таки легла: облако — наше
     var attempt = readAttempt();
-    if (attempt && cloud && ts(attempt) === ts(cloudAt)) setLastSyncedAt(cloudAt);
-    if (attempt) writeAttempt(null);
+    if (attempt && cloud && ts(attempt.at) === ts(cloudAt) && (attempt.rev || null) === (cloud.meta.rev || null)) {
+      setLastSyncedAt(cloudAt);
+      writeAttempt(null);
+    } else if (attempt && !(cloud && ts(attempt.base) === ts(cloudAt))) {
+      // облако ушло дальше базы попытки — попытка не легла; пока оно на базе,
+      // запись может быть ещё в полёте (другой вкладки) — метку не трогаем
+      writeAttempt(null);
+    }
 
     // вход под другой почтой: здешнее состояние — чужого аккаунта. В чужое
     // облако его не льём: берём облако этого аккаунта, своё — снимком
@@ -720,8 +746,8 @@ window.Sync = (function () {
       if (!unsent) return done({ ok: true, applied: false, at: cloudAt });
       return send(row, cloudAt, opts, my, tries, {});
     }
-    // одна и та же правка (тот же updatedAt) — это не конфликт, а схождение
-    if (ts(localAt) === ts(cloudAt)) {
+    // одна и та же правка (тот же updatedAt и та же метка правки) — схождение
+    if (ts(localAt) === ts(cloudAt) && (State.s.meta.rev || null) === (cloud.meta.rev || null)) {
       setLastSyncedAt(cloudAt);
       return done({ ok: true, applied: false, at: cloudAt });
     }
@@ -733,7 +759,7 @@ window.Sync = (function () {
       // 2.8.1 пишет в meta.base, поверх какого облака легла запись. Нет base —
       // писал клиент до 2.8.1, не глядя в облако: то, что у нас есть, могло
       // в его запись не попасть. Своё — снимком, без плашки: это страховка
-      if (!writtenBy281(cloud) && !addSnapshot(State.s, 'local')) return full();
+      if (!writtenBy281(cloud) && !addSnapshot(State.s, 'safety')) return full();
       if (!apply(cloud, cloudAt)) return noSpace();
       return done({ ok: true, applied: true, at: cloudAt });
     }
@@ -741,7 +767,7 @@ window.Sync = (function () {
     // конфликт: рабочим остаётся состояние с большим updatedAt. Устройство,
     // ни разу не сходившееся с этим облаком (онбординг без входа, потом вход
     // из Настроек), своих «правок поверх облака» не имеет — рабочим облако
-    if (synced && ts(localAt) > ts(cloudAt)) {
+    if ((synced || realLocal()) && ts(localAt) > ts(cloudAt)) {
       if (!addSnapshot(cloud, 'cloud')) return full();
       setConflict(true);
       return send(row, cloudAt, opts, my, tries, { conflict: true });
@@ -758,13 +784,22 @@ window.Sync = (function () {
     return !!(m.base && m.writtenAt && ts(m.writtenAt) === ts(m.updatedAt));
   }
 
+  /** Настоящие данные — дни или итоги (не один пройденный онбординг). */
+  function realLocal() {
+    var s = State.s;
+    return !!((s.summaries && s.summaries.length) || Object.keys(s.days || {}).length);
+  }
+
   function readAttempt() {
-    try { return localStorage.getItem(ATTEMPT_KEY) || null; } catch (e) { return null; }
+    try {
+      var a = JSON.parse(localStorage.getItem(ATTEMPT_KEY) || 'null');
+      return a && a.at ? a : null;
+    } catch (e) { return null; }
   }
 
   function writeAttempt(v) {
     try {
-      if (v) localStorage.setItem(ATTEMPT_KEY, v);
+      if (v) localStorage.setItem(ATTEMPT_KEY, JSON.stringify(v));
       else localStorage.removeItem(ATTEMPT_KEY);
     } catch (e) { /* приватный режим — переживём */ }
   }
@@ -824,7 +859,7 @@ window.Sync = (function () {
     // writtenAt === updatedAt — признак записи 2.8.1: клиент до 2.8.1, забравший
     // такое состояние, при своей правке сдвинет updatedAt, и признак пропадёт
     body.meta.writtenAt = stamp;
-    writeAttempt(stamp);
+    writeAttempt({ at: stamp, rev: body.meta.rev || null, base: cloudAt || '' });
     var q;
     if (row) {
       var cond = row.updated_at == null ? 'is.null' : 'eq.' + encodeURIComponent(row.updated_at);

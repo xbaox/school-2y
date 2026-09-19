@@ -1321,6 +1321,9 @@ window.State = (function () {
     var floor = stampOf(s.meta.updatedAt);
     if (window.Sync && Sync.lastSyncedAt) floor = Math.max(floor, stampOf(Sync.lastSyncedAt()));
     s.meta.updatedAt = new Date(Math.max(Date.now(), floor + 1)).toISOString();
+    // метка правки: два устройства с отстающими часами могут получить один и тот
+    // же updatedAt (floor + 1) — по нему одному синк принял бы чужую правку за свою
+    s.meta.rev = Math.random().toString(36).slice(2, 10);
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(function () { saveTimer = null; writeNow(); }, 150);
     if (!silent) emit();
