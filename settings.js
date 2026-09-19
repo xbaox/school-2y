@@ -24,6 +24,7 @@
       phaseDatesSection() +
       ifThenSection() +
       cloudSection() +
+      conflictsSection() +
       backupSection() +
       aboutSection();
   }
@@ -177,6 +178,40 @@
       '</div></section>';
   }
 
+  /**
+   * 2.8.1 (A3): «Конфликты синка». Проигравшее в конфликте состояние лежит
+   * целиком в этом браузере; его можно скачать или сделать рабочим.
+   * data-conflicts — якорь плашки с «Сегодня».
+   */
+  var SNAP_TITLE = {
+    local: 'Правки этого браузера',
+    cloud: 'Правки из облака',
+    working: 'Рабочее состояние до замены'
+  };
+
+  function conflictsSection() {
+    if (!window.Sync || !Sync.available() || !Sync.snapshots) return '';
+    var list = Sync.snapshots();
+    var rows = list.map(function (x) {
+      var st = x.state || {};
+      return '<div class="srow"><div class="k">' + U.esc(SNAP_TITLE[x.side] || 'Копия') +
+        '<span>' + U.esc(x.device || '—') + ' · правка ' + U.esc(fmtStamp(x.updatedAt)) +
+        ' · сохранена ' + U.esc(fmtStamp(x.savedAt)) + '</span>' +
+        '<span>' + count(Object.keys(st.days || {}).length, 'день', 'дня', 'дней') + ' · ' +
+        count((st.summaries || []).length, 'итог', 'итога', 'итогов') + '</span></div></div>' +
+        '<div class="btn-row" style="margin:6px 0 10px">' +
+        '<button class="btn sec" data-snap-dl="' + U.esc(x.id) + '">Скачать JSON</button>' +
+        '<button class="btn sec" data-snap-use="' + U.esc(x.id) + '">Сделать рабочим</button>' +
+        '</div>';
+    }).join('');
+    return '<section class="block" data-conflicts><h2>Конфликты синка</h2>' +
+      '<p class="lead">Когда два устройства правили одно и то же, рабочей остаётся более поздняя ' +
+      'правка, а другая целиком ложится сюда. Хранятся три последние копии, только в этом браузере.</p>' +
+      '<div class="card">' +
+      (rows || '<div class="fnote">Конфликтов не было.</div>') +
+      '</div></section>';
+  }
+
   /** Экспорт/импорт полного состояния — страховка (раздел 3 ТЗ). */
   function backupSection() {
     var s = State.s;
@@ -267,14 +302,19 @@
     U.on(host, 'click', '[data-sync-pull]', function () {
       Sync.pull(true).then(function (r) {
         if (!r.ok) { App.renderScreen('settings'); return; }
-        UI.toast(r.applied ? 'Забрал состояние из облака'
-          : (r.empty ? 'В облаке пока пусто' : 'Локальное новее — оставил его'), 'ok', 3600);
+        // 2.8.1: неотправленные правки при этом не пропадают — они в снимке
+        UI.toast(r.empty ? 'В облаке пока пусто'
+          : (r.saved ? 'Забрал из облака; свои правки — в «Конфликтах синка»' : 'Забрал состояние из облака'),
+          'ok', 3600);
       });
     });
     U.on(host, 'click', '[data-sync-push]', function () {
+      // 2.8.1: «Отправить» тоже начинается с чтения облака
       Sync.push().then(function (r) {
         if (!r.ok) { App.renderScreen('settings'); return; }
-        UI.toast('Отправлено в облако', 'ok', 3600);
+        UI.toast(r.conflict ? 'Два устройства правили одно и то же — копия в «Конфликтах синка»'
+          : (r.pushed ? 'Отправлено в облако'
+            : (r.applied ? 'В облаке было новее — забрал его' : 'Всё уже в облаке')), 'ok', 3600);
       });
     });
     U.on(host, 'click', '[data-sync-out]', function () {
@@ -283,6 +323,28 @@
         sub: 'Данные останутся в этом браузере. Синхронизация остановится.',
         yes: 'Выйти',
         onYes: function () { Sync.signOut(); App.renderScreen('settings'); UI.toast('Вышел из облака'); }
+      });
+    });
+
+    U.on(host, 'click', '[data-snap-dl]', function (e, el) {
+      var f = Sync.snapshotFile(el.dataset.snapDl);
+      if (f) download(f.text, f.name);
+    });
+    U.on(host, 'click', '[data-snap-use]', function (e, el) {
+      var id = el.dataset.snapUse;
+      UI.confirm({
+        title: 'Сделать эту копию рабочей?',
+        sub: 'Копия станет состоянием этого браузера и уйдёт в облако. Нынешнее рабочее ' +
+          'состояние не пропадёт — оно займёт место копии в этом списке.',
+        yes: 'Сделать рабочей',
+        onYes: function () {
+          if (Sync.restoreSnapshot(id)) {
+            UI.toast('Копия стала рабочей', 'ok');
+            App.render();
+          } else {
+            UI.toast('Не вышло — память браузера полна. Скачай JSON копии.', 'bad', 4600);
+          }
+        }
       });
     });
 
@@ -307,8 +369,10 @@
   /* ---------- экспорт и импорт ---------- */
 
   function exportJson() {
-    var text = JSON.stringify(State.s, null, 2);
-    var name = 'study-v2-' + State.today() + '.json';
+    download(JSON.stringify(State.s, null, 2), 'study-v2-' + State.today() + '.json');
+  }
+
+  function download(text, name) {
     try {
       var blob = new Blob([text], { type: 'application/json' });
       var url = URL.createObjectURL(blob);

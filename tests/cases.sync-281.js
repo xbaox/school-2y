@@ -463,3 +463,94 @@ window.__cloud281 = (function () {
     }));
   });
 })();
+
+/* ---------- 2.8.1 A3: Настройки → «Конфликты синка» ---------- */
+(function () {
+  'use strict';
+  var T = window.__sync281, CL = T.CL;
+
+  function settingsText() {
+    return App.screen('settings').render().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  }
+
+  /** Конфликт, в котором этот браузер проиграл: правка 11 — в снимке, рабочее — 22. */
+  function lostConflict() {
+    var st = T.base('2026-09-10T08:00:00.000Z', 5);
+    CL.reset(); CL.put(st);
+    T.use(T.synced('A', st), true);
+    T.edit('2026-09-10T09:00:00.000Z', function (s) {
+      s.stats.bestStreak = 11;
+      s.days['2026-09-10'] = { level: 'min', addons: [], lessons: [], points: 1 };
+    });
+    CL.put(T.base('2026-09-10T10:00:00.000Z', 22));
+    Sync.init();
+    return Sync.whenIdle();
+  }
+
+  describe('2.8.1 A3: раздел «Конфликты синка»', function () {
+    defer('пусто — раздел есть и так и говорит', T.guard(function () {
+      var t = settingsText();
+      ok(t.indexOf('Конфликты синка') >= 0, 'раздел на месте');
+      ok(t.indexOf('Конфликтов не было.') >= 0, 'пустой список сказан словами');
+      ok(App.screen('settings').render().indexOf('data-conflicts') >= 0, 'якорь для плашки');
+    }));
+
+    defer('снимок — строка с устройством, датами и двумя кнопками', T.guard(function () {
+      return lostConflict().then(function () {
+        var html = App.screen('settings').render();
+        var t = settingsText();
+        var id = Sync.snapshots()[0].id;
+        ok(t.indexOf('Правки этого браузера') >= 0, 'чья копия');
+        ok(t.indexOf('устройство · ') >= 0, 'устройство');
+        ok(/правка \d/.test(t) && /сохранена \d/.test(t), 'даты правки и сохранения');
+        ok(t.indexOf('1 день') >= 0, 'объём копии');
+        ok(html.indexOf('data-snap-dl="' + id + '"') >= 0, '«Скачать JSON»');
+        ok(html.indexOf('data-snap-use="' + id + '"') >= 0, '«Сделать рабочим»');
+      });
+    }));
+
+    defer('«Скачать JSON» — снимок целиком', T.guard(function () {
+      return lostConflict().then(function () {
+        var f = Sync.snapshotFile(Sync.snapshots()[0].id);
+        ok(/^study-v2-snapshot-\d{4}-\d{2}-\d{2}-\d{4}\.json$/.test(f.name), 'имя файла: ' + f.name);
+        var st = JSON.parse(f.text);
+        eq([st.stats.bestStreak, st.meta.updatedAt, !!st.days['2026-09-10']],
+          [11, '2026-09-10T09:00:00.000Z', true], 'в файле — проигравшее состояние');
+        eq(State.validateImport(st).ok, true, 'файл годится для «Загрузить JSON»');
+        eq(Sync.snapshotFile('нет-такого'), null, 'чужой id — ничего');
+      });
+    }));
+
+    defer('«Сделать рабочим» — снимок становится состоянием и уходит в облако с новым updatedAt', T.guard(function () {
+      var before = null;
+      return lostConflict().then(function () {
+        eq(State.s.stats.bestStreak, 22, 'сейчас рабочее — облако');
+        before = Date.now();
+        ok(Sync.restoreSnapshot(Sync.snapshots()[0].id), 'восстановление прошло');
+        eq(State.s.stats.bestStreak, 11, 'рабочим стал снимок');
+        ok(!!State.s.days['2026-09-10'], 'целиком, с днями');
+        ok(Date.parse(State.s.meta.updatedAt) >= before - 5, 'updatedAt новый');
+        eq(Sync.state().conflict, false, 'плашка снята');
+        return Sync.whenIdle();
+      }).then(function () {
+        eq(CL.row.state.stats.bestStreak, 11, 'снимок уехал в облако');
+        eq(CL.row.state.meta.updatedAt, State.s.meta.updatedAt, 'с новым updatedAt');
+        var sn = Sync.snapshots();
+        eq(sn.map(function (x) { return [x.side, x.state.stats.bestStreak]; }), [['working', 22]],
+          'бывшее рабочее заняло место снимка — ничего не потеряно');
+        eq(Sync.lastSyncedAt(), State.s.meta.updatedAt, 'сошлись с облаком');
+      });
+    }));
+
+    defer('«Сделать рабочим» без входа — локально, уйдёт после входа', T.guard(function () {
+      return lostConflict().then(function () {
+        var id = Sync.snapshots()[0].id;
+        Sync.signOut();
+        var w0 = CL.writes;
+        ok(Sync.restoreSnapshot(id), 'восстановление прошло');
+        eq([State.s.stats.bestStreak, CL.writes], [11, w0], 'локально — да, в облако — нет');
+        eq(Sync.hasUnpushed(), true, 'правка ждёт отправки');
+      });
+    }));
+  });
+})();

@@ -245,14 +245,31 @@ window.Sync = (function () {
     var rest = list.filter(function (x) { return x.id !== id; });
     rest.unshift(snapEntry(clone(State.s), 'working'));
     if (!writeSnapshots(rest.slice(0, SNAP_MAX))) return false;
+    // новый updatedAt строго позже всего, что устройство знает: часы могут
+    // отставать, и «сейчас» оказалось бы старше облака — копия снова проиграла бы
+    var floor = Math.max(ts(State.s.meta.updatedAt), ts(lastSyncedAt()));
     State.replace(clone(snap.state), true);
     State.syncContent();
     if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
-    State.touch();                 // новый updatedAt: это теперь свежая правка
+    State.touch(true);             // это теперь свежая правка
+    if (ts(State.s.meta.updatedAt) <= floor) {
+      State.s.meta.updatedAt = new Date(floor + 1).toISOString();
+      State.save();
+    }
     setConflict(false);
     emit();
     if (signedIn()) sync();
     return true;
+  }
+
+  /** «Скачать JSON» снимка: то же, что резервная копия, но из снимка. */
+  function snapshotFile(id) {
+    var snap = null;
+    snapshots().forEach(function (x) { if (x.id === id) snap = x; });
+    if (!snap) return null;
+    var d = new Date(snap.savedAt);
+    var stamp = isNaN(d) ? 'копия' : U.iso(d) + '-' + ('0' + d.getHours()).slice(-2) + ('0' + d.getMinutes()).slice(-2);
+    return { name: 'study-v2-snapshot-' + stamp + '.json', text: JSON.stringify(snap.state, null, 2) };
   }
 
   /* ---------- сессия ---------- */
@@ -768,7 +785,7 @@ window.Sync = (function () {
     init: init, signIn: signIn, signOut: signOut, pull: pull, push: push, sync: sync, whenIdle: whenIdle,
     onLocalChange: onLocalChange, flush: flush, onChange: onChange,
     lastSyncedAt: lastSyncedAt, lastPushedAt: lastSyncedAt, hasUnpushed: hasUnpushed,
-    snapshots: snapshots, restoreSnapshot: restoreSnapshot, deviceLabel: deviceLabel,
+    snapshots: snapshots, snapshotFile: snapshotFile, restoreSnapshot: restoreSnapshot, deviceLabel: deviceLabel,
     conflictPending: conflictPending, ackConflict: ackConflict,
     loginFormHtml: loginFormHtml, wireLoginForm: wireLoginForm,
     get email() { return session && session.email; }
