@@ -496,10 +496,10 @@
   },
   'period': {
     en: 'period',
-    def: 'the length of one full cycle, 2π/k for y = sin(kx); k > 1 compresses, 0 < k < 1 stretches',
+    def: 'the length of one full cycle, 2π/|k| for y = sin(kx); k > 1 compresses, 0 < k < 1 stretches',
     ex: 'y = sin(x/2) has period 4π',
     non: '2 for y = sin(2x) — the period is π',
-    ru: 'Период (period) — длина одного полного цикла, 2π/k для y = sin(kx); k > 1 сжимает, 0 < k < 1 растягивает.'
+    ru: 'Период (period) — длина одного полного цикла, 2π/|k| для y = sin(kx); k > 1 сжимает, 0 < k < 1 растягивает.'
   },
   'identity': {
     en: 'identity',
@@ -520,7 +520,7 @@
     def: 'on [0, 2π) an equation has a finite list of solutions; without a restriction each has a period added (+2πn); always check the given interval; sin(2x) = k on [0, 2π) means 2x on [0, 4π)',
     ex: 'sin x = 1/2 → π/6, 5π/6',
     non: 'writing 13π/6 when the interval is [0, 2π)',
-    ru: 'Общее и частное решение (general vs. restricted solution) — на [0, 2π) у уравнения конечный список решений; без ограничения к каждому добавляется период (+2πn).'
+    ru: 'Общее решение и решение на промежутке (general vs. restricted solution) — на [0, 2π) у уравнения конечный список решений; без ограничения к каждому добавляется период (+2πn).'
   },
   'quadratic trigonometric equation': {
     en: 'quadratic trigonometric equation',
@@ -615,10 +615,10 @@
   },
   'parameters of a sinusoid': {
     en: 'parameters of a sinusoid',
-    def: 'in y = a sin(k(x − d)) + c: a amplitude, 2π/k period, d phase shift, c vertical shift; factor k out before reading d',
+    def: 'in y = a sin(k(x − d)) + c: a amplitude, 2π/|k| period, d phase shift, c vertical shift; factor k out before reading d',
     ex: 'y = 4sin(3(x − π/6)) − 1 → shift π/6 right',
     non: 'reading d = π/2 from y = sin(3x − π/2) without factoring (it is π/6)',
-    ru: 'Параметры синусоиды (parameters of a sinusoid) — в y = a sin(k(x − d)) + c: a — амплитуда, 2π/k — период, d — сдвиг по фазе, c — сдвиг по вертикали; k выносят за скобку, прежде чем читать d.'
+    ru: 'Параметры синусоиды (parameters of a sinusoid) — в y = a sin(k(x − d)) + c: a — амплитуда, 2π/|k| — период, d — сдвиг по фазе, c — сдвиг по вертикали; k выносят за скобку, прежде чем читать d.'
   },
   'inverse functions (exponential and logarithm)': {
     en: 'inverse functions (exponential and logarithm)',

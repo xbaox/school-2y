@@ -144,6 +144,17 @@
     eq(CONTENT.lesson('B16.1').tasks.length, 6, 'а задания у него в контенте есть');
   });
 
+  describe('2.8.1, правки перед тегом: ошибки источника исправлены в пакете и в коде', function () {
+    var w = CONTENT.lesson('B11.2').words.filter(function (x) { return x.en === 'denominator'; })[0] || {};
+    eq(w.ru, 'знаменатель', 'Б11.2: denominator — знаменатель');
+    ok(/^Общее решение и решение на промежутке \(general vs\. restricted solution\)/.test(CONTENT.glossary['general vs. restricted solution'].ru),
+      'Б13.4: общее решение и решение на промежутке');
+    ok(CONTENT.glossary.period.def.indexOf('2π/|k| for y = sin(kx)') > 0 && CONTENT.glossary.period.ru.indexOf('2π/|k|') > 0,
+      'Б13.2: период 2π/|k|');
+    ok(CONTENT.glossary['parameters of a sinusoid'].def.indexOf('2π/|k| period') > 0 &&
+      CONTENT.glossary['parameters of a sinusoid'].ru.indexOf('2π/|k| — период') > 0, 'Б16.3: период 2π/|k|');
+  });
+
   State.reset();
   State.syncContent();
 })();

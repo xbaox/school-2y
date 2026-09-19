@@ -537,7 +537,7 @@
             { en: 'hole', ru: '«дырка» (устранимый разрыв)' },
             { en: 'to cancel', ru: 'сокращать' },
             { en: 'numerator', ru: 'числитель' },
-            { en: 'denominator', ru: 'делитель (дроби)' },
+            { en: 'denominator', ru: 'знаменатель' },
             { en: 'degree', ru: 'степень' },
             { en: 'oblique', ru: 'наклонный' }
           ]
