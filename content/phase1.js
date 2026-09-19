@@ -466,19 +466,163 @@
     /* ================= Б11 · математика ================= */
     {
       id: 'B11', track: 'math', title: 'Рациональные функции и асимптоты', deadline: '2026-11-15',
-      note: 'Опорные задания — пакет 2.8.1.',
+      note: 'Опорные задания и глоссарий — есть (2.8.1).',
       lessons: [
-        { title: 'Обратные величины 1/f(x) и вертикальные асимптоты', goal: 'reciprocal function; vertical asymptote там, где знаменатель = 0; holes', youtube: 'reciprocal functions vertical asymptotes holes', focus: 'домен рациональной функции; поведение около асимптоты; знак с двух сторон', writing: '3 предложения: почему у функции есть вертикальная асимптота при x = 2', terms: [], text: null, tasks: null },
-        { title: 'Горизонтальные и наклонные асимптоты, набросок', goal: 'horizontal/oblique asymptote по степеням числителя и знаменателя; end behaviour; набросок', youtube: 'horizontal oblique asymptotes rational functions graphing', focus: 'сравнение степеней; деление для наклонной асимптоты; пересечения с осями', writing: 'Описание графика 4 предложениями с терминами', terms: [], text: null, tasks: null },
-        { title: 'Рациональные уравнения и неравенства', goal: 'решать с проверкой на посторонние корни; неравенства через таблицу знаков', youtube: 'solving rational equations and inequalities', focus: 'общий знаменатель; restrictions; таблица знаков с нулями и асимптотами', writing: 'Объяснение решения 4–5 предложениями', terms: [], text: null, tasks: null },
-        { title: 'Задачи на рациональные модели + мини-тест Б11', goal: 'средняя стоимость C(x)/x, концентрация; повтор блока', youtube: 'rational function word problems average cost', focus: 'модель → асимптота как предел; интерпретация словами; мини-тест 11.1–11.3', writing: 'Интерпретация асимптоты в бизнес-задаче: 3 предложения', terms: [], text: null, tasks: null }
+        {
+          title: 'Функции вида 1/(…)',
+          goal: 'Reciprocal functions',
+          youtube: 'MHF4U reciprocal functions asymptotes',
+          focus: 'reciprocal of a linear and of a quadratic; domain; vertical and horizontal asymptotes; intercepts; sign of a reciprocal',
+          writing: 'Writing (3–4 sentences): explain why a reciprocal function has a vertical asymptote where its denominator is zero, and what happens to the graph near it.',
+          terms: ['vertical asymptote', 'horizontal asymptote'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'f(x) = 1/(x − 3). State the domain, the vertical asymptote, the horizontal asymptote and the y-intercept.',
+              key: 'x ≠ 3; x = 3; y = 0; (0, −1/3). Marks: 1 domain + VA, 1 HA, 1 y-intercept.' },
+            { level: 'L2', marks: 3,
+              q: 'g(x) = 1/(x² − 4). State the domain and all vertical asymptotes.',
+              key: 'x ≠ ±2; x = 2 and x = −2; HA y = 0. Marks: 1 factoring, 1 both asymptotes, 1 domain.' },
+            { level: 'L2', marks: 3,
+              q: 'h(x) = 1/(x² + 4). Explain why the graph has no vertical asymptote; state the horizontal asymptote and the maximum value.',
+              key: 'x² + 4 > 0 for all x, so the denominator is never 0; HA y = 0; maximum 1/4 at x = 0. Marks: 1 reason, 1 HA, 1 maximum.' },
+            { level: 'L2', marks: 2,
+              q: 'f(x) = 1/(2x + 5). Find x such that f(x) = −1.',
+              key: '2x + 5 = −1 → x = −3. Marks: 1 equation, 1 answer.' },
+            { level: 'L2', marks: 2,
+              q: 'Write a reciprocal function with vertical asymptote x = −2 and y-intercept 1/2.',
+              key: 'f(x) = 1/(x + 2) (f(0) = 1/2). Marks: 1 asymptote, 1 intercept check.' },
+            { level: 'L3', marks: 4,
+              q: 'f(x) = 1/(x² − 6x + 8). Find the vertical asymptotes and the intervals where f(x) > 0.',
+              key: '(x − 2)(x − 4) → x = 2, x = 4; positive on (−∞, 2) ∪ (4, ∞), negative on (2, 4). Marks: 1 factoring, 1 asymptotes, 2 intervals.' }
+          ],
+          words: [
+            { en: 'reciprocal', ru: 'обратная величина' },
+            { en: 'asymptote', ru: 'асимптота' },
+            { en: 'vertical', ru: 'вертикальный' },
+            { en: 'horizontal', ru: 'горизонтальный' },
+            { en: 'to approach', ru: 'приближаться' },
+            { en: 'undefined', ru: 'не определено' }
+          ]
+        },
+        {
+          title: 'Асимптоты и «дырки»',
+          goal: 'Rational functions and their asymptotes',
+          youtube: 'MHF4U rational functions holes asymptotes',
+          focus: 'f(x) = (ax + b)/(cx + d); horizontal asymptote y = a/c; holes from common factors; quadratic denominators; oblique asymptote (stretch)',
+          writing: 'Writing (3–4 sentences): explain the difference between a hole and a vertical asymptote, and how you tell them apart from the factored form.',
+          terms: ['hole (removable discontinuity)', 'oblique asymptote'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 4,
+              q: 'f(x) = (2x + 1)/(x − 3). Find the vertical asymptote, horizontal asymptote, x-intercept and y-intercept.',
+              key: 'x = 3; y = 2; x = −1/2; (0, −1/3). Marks: 1 each.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = (x² − 9)/(x − 3). Simplify and describe the graph.',
+              key: 'f(x) = x + 3 for x ≠ 3 — a line with a hole at (3, 6), no asymptote. Marks: 1 factoring, 1 simplified form with restriction, 1 hole.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = (x − 1)/(x² − x − 6). State the domain and the asymptotes.',
+              key: '(x − 3)(x + 2) → x ≠ 3, −2; VA x = 3 and x = −2; HA y = 0. Marks: 1 factoring, 1 VAs, 1 HA.' },
+            { level: 'L2', marks: 4,
+              q: 'f(x) = (3x − 6)/(x² − 4). Simplify; state the hole, the vertical asymptote and the horizontal asymptote.',
+              key: '3(x − 2)/((x − 2)(x + 2)) = 3/(x + 2), x ≠ 2; hole (2, 3/4); VA x = −2; HA y = 0. Marks: 1 simplifying, 1 hole with y-value, 1 VA, 1 HA.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = (ax + b)/(x − 1) has horizontal asymptote y = 3 and x-intercept 2. Find a and b.',
+              key: 'a = 3 (ratio of leading coefficients); 3·2 + b = 0 → b = −6. Marks: 1 a, 1 equation for b, 1 b.' },
+            { level: 'L3', marks: 4,
+              q: 'f(x) = (x² + 1)/(x − 2). Find the oblique asymptote and the vertical asymptote.',
+              key: 'x² + 1 = (x − 2)(x + 2) + 5 → f(x) = x + 2 + 5/(x − 2) → oblique y = x + 2; VA x = 2. Marks: 2 division, 1 oblique, 1 VA.' }
+          ],
+          words: [
+            { en: 'hole', ru: '«дырка» (устранимый разрыв)' },
+            { en: 'to cancel', ru: 'сокращать' },
+            { en: 'numerator', ru: 'числитель' },
+            { en: 'denominator', ru: 'делитель (дроби)' },
+            { en: 'degree', ru: 'степень' },
+            { en: 'oblique', ru: 'наклонный' }
+          ]
+        },
+        {
+          title: 'Рациональные уравнения',
+          goal: 'Rational equations',
+          youtube: 'MHF4U solving rational equations extraneous',
+          focus: 'clearing denominators; restrictions; extraneous roots; equations with no solution',
+          writing: 'Writing (3–4 sentences): explain why you must write the restrictions before solving a rational equation, with the example of an extraneous root.',
+          terms: ['restriction', 'extraneous root'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Solve 3/(x − 2) = 5.',
+              key: 'x ≠ 2; 3 = 5x − 10 → x = 13/5. Marks: 1 restriction, 1 answer.' },
+            { level: 'L2', marks: 2,
+              q: 'Solve 2/(x + 1) = 1/(x − 1).',
+              key: 'x ≠ ±1; 2x − 2 = x + 1 → x = 3. Marks: 1 cross-multiplying, 1 answer.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve 1/x + 1/(x + 2) = 3/4.',
+              key: 'x ≠ 0, −2; 4(x + 2) + 4x = 3x(x + 2) → 3x² − 2x − 8 = 0 → (3x + 4)(x − 2) = 0 → x = 2 or x = −4/3, both allowed. Marks: 1 restrictions, 1 clearing denominators, 1 quadratic, 1 both roots checked.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve x²/(x − 3) = 9/(x − 3).',
+              key: 'x ≠ 3; x² = 9 → x = ±3; x = 3 is extraneous → x = −3. Marks: 1 restriction, 1 both algebraic roots, 1 rejecting x = 3.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve (x − 2)/(x + 3) = (x − 4)/(x + 1).',
+              key: '(x − 2)(x + 1) = (x − 4)(x + 3) → x² − x − 2 = x² − x − 12 → −2 = −12, false → no solution. Marks: 1 cross-multiplying, 1 expansion, 1 conclusion.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve (x + 1)/(x − 1) + (x − 1)/(x + 1) = 10/3.',
+              key: '((x + 1)² + (x − 1)²)/(x² − 1) = (2x² + 2)/(x² − 1) = 10/3 → 6x² + 6 = 10x² − 10 → x² = 4 → x = ±2. Marks: 1 common denominator, 1 simplifying the numerator, 1 equation, 1 roots.' }
+          ],
+          words: [
+            { en: 'restriction', ru: 'ограничение' },
+            { en: 'extraneous root', ru: 'посторонний корень' },
+            { en: 'to clear denominators', ru: 'избавиться от знаменателей' },
+            { en: 'to cross-multiply', ru: 'перемножить крест-накрест' },
+            { en: 'no solution', ru: 'нет решений' },
+            { en: 'to reject', ru: 'отбросить' }
+          ]
+        },
+        {
+          title: 'Рациональные неравенства',
+          goal: 'Rational inequalities',
+          youtube: 'MHF4U rational inequalities interval table',
+          focus: 'sign chart with zeros and asymptotes; open vs closed endpoints; moving everything to one side instead of cross-multiplying; an average-cost model',
+          writing: 'Writing (3–4 sentences): explain why cross-multiplying is not allowed in a rational inequality and what you do instead.',
+          terms: ['critical values of a rational inequality', 'never cross-multiply an inequality'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Solve 1/(x − 2) > 0.',
+              key: 'x > 2, i.e. (2, ∞). Marks: 1 sign reasoning, 1 answer.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve (x + 1)/(x − 3) ≤ 0.',
+              key: 'critical values −1 and 3; negative between them; [−1, 3). Marks: 1 critical values, 1 sign chart, 1 brackets.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve (x − 2)(x + 4)/(x − 1) ≥ 0.',
+              key: 'critical values −4, 1, 2; signs: x < −4: −; −4 < x < 1: +; 1 < x < 2: −; x > 2: +; answer [−4, 1) ∪ [2, ∞). Marks: 1 critical values, 1 sign chart, 2 answer (both pieces, correct brackets).' },
+            { level: 'L2', marks: 3,
+              q: 'Solve 2/x < 1.',
+              key: '2/x − 1 < 0 → (2 − x)/x < 0 → critical values 0 and 2; (−∞, 0) ∪ (2, ∞). Marks: 1 one fraction, 1 critical values, 1 answer.' },
+            { level: 'L2', marks: 3,
+              q: 'The average cost per item is C(n) = (500 + 20n)/n dollars for n items. For which n is the average cost at most $25?',
+              key: 'n > 0; 500 + 20n ≤ 25n → 500 ≤ 5n → n ≥ 100. Marks: 1 inequality, 1 solving, 1 interpretation (at least 100 items).' },
+            { level: 'L3', marks: 4,
+              q: 'Solve (x − 1)/(x + 2) ≥ 2 without cross-multiplying.',
+              key: '(x − 1 − 2x − 4)/(x + 2) ≥ 0 → (−x − 5)/(x + 2) ≥ 0 → (x + 5)/(x + 2) ≤ 0 → [−5, −2). Marks: 1 one fraction, 1 simplifying, 1 sign chart, 1 brackets.' }
+          ],
+          words: [
+            { en: 'inequality', ru: 'неравенство' },
+            { en: 'critical value', ru: 'критическая точка' },
+            { en: 'at most', ru: 'не более' },
+            { en: 'at least', ru: 'не менее' },
+            { en: 'average cost', ru: 'средняя стоимость' },
+            { en: 'to include / to exclude', ru: 'включать / исключать' }
+          ]
+        }
       ]
     },
 
     /* ================= Б12 · письмо и чтение (было: маркетинг) ================= */
     {
       id: 'B12', track: 'write', title: 'Литературный анализ для ENG2D', deadline: '2026-12-20',
-      note: 'Пьеса и роман в ENG2D идут до 18.12, экзамен в конце января. Опорные задания — пакет 2.8.1.',
+      note: 'Пьеса и роман в ENG2D идут до 18.12, экзамен в конце января. Опорные задания — из окна английского, пакет 2.8.2.',
       lessons: [
         { title: 'Сюжет и конфликт', goal: 'plot: exposition, rising action, climax, falling action, resolution; типы конфликта', youtube: 'plot diagram elements of plot conflict types', focus: 'по рассказу из класса: расставить события по схеме; назвать тип конфликта (person vs person / self / society / nature)', writing: '4 предложения: пересказ сюжета по схеме', terms: [], text: null, tasks: null },
         { title: 'Персонаж и тема', goal: 'characterization (direct / indirect); theme как утверждение, не тема', youtube: 'characterization direct indirect theme statement', focus: 'что персонаж говорит, делает, что говорят о нём; theme = topic + что автор о нём говорит', writing: 'Абзац о персонаже с одной цитатой', terms: [], text: null, tasks: null },
@@ -490,19 +634,163 @@
     /* ================= Б13 · математика ================= */
     {
       id: 'B13', track: 'math', title: 'Тригонометрия: радианы, графики, тождества', deadline: '2026-12-13',
-      note: 'Опорные задания — пакет 2.8.1.',
+      note: 'Опорные задания и глоссарий — есть (2.8.1).',
       lessons: [
-        { title: 'Радианы, дуга, особые углы, правило CAST', goal: 'радианы ↔ градусы; длина дуги; точные значения для π/6, π/4, π/3; знаки по четвертям', youtube: 'radians special angles unit circle CAST rule', focus: 'unit circle; exact values; related acute angle', writing: '3 предложения: почему радиан — «естественная» единица (через дугу)', terms: [], text: null, tasks: null },
-        { title: 'Графики sin, cos, tan и их преобразования', goal: 'y = a·sin(k(x − d)) + c: amplitude, period 2π/k, phase shift, vertical shift', youtube: 'graphing sine cosine transformations amplitude period phase shift', focus: 'параметры → график и обратно; моделирование (высота, температура)', writing: 'Описание графика 4 предложениями с терминами', terms: [], text: null, tasks: null },
-        { title: 'Тождества: основные, суммы углов, двойного угла', goal: 'reciprocal, quotient, Pythagorean identities; compound angle; double angle', youtube: 'trigonometric identities compound angle double angle', focus: 'доказательство тождества по одной стороне; выбор нужной формулы', writing: 'Доказательство тождества как текст: 4 шага, каждый — предложение', terms: [], text: null, tasks: null },
-        { title: 'Тригонометрические уравнения на [0, 2π] + мини-тест Б13', goal: 'решать sin, cos, tan уравнения и квадратные по тригонометрической функции', youtube: 'solving trigonometric equations 0 to 2pi', focus: 'все решения на отрезке; CAST; проверка; мини-тест 13.1–13.3', writing: 'Объяснение решения 4–5 предложениями', terms: [], text: null, tasks: null }
+        {
+          title: 'Радианы и особые углы',
+          goal: 'Radians, arcs and special angles',
+          youtube: 'MHF4U radian measure arc length special triangles',
+          focus: 'degrees ↔ radians; arc length s = rθ; exact values on the unit circle; solving cos θ = k on [0, 2π); angular and linear speed',
+          writing: 'Writing (3–4 sentences): explain what one radian is and why the formula s = rθ only works in radians.',
+          terms: ['radian', 'special angles'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Convert 150° to radians (exact) and 3π/4 to degrees.',
+              key: '5π/6; 135°. Marks: 1 each.' },
+            { level: 'L2', marks: 2,
+              q: 'Find the arc length for a circle of radius 6 cm and central angle 2π/3.',
+              key: 's = 6 · 2π/3 = 4π cm ≈ 12.57 cm. Marks: 1 formula, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'State exact values: sin(π/6), cos(3π/4), tan(π/3).',
+              key: '1/2; −√2/2; √3. Marks: 1 each.' },
+            { level: 'L2', marks: 3,
+              q: 'Find all θ in [0, 2π) with cos θ = −1/2.',
+              key: '2π/3, 4π/3. Marks: 1 reference angle π/3, 1 quadrants II and III, 1 both answers.' },
+            { level: 'L2', marks: 3,
+              q: 'A wheel of radius 0.4 m turns 3 revolutions per second. Find its angular speed in rad/s and the linear speed of a point on the rim.',
+              key: 'ω = 3 · 2π = 6π rad/s ≈ 18.85; v = rω = 2.4π m/s ≈ 7.54. Marks: 1 revolutions → radians, 1 ω, 1 v.' },
+            { level: 'L3', marks: 4,
+              q: 'A sector has radius 5 cm and angle 1.2 rad. Find its area and its perimeter.',
+              key: 'A = ½ · 25 · 1.2 = 15 cm²; P = 2r + rθ = 10 + 6 = 16 cm. Marks: 1 area formula, 1 area, 1 arc length 6, 1 perimeter.' }
+          ],
+          words: [
+            { en: 'radian', ru: 'радиан' },
+            { en: 'arc length', ru: 'длина дуги' },
+            { en: 'sector', ru: 'сектор' },
+            { en: 'unit circle', ru: 'единичная окружность' },
+            { en: 'reference angle', ru: 'опорный угол' },
+            { en: 'revolution', ru: 'оборот' }
+          ]
+        },
+        {
+          title: 'Синусоиды',
+          goal: 'Sinusoidal functions',
+          youtube: 'MHF4U sinusoidal functions transformations',
+          focus: 'y = a sin(k(x − d)) + c; amplitude, period 2π/k, phase shift, vertical shift, maximum and minimum; writing an equation from a description; a Ferris-wheel model',
+          writing: 'Writing (3–4 sentences): explain how you decide between sine and cosine when you model a real situation, using the Ferris wheel.',
+          terms: ['amplitude', 'period'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'y = 3sin(2x) + 1. State the amplitude, the period, the maximum and the minimum.',
+              key: '3; π; max 4; min −2. Marks: 1 amplitude, 1 period, 1 max and min.' },
+            { level: 'L2', marks: 3,
+              q: 'y = −2cos(x − π/3). State the amplitude, the phase shift and the effect of the negative sign.',
+              key: '2; shift right π/3; reflection in the x-axis. Marks: 1 each.' },
+            { level: 'L2', marks: 4,
+              q: 'A sinusoidal function has maximum 7, minimum 1 and period π, and it is at its maximum when x = 0. Write an equation.',
+              key: 'a = 3, c = 4, k = 2π/π = 2; cosine starts at a maximum: y = 3cos(2x) + 4. Marks: 1 amplitude, 1 axis c, 1 k, 1 equation.' },
+            { level: 'L2', marks: 2,
+              q: 'State the period of y = sin(x/2).',
+              key: '2π/(1/2) = 4π. Marks: 1 formula, 1 value.' },
+            { level: 'L2', marks: 4,
+              q: 'A Ferris wheel of radius 10 m has its centre 12 m above the ground and turns once every 40 s. A rider starts at the bottom at t = 0. Write h(t), the height in metres, and find h(10).',
+              key: 'h(t) = 12 − 10cos(πt/20); h(10) = 12 − 10cos(π/2) = 12 m. Marks: 1 amplitude and axis, 1 k = 2π/40, 1 −cos for starting at the bottom, 1 h(10).' },
+            { level: 'L3', marks: 4,
+              q: 'For the wheel above, find the first two times t > 0 when the rider is 17 m high.',
+              key: '12 − 10cos(πt/20) = 17 → cos(πt/20) = −1/2 → πt/20 = 2π/3 or 4π/3 → t = 40/3 ≈ 13.3 s and t = 80/3 ≈ 26.7 s. Marks: 1 equation, 1 cos = −1/2, 1 both angles, 1 both times.' }
+          ],
+          words: [
+            { en: 'amplitude', ru: 'амплитуда' },
+            { en: 'period', ru: 'период' },
+            { en: 'phase shift', ru: 'сдвиг по фазе' },
+            { en: 'vertical shift', ru: 'сдвиг по вертикали' },
+            { en: 'axis of the curve', ru: 'ось синусоиды' },
+            { en: 'to model', ru: 'моделировать' }
+          ]
+        },
+        {
+          title: 'Тождества',
+          goal: 'Trigonometric identities',
+          youtube: 'MHF4U proving trigonometric identities compound angle',
+          focus: 'quotient and Pythagorean identities; proving identities (work one side); finding the other ratios from one; compound-angle formulas for exact values',
+          writing: 'Writing (3–4 sentences): explain the difference between an identity and an equation, with one example of each.',
+          terms: ['identity', 'compound-angle formula'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Prove: tan x · cos x = sin x.',
+              key: 'LHS = (sin x/cos x) · cos x = sin x. Marks: 1 quotient identity, 1 clean layout (one side only).' },
+            { level: 'L2', marks: 2,
+              q: 'Simplify (1 − cos²x)/sin x.',
+              key: 'sin²x/sin x = sin x. Marks: 1 Pythagorean identity, 1 result.' },
+            { level: 'L2', marks: 3,
+              q: 'Prove: sin²x/(1 − cos x) = 1 + cos x.',
+              key: '(1 − cos²x)/(1 − cos x) = (1 − cos x)(1 + cos x)/(1 − cos x) = 1 + cos x. Marks: 1 identity, 1 factoring, 1 cancel.' },
+            { level: 'L2', marks: 3,
+              q: 'sin θ = 3/5 and θ is in quadrant II. Find cos θ and tan θ.',
+              key: 'cos θ = −4/5; tan θ = −3/4. Marks: 1 Pythagorean, 1 sign from quadrant, 1 tan.' },
+            { level: 'L2', marks: 3,
+              q: 'Find the exact value of sin 75°.',
+              key: 'sin(45° + 30°) = (√2/2)(√3/2) + (√2/2)(1/2) = (√6 + √2)/4. Marks: 1 split, 1 formula, 1 simplified value.' },
+            { level: 'L3', marks: 4,
+              q: 'Find the exact value of cos(π/12).',
+              key: 'cos(π/3 − π/4) = cos(π/3)cos(π/4) + sin(π/3)sin(π/4) = (1/2)(√2/2) + (√3/2)(√2/2) = (√2 + √6)/4. Marks: 1 choice of angles, 1 formula with correct sign, 1 values, 1 simplified.' }
+          ],
+          words: [
+            { en: 'identity', ru: 'тождество' },
+            { en: 'to prove', ru: 'доказать' },
+            { en: 'left-hand side / right-hand side', ru: 'левая / правая часть' },
+            { en: 'quadrant', ru: 'четверть (координатная)' },
+            { en: 'compound angle', ru: 'сумма/разность углов' },
+            { en: 'exact value', ru: 'точное значение' }
+          ]
+        },
+        {
+          title: 'Тригонометрические уравнения',
+          goal: 'Trigonometric equations',
+          youtube: 'MHF4U solving trigonometric equations 0 to 2pi',
+          focus: 'linear and quadratic equations in sin, cos, tan on [0, 2π); factoring; double angles sin(2x) = k; number of solutions',
+          writing: 'Writing (3–4 sentences): explain why sin(2x) = k on [0, 2π) has twice as many solutions as sin x = k, using one example.',
+          terms: ['general vs. restricted solution', 'quadratic trigonometric equation'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Solve 2sin x − 1 = 0 on [0, 2π).',
+              key: 'π/6, 5π/6. Marks: 1 sin x = 1/2, 1 both angles.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve cos²x = 1/4 on [0, 2π).',
+              key: 'cos x = ±1/2 → π/3, 2π/3, 4π/3, 5π/3. Marks: 1 both signs, 2 all four angles.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve 2sin²x − sin x − 1 = 0 on [0, 2π).',
+              key: '(2sin x + 1)(sin x − 1) = 0 → sin x = 1 → π/2; sin x = −1/2 → 7π/6, 11π/6 → π/2, 7π/6, 11π/6. Marks: 1 factoring, 1 each root value, 1 all three angles.' },
+            { level: 'L2', marks: 2,
+              q: 'Solve tan x = √3 on [0, 2π).',
+              key: 'π/3, 4π/3. Marks: 1 reference angle, 1 both angles (period π).' },
+            { level: 'L2', marks: 4,
+              q: 'Solve sin(2x) = √2/2 on [0, 2π).',
+              key: '2x = π/4, 3π/4, 9π/4, 11π/4 → x = π/8, 3π/8, 9π/8, 11π/8. Marks: 1 interval for 2x, 1 first two angles, 1 adding 2π, 1 dividing by 2.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve sin x + cos x = 1 on [0, 2π).',
+              key: 'sin x + cos x = √2 sin(x + π/4) = 1 → sin(x + π/4) = √2/2 → x + π/4 = π/4 or 3π/4 → x = 0, π/2 (x + π/4 = 9π/4 gives x = 2π, excluded). Check: both work. Marks: 1 rewriting as one sine, 1 equation, 1 both angles, 1 checking the interval.' }
+          ],
+          words: [
+            { en: 'to solve on an interval', ru: 'решить на промежутке' },
+            { en: 'general solution', ru: 'общее решение' },
+            { en: 'double angle', ru: 'двойной угол' },
+            { en: 'to factor', ru: 'разложить на множители' },
+            { en: 'to check', ru: 'проверить' },
+            { en: 'to reject', ru: 'отбросить' }
+          ]
+        }
       ]
     },
 
     /* ================= Б14 · письмо и чтение ================= */
     {
       id: 'B14', track: 'write', title: 'OSSLT-генеральная', deadline: '2026-11-22',
-      note: 'OSSLT — конец ноября 2026 (outline ENG2D); точная дата до 15.10. Если раньше 25.11 — дедлайн блока 15.11. Опорные задания — пакет 2.8.1.',
+      note: 'OSSLT — конец ноября 2026 (outline ENG2D); точная дата до 15.10. Если раньше 25.11 — дедлайн блока 15.11. Опорные задания — из окна английского, пакет 2.8.2.',
       lessons: [
         { title: 'Секция чтения целиком на время', goal: 'пробник EQAO: чтение всех типов текстов под таймер', youtube: 'OSSLT reading section practice EQAO sample', focus: 'распределение времени; сначала вопросы, потом текст; пометки на полях', writing: 'Два open-response ответа из пробника', terms: [], text: null, tasks: null },
         { title: 'Серия абзацев (opinion essay) на время', goal: 'series of paragraphs: вступление с мнением, 2–3 абзаца причин, заключение', youtube: 'OSSLT series of paragraphs how to write', focus: 'план 3 минуты; связки между абзацами; чек-лист языка перед сдачей', writing: 'Series of paragraphs за 30 минут', terms: [], text: null, tasks: null },
@@ -514,24 +802,312 @@
     /* ================= Б15 · математика ================= */
     {
       id: 'B15', track: 'math', title: 'Показательные и логарифмические функции', deadline: '2027-01-17',
-      note: 'В каркасе 2.6.0 этой темы не было — а это целый раздел MHF4U и экзамена. Опорные задания — пакет 2.8.1.',
+      note: 'В каркасе 2.6.0 этой темы не было — а это целый раздел MHF4U и экзамена. Опорные задания и глоссарий — есть (2.8.1).',
       lessons: [
-        { title: 'Показательные функции и законы степеней', goal: 'y = a·bˣ, преобразования, асимптота y = 0; exponent laws', youtube: 'exponential functions graphs transformations exponent laws', focus: 'рост и убывание по b; горизонтальная асимптота; решение простых показательных уравнений приведением к одному основанию', writing: '3 предложения: описать график y = 3·2ˣ − 1', terms: [], text: null, tasks: null },
-        { title: 'Логарифм: определение и законы', goal: 'log ↔ степень; laws of logarithms; вычисление без калькулятора', youtube: 'logarithms introduction laws of logarithms', focus: 'y = logₐx ⇔ aʸ = x; product, quotient, power laws; change of base', writing: 'Объяснение одним абзацем: что такое логарифм (по схеме определения)', terms: [], text: null, tasks: null },
-        { title: 'Показательные и логарифмические уравнения', goal: 'решать через логарифмирование и свойства; проверка области', youtube: 'solving exponential and logarithmic equations', focus: 'посторонние корни у log-уравнений; округление; запись ответа', writing: 'Объяснение решения 4–5 предложениями', terms: [], text: null, tasks: null },
-        { title: 'Рост, распад, сложные проценты + мини-тест Б15', goal: 'half-life, doubling time, compound interest A = P(1 + r/n)ⁿᵗ', youtube: 'exponential growth decay half life compound interest problems', focus: 'модель из условия; решение уравнения; интерпретация ответа словами (бизнес-контекст)', writing: 'Интерпретация результата в бизнес-задаче: 3 предложения', terms: [], text: null, tasks: null }
+        {
+          title: 'Показательные функции',
+          goal: 'Exponential functions and equations',
+          youtube: 'MHF4U exponential functions doubling half-life',
+          focus: 'y = a·bˣ, asymptote, intercept; equations with a common base; doubling and half-life models; substitution t = 2ˣ (stretch)',
+          writing: 'Writing (3–4 sentences): explain how you recognise exponential growth in a table of values and why its graph never touches the x-axis.',
+          terms: ['exponential function', 'half-life'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Solve 2^(x+1) = 32.',
+              key: '2^(x+1) = 2⁵ → x = 4. Marks: 1 common base, 1 answer.' },
+            { level: 'L2', marks: 2,
+              q: 'Solve 9ˣ = 27.',
+              key: '3^(2x) = 3³ → x = 3/2. Marks: 1 base 3, 1 answer.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = 3 · 2ˣ. State the y-intercept, the asymptote and f(4).',
+              key: '3; y = 0; 48. Marks: 1 each.' },
+            { level: 'L2', marks: 3,
+              q: 'A bacteria population of 500 doubles every 6 hours. Write P(t) and find the population after 15 hours (to the nearest whole).',
+              key: 'P(t) = 500 · 2^(t/6); P(15) = 500 · 2^2.5 ≈ 2828. Marks: 1 model, 1 exponent 2.5, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'A substance has half-life 8 days. From 80 mg, how much remains after 20 days (two decimals)?',
+              key: '80 · (1/2)^(20/8) = 80 · 2^(−2.5) ≈ 14.14 mg. Marks: 1 model, 1 exponent, 1 value.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve 4ˣ − 6 · 2ˣ + 8 = 0.',
+              key: 't = 2ˣ: t² − 6t + 8 = 0 → (t − 2)(t − 4) = 0 → 2ˣ = 2 or 2ˣ = 4 → x = 1 or x = 2. Marks: 1 substitution, 1 quadratic, 1 factoring, 1 both x.' }
+          ],
+          words: [
+            { en: 'exponent', ru: 'показатель степени' },
+            { en: 'base', ru: 'основание' },
+            { en: 'to double', ru: 'удваиваться' },
+            { en: 'half-life', ru: 'период полураспада' },
+            { en: 'growth / decay', ru: 'рост / убывание' },
+            { en: 'to the nearest whole', ru: 'до целого' }
+          ]
+        },
+        {
+          title: 'Логарифмы',
+          goal: 'Logarithms',
+          youtube: 'MHF4U introduction to logarithms evaluate',
+          focus: 'log_b a = c ⇔ bᶜ = a; evaluating logs exactly; converting forms; solving simple log equations; nested logs (stretch)',
+          writing: 'Writing (3–4 sentences): explain in your own words what log₂ 32 asks, and why the argument of a logarithm must be positive.',
+          terms: ['logarithm', 'exponential form / logarithmic form'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'Evaluate exactly: log₂ 32, log₃(1/9), log 1000.',
+              key: '5; −2; 3. Marks: 1 each.' },
+            { level: 'L2', marks: 2,
+              q: 'Write log₅ 125 = 3 in exponential form and 2⁻³ = 1/8 in logarithmic form.',
+              key: '5³ = 125; log₂(1/8) = −3. Marks: 1 each.' },
+            { level: 'L2', marks: 2,
+              q: 'Solve log₃ x = 4.',
+              key: 'x = 3⁴ = 81. Marks: 1 conversion, 1 answer.' },
+            { level: 'L2', marks: 2,
+              q: 'Solve log_x 49 = 2.',
+              key: 'x² = 49, x > 0 → x = 7. Marks: 1 conversion, 1 rejecting −7.' },
+            { level: 'L2', marks: 3,
+              q: 'Evaluate log₄ 8 + log₉ 27 exactly.',
+              key: '4^(3/2) = 8 → 3/2; 9^(3/2) = 27 → 3/2; sum 3. Marks: 1 each log, 1 sum.' },
+            { level: 'L3', marks: 3,
+              q: 'Solve log₂(log₃ x) = 1.',
+              key: 'log₃ x = 2 → x = 9. Marks: 1 outer log, 1 inner log, 1 check x > 0.' }
+          ],
+          words: [
+            { en: 'logarithm', ru: 'логарифм' },
+            { en: 'base', ru: 'основание' },
+            { en: 'argument', ru: 'аргумент (число под логарифмом)' },
+            { en: 'to evaluate', ru: 'вычислить' },
+            { en: 'to convert', ru: 'преобразовать' },
+            { en: 'common logarithm', ru: 'десятичный логарифм' }
+          ]
+        },
+        {
+          title: 'Свойства логарифмов',
+          goal: 'Laws of logarithms',
+          youtube: 'MHF4U laws of logarithms change of base',
+          focus: 'product, quotient and power laws; expanding and condensing; change of base; using given approximate logs; log equations that need condensing (stretch)',
+          writing: 'Writing (3–4 sentences): explain why log(x + y) cannot be split, and show one law that does work, with numbers.',
+          terms: ['laws of logarithms', 'change of base'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'Expand log(x²y/z).',
+              key: '2 log x + log y − log z. Marks: 1 product, 1 quotient, 1 power.' },
+            { level: 'L2', marks: 2,
+              q: 'Simplify log₆ 4 + log₆ 9.',
+              key: 'log₆ 36 = 2. Marks: 1 product law, 1 value.' },
+            { level: 'L2', marks: 2,
+              q: 'Simplify log₂ 48 − log₂ 3.',
+              key: 'log₂ 16 = 4. Marks: 1 quotient law, 1 value.' },
+            { level: 'L2', marks: 2,
+              q: 'Evaluate log₅ 40 to three decimals.',
+              key: 'ln 40 / ln 5 ≈ 2.292. Marks: 1 change of base, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'Given log 2 ≈ 0.3010 and log 3 ≈ 0.4771, find log 12 and log 1.5.',
+              key: 'log 12 = 2(0.3010) + 0.4771 = 1.0791; log 1.5 = 0.4771 − 0.3010 = 0.1761. Marks: 1 writing 12 = 2²·3, 1 log 12, 1 log 1.5.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve log₂ x + log₂(x − 2) = 3.',
+              key: 'log₂(x(x − 2)) = 3 → x² − 2x − 8 = 0 → (x − 4)(x + 2) = 0 → x = 4 (x = −2 rejected: x − 2 > 0 needed) → x = 4. Marks: 1 condensing, 1 exponential form, 1 quadratic, 1 rejecting −2.' }
+          ],
+          words: [
+            { en: 'product law', ru: 'свойство произведения' },
+            { en: 'quotient law', ru: 'свойство частного' },
+            { en: 'power law', ru: 'свойство степени' },
+            { en: 'to expand / to condense', ru: 'раскрыть / свернуть' },
+            { en: 'change of base', ru: 'переход к другому основанию' },
+            { en: 'to three decimals', ru: 'до трёх знаков' }
+          ]
+        },
+        {
+          title: 'Уравнения и модели',
+          goal: 'Exponential and logarithmic equations, applications',
+          youtube: 'MHF4U solving exponential equations logarithms applications',
+          focus: 'solving bˣ = k with logs; equations with the variable in two exponents; log equations with checks; compound interest and doubling time; pH scale',
+          writing: 'Writing (3–4 sentences): explain the steps to solve 5ˣ = 20 and why the answer is not a "nice" number.',
+          terms: ['taking the logarithm of both sides', 'logarithmic scale'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Solve 5ˣ = 20 to three decimals.',
+              key: 'x = log 20 / log 5 ≈ 1.861. Marks: 1 logs of both sides, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve 3^(2x−1) = 7 to three decimals.',
+              key: '2x − 1 = log₃ 7 = ln 7 / ln 3 ≈ 1.771 → x ≈ 1.386. Marks: 1 log, 1 isolating 2x − 1, 1 value.' },
+            { level: 'L2', marks: 4,
+              q: 'Solve log(x + 3) + log x = 1.',
+              key: 'log(x(x + 3)) = 1 → x² + 3x − 10 = 0 → (x + 5)(x − 2) = 0 → x = 2 (x = −5 rejected). Marks: 1 condensing, 1 exponential form, 1 roots, 1 rejecting −5.' },
+            { level: 'L2', marks: 3,
+              q: '$2000 is invested at 6% per year, compounded annually. How long until it doubles (one decimal)?',
+              key: '1.06ᵗ = 2 → t = ln 2 / ln 1.06 ≈ 11.9 years. Marks: 1 equation, 1 logs, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'pH = −log[H⁺]. (a) Find the pH when [H⁺] = 3.2 × 10⁻⁵ mol/L (two decimals). (b) Find [H⁺] when pH = 2.5 (three significant figures).',
+              key: '(a) 4.49; (b) 10^(−2.5) ≈ 3.16 × 10⁻³ mol/L. Marks: 1 (a), 1 conversion for (b), 1 value.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve 2ˣ = 3^(x−1) to four decimals.',
+              key: 'x ln 2 = (x − 1) ln 3 → x(ln 3 − ln 2) = ln 3 → x = ln 3 / ln(3/2) ≈ 2.7095. Marks: 1 logs of both sides, 1 collecting x, 1 exact form, 1 value.' }
+          ],
+          words: [
+            { en: 'compound interest', ru: 'сложный процент' },
+            { en: 'to compound annually', ru: 'начислять ежегодно' },
+            { en: 'doubling time', ru: 'время удвоения' },
+            { en: 'significant figures', ru: 'значащие цифры' },
+            { en: 'scale', ru: 'шкала' },
+            { en: 'concentration', ru: 'концентрация' }
+          ]
+        }
       ]
     },
 
     /* ================= Б16 · все дорожки ================= */
     {
       id: 'B16', track: 'all', title: 'Финалы семестра: экзамен MHF4U и итоговые ENG2D', deadline: '2027-01-30',
-      note: 'MHF4U — продвинутые функции (12 класс); ENG2D — английский 10 класса. Порядок и даты уточняются по планам учителей.',
+      note: 'MHF4U — продвинутые функции (12 класс); ENG2D — английский 10 класса. Порядок и даты уточняются по планам учителей. Опорные задания и глоссарий — есть (2.8.1).',
       lessons: [
-        { title: 'Комбинирование функций и скорость изменения', goal: 'f + g, f·g, f∘g; average и instantaneous rate of change через секущие', youtube: 'combining functions composition average rate of change', focus: 'domain композиции; rate of change из таблицы и графика', writing: '3 предложения: интерпретация средней скорости изменения в задаче', terms: [], text: null, tasks: null },
-        { title: 'Экзамен MHF4U: смешанная практика по разделам', goal: 'задачи каждого раздела в экзаменационном формате', youtube: 'MHF4U exam review', focus: 'по плану учителя MHF4U; part marks; распределение времени', writing: 'Объяснение одного решения экзаменационного уровня', terms: [], text: null, tasks: null },
-        { title: 'Итоговая работа ENG2D: эссе и экзамен', goal: 'структура эссе по тексту курса; стратегия экзамена по английскому', youtube: 'literary essay structure grade 10 exam strategy', focus: 'thesis → 3 абзаца PEEL → заключение; управление временем; цитаты наизусть', writing: 'План эссе + один абзац', terms: [], text: null, tasks: null },
-        { title: 'Экзаменационная симуляция и разбор', goal: 'полный прогон в условиях экзамена; разбор потерь', youtube: 'exam day strategy', focus: 'таймер; чек-лист языка; что делать при затыке', writing: 'Самоанализ после прогона: 4 предложения', terms: [], text: null, tasks: null }
+        {
+          title: 'Композиция и скорость изменения',
+          goal: 'Combining functions and rates of change',
+          youtube: 'MHF4U composition of functions average instantaneous rate of change',
+          focus: 'sums, products and compositions; domain of a composition; average rate of change; estimating instantaneous rate with a small h',
+          writing: 'Writing (3–4 sentences): explain the difference between an average and an instantaneous rate of change, with one everyday example (speed).',
+          terms: ['composition of functions', 'instantaneous rate of change'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'f(x) = 2x − 3, g(x) = x² + 1. Find (f ∘ g)(2) and (g ∘ f)(2).',
+              key: 'f(g(2)) = f(5) = 7; g(f(2)) = g(1) = 2. Marks: 1 each.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = √(x − 1), g(x) = x². State the domain of (f ∘ g)(x).',
+              key: 'f(g(x)) = √(x² − 1), need x² − 1 ≥ 0 → x ≤ −1 or x ≥ 1. Marks: 1 composition, 1 inequality, 1 both pieces.' },
+            { level: 'L2', marks: 2,
+              q: 'Find the average rate of change of f(x) = x³ on [1, 3].',
+              key: '(27 − 1)/2 = 13. Marks: 1 formula, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'Estimate the instantaneous rate of change of f(x) = x² at x = 3 using h = 0.01.',
+              key: '(3.01² − 9)/0.01 = 6.01 ≈ 6. Marks: 1 setup, 1 value, 1 interpretation (slope of the tangent ≈ 6).' },
+            { level: 'L2', marks: 2,
+              q: 'f(x) = x + 2, g(x) = x − 2. Find (f + g)(x) and (f · g)(x) and state their domains.',
+              key: '2x; x² − 4; all real numbers. Marks: 1 each function.' },
+            { level: 'L3', marks: 4,
+              q: 'f(x) = (x + 1)/(x − 1). Find f(f(x)) in simplest form and state the restrictions.',
+              key: '((x + 1)/(x − 1) + 1)/((x + 1)/(x − 1) − 1) = (2x/(x − 1))/(2/(x − 1)) = x, with x ≠ 1. Marks: 1 substitution, 1 common denominators, 1 simplifying, 1 restriction.' }
+          ],
+          words: [
+            { en: 'composition', ru: 'композиция' },
+            { en: 'to compose', ru: 'составлять (функции)' },
+            { en: 'average rate of change', ru: 'средняя скорость изменения' },
+            { en: 'instantaneous', ru: 'мгновенный' },
+            { en: 'tangent', ru: 'касательная' },
+            { en: 'slope', ru: 'наклон (угловой коэффициент)' }
+          ]
+        },
+        {
+          title: 'Повтор: многочлены и дроби',
+          goal: 'Exam review: polynomials and rationals',
+          youtube: 'MHF4U exam review polynomial rational functions',
+          focus: 'factoring and solving cubics; rational inequality; asymptotes and intercepts of a rational function; remainder theorem; family of polynomials from a point',
+          writing: 'Writing (3–4 sentences): describe how you check a rational-inequality answer with one test point from each interval.',
+          terms: ['end behaviour', 'leading coefficient test'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'Solve x³ − 3x² − 4x + 12 = 0.',
+              key: 'x²(x − 3) − 4(x − 3) = (x − 3)(x − 2)(x + 2) → x = 3, 2, −2. Marks: 1 grouping, 1 factors, 1 roots.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve (x − 1)/(x + 2) < 0.',
+              key: 'critical values −2 and 1 → (−2, 1). Marks: 1 critical values, 1 sign chart, 1 open brackets.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = (2x² − 8)/(x² − 1). State the horizontal asymptote, the vertical asymptotes and the x-intercepts.',
+              key: 'y = 2; x = ±1; x = ±2. Marks: 1 each.' },
+            { level: 'L2', marks: 2,
+              q: 'Find the remainder when x⁴ − 3x + 2 is divided by x + 1.',
+              key: 'P(−1) = 1 + 3 + 2 = 6. Marks: 1 P(−1), 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'A cubic has zeros −1, 2 and 3 and passes through (0, 12). Find a.',
+              key: 'f(x) = a(x + 1)(x − 2)(x − 3); f(0) = 6a = 12 → a = 2. Marks: 1 family, 1 substitution, 1 a.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve (x² − 9)/(x² + x − 6) ≥ 0.',
+              key: '(x − 3)(x + 3)/((x + 3)(x − 2)) = (x − 3)/(x − 2) with x ≠ −3 → (−∞, −3) ∪ (−3, 2) ∪ [3, ∞). Marks: 1 factoring, 1 cancel with restriction, 1 sign chart, 1 excluding −3.' }
+          ],
+          words: [
+            { en: 'end behaviour', ru: 'поведение на концах' },
+            { en: 'leading coefficient', ru: 'старший коэффициент' },
+            { en: 'parity (even / odd)', ru: 'чётность' },
+            { en: 'to review', ru: 'повторять (материал)' },
+            { en: 'exam', ru: 'экзамен' },
+            { en: 'to justify', ru: 'обосновать' }
+          ]
+        },
+        {
+          title: 'Повтор: тригонометрия',
+          goal: 'Exam review: trigonometry',
+          youtube: 'MHF4U exam review trigonometric functions',
+          focus: 'exact values; equations on [0, 2π); an identity; reading parameters of a sinusoid; ratios from a quadrant; a quadratic equation in cos (stretch)',
+          writing: 'Writing (3–4 sentences): explain how the CAST rule helps you find the sign of a ratio when only one ratio and the quadrant are known.',
+          terms: ['CAST rule', 'parameters of a sinusoid'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 3,
+              q: 'State exact values: sin(5π/6), cos(7π/4), tan(5π/3).',
+              key: '1/2; √2/2; −√3. Marks: 1 each.' },
+            { level: 'L2', marks: 3,
+              q: 'Solve 2cos x + √3 = 0 on [0, 2π).',
+              key: 'cos x = −√3/2 → 5π/6, 7π/6. Marks: 1 isolating, 1 reference angle, 1 both angles.' },
+            { level: 'L2', marks: 2,
+              q: 'Prove: (sin x + cos x)² = 1 + 2 sin x cos x.',
+              key: 'sin²x + 2 sin x cos x + cos²x = 1 + 2 sin x cos x. Marks: 1 expansion, 1 Pythagorean identity.' },
+            { level: 'L2', marks: 3,
+              q: 'y = 4sin(3(x − π/6)) − 1. State the amplitude, period, phase shift and vertical shift.',
+              key: '4; 2π/3; right π/6; down 1. Marks: 1 amplitude and period, 1 shift, 1 vertical.' },
+            { level: 'L2', marks: 3,
+              q: 'cos θ = −5/13 and θ is in quadrant III. Find sin θ and tan θ.',
+              key: 'sin θ = −12/13; tan θ = 12/5. Marks: 1 Pythagorean, 1 signs, 1 tan.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve 2sin²x + 3cos x − 3 = 0 on [0, 2π).',
+              key: '2(1 − cos²x) + 3cos x − 3 = 0 → 2cos²x − 3cos x + 1 = 0 → (2cos x − 1)(cos x − 1) = 0 → cos x = 1 → 0; cos x = 1/2 → π/3, 5π/3 → 0, π/3, 5π/3. Marks: 1 identity, 1 quadratic, 1 factoring, 1 all angles.' }
+          ],
+          words: [
+            { en: 'quadrant', ru: 'четверть' },
+            { en: 'CAST rule', ru: 'правило знаков' },
+            { en: 'parameter', ru: 'параметр' },
+            { en: 'to isolate', ru: 'выразить (уединить)' },
+            { en: 'to expand', ru: 'раскрыть скобки' },
+            { en: 'both sides', ru: 'обе части' }
+          ]
+        },
+        {
+          title: 'Повтор: показательные и логарифмы',
+          goal: 'Exam review: exponentials, logarithms and mixed',
+          youtube: 'MHF4U exam review exponential logarithmic functions',
+          focus: 'equations with common base; log equation; condensing; a tripling model; comparing average rates of an exponential; a log equation with a quotient (stretch)',
+          writing: 'Writing (3–4 sentences): write a short exam checklist — three mistakes with logarithms you will check for before handing in.',
+          terms: ['inverse functions (exponential and logarithm)', 'rate of change of an exponential'],
+          text: null,
+          tasks: [
+            { level: 'L2', marks: 2,
+              q: 'Solve 2^(3x) = 1/16.',
+              key: '3x = −4 → x = −4/3. Marks: 1 common base, 1 answer.' },
+            { level: 'L2', marks: 2,
+              q: 'Solve log₃(2x − 1) = 2.',
+              key: '2x − 1 = 9 → x = 5. Marks: 1 conversion, 1 answer.' },
+            { level: 'L2', marks: 2,
+              q: 'Simplify log 50 + log 2.',
+              key: 'log 100 = 2. Marks: 1 law, 1 value.' },
+            { level: 'L2', marks: 3,
+              q: 'A culture of 200 bacteria triples every 4 hours. When will it reach 5400?',
+              key: '200 · 3^(t/4) = 5400 → 3^(t/4) = 27 → t/4 = 3 → t = 12 h. Marks: 1 model, 1 27 = 3³, 1 t.' },
+            { level: 'L2', marks: 3,
+              q: 'f(x) = 2ˣ. Find the average rate of change on [0, 2] and on [2, 4], and describe what the comparison shows.',
+              key: '(4 − 1)/2 = 1.5; (16 − 4)/2 = 6; the growth accelerates (rate quadrupled). Marks: 1 each rate, 1 interpretation.' },
+            { level: 'L3', marks: 4,
+              q: 'Solve log₂(x + 2) − log₂(x − 1) = 2.',
+              key: 'log₂((x + 2)/(x − 1)) = 2 → (x + 2)/(x − 1) = 4 → x + 2 = 4x − 4 → x = 2; check x − 1 > 0 ✓. Marks: 1 quotient law, 1 exponential form, 1 solving, 1 check.' }
+          ],
+          words: [
+            { en: 'inverse function', ru: 'обратная функция' },
+            { en: 'reflection', ru: 'отражение' },
+            { en: 'to triple', ru: 'утраиваться' },
+            { en: 'culture (of bacteria)', ru: 'культура (бактерий)' },
+            { en: 'to accelerate', ru: 'ускоряться' },
+            { en: 'checklist', ru: 'контрольный список' }
+          ]
+        }
       ]
     },
 
@@ -676,10 +1252,106 @@
             { en: 'to justify', ru: 'обосновать' }
           ]
         },
-        { type: 'contest', title: 'Показательные и логарифмы', goal: 'три задачи', focus: 'уравнения с одинаковым основанием; законы логарифмов; рост', tasks: null },
-        { type: 'contest', title: 'Тригонометрия и окружность', goal: 'три задачи', focus: 'особые углы; тождества; геометрия окружности', tasks: null },
-        { type: 'contest', title: 'Последовательности и суммы', goal: 'три задачи', focus: 'арифметическая и геометрическая прогрессии; телескопические суммы', tasks: null },
-        { type: 'contest', title: 'Генеральная: смесь в формате CSMC', goal: 'три задачи как на конкурсе', focus: 'часть A × 2, часть B × 1, на время 60 минут', tasks: null }
+        {
+          type: 'contest',
+          title: 'Алгебра и модуль',
+          goal: 'Algebra and absolute value',
+          focus: 'sum of consecutive odd integers; symmetric expressions x² + 1/x², x³ + 1/x³ from x + 1/x; an equation with two absolute values by cases',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'Find the sum of the first 40 odd positive integers.',
+              key: '1 + 3 + … + 79 = 40² = 1600.' },
+            { part: 'A', marks: 3,
+              q: 'If x + 1/x = 3, find x² + 1/x² and x³ + 1/x³.',
+              key: 'x² + 1/x² = 3² − 2 = 7; x³ + 1/x³ = 3³ − 3·3 = 18.' },
+            { part: 'B', marks: 5,
+              q: 'Find all real x such that |x − 1| + |x − 3| = 4.',
+              key: 'cases: x ≥ 3: 2x − 4 = 4 → x = 4 ✓; 1 ≤ x < 3: 2 = 4, none; x < 1: 4 − 2x = 4 → x = 0 ✓ → x = 0 or x = 4. Marks: 1 correct case boundaries, 1 each case (3), 1 final answer with both values.' }
+          ],
+          words: [
+            { en: 'odd / even integer', ru: 'нечётное / чётное число' },
+            { en: 'absolute value', ru: 'модуль' },
+            { en: 'case', ru: 'случай' },
+            { en: 'to expand', ru: 'раскрыть' },
+            { en: 'identity', ru: 'тождество' },
+            { en: 'sum', ru: 'сумма' }
+          ]
+        },
+        {
+          type: 'contest',
+          title: 'Геометрия и окружности',
+          goal: 'Geometry and circles',
+          focus: 'incircle radius of a right triangle; centre and radius by completing the square; area of a triangle in a square by coordinates or subtraction',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'A right triangle has legs 5 and 12. Find the radius of its inscribed circle.',
+              key: 'hypotenuse 13; r = (5 + 12 − 13)/2 = 2.' },
+            { part: 'A', marks: 3,
+              q: 'Find the centre and radius of the circle x² + y² − 6x + 4y − 12 = 0.',
+              key: '(x − 3)² + (y + 2)² = 25 → centre (3, −2), radius 5.' },
+            { part: 'B', marks: 5,
+              q: 'ABCD is a square of side 4. M is the midpoint of BC and N is the midpoint of CD. Find the area of triangle AMN.',
+              key: 'A(0, 0), B(4, 0), C(4, 4), D(0, 4), M(4, 2), N(2, 4); shoelace: ½|4·4 − 2·2| = 6; or 16 − 4 − 4 − 2 = 6 by subtracting three right triangles. Marks: 1 coordinates or a clear figure, 2 method, 1 arithmetic, 1 answer.' }
+          ],
+          words: [
+            { en: 'inscribed circle', ru: 'вписанная окружность' },
+            { en: 'hypotenuse', ru: 'гипотенуза' },
+            { en: 'to complete the square', ru: 'выделить полный квадрат' },
+            { en: 'midpoint', ru: 'середина' },
+            { en: 'area', ru: 'площадь' },
+            { en: 'vertex / vertices', ru: 'вершина / вершины' }
+          ]
+        },
+        {
+          type: 'contest',
+          title: 'Подсчёт и вероятность',
+          goal: 'Counting and probability',
+          focus: 'counting integers with distinct digits; probability with two dice; committees with a forbidden pair (complement counting)',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'How many three-digit positive integers have all digits different?',
+              key: '9 · 9 · 8 = 648.' },
+            { part: 'A', marks: 3,
+              q: 'Two fair dice are rolled. What is the probability that the sum is 8?',
+              key: 'favourable (2,6), (3,5), (4,4), (5,3), (6,2) → 5/36.' },
+            { part: 'B', marks: 5,
+              q: 'A committee of 3 is chosen from 6 people. Two particular people refuse to serve together. How many committees are possible?',
+              key: 'C(6, 3) − (committees with both) = 20 − C(4, 1) = 16. Marks: 1 total 20, 2 counting the forbidden committees, 1 subtraction, 1 answer with justification.' }
+          ],
+          words: [
+            { en: 'digit', ru: 'цифра' },
+            { en: 'distinct', ru: 'различный' },
+            { en: 'fair die / dice', ru: 'честная игральная кость / кости' },
+            { en: 'probability', ru: 'вероятность' },
+            { en: 'committee', ru: 'комитет' },
+            { en: 'to refuse', ru: 'отказаться' }
+          ]
+        },
+        {
+          type: 'contest',
+          title: 'Функции и текстовые задачи',
+          goal: 'Functions and word problems',
+          focus: 'a linear function from two values; average speed over a whole trip; divisibility via division with remainder',
+          tasks: [
+            { part: 'A', marks: 2,
+              q: 'f(x) = ax + b, f(2) = 7 and f(5) = 16. Find f(10).',
+              key: 'a = 3, b = 1 → f(10) = 31.' },
+            { part: 'A', marks: 3,
+              q: 'A car travels 60 km at 40 km/h and then 60 km at 60 km/h. Find the average speed for the whole trip.',
+              key: 'time 1.5 h + 1 h = 2.5 h; 120/2.5 = 48 km/h.' },
+            { part: 'B', marks: 5,
+              q: 'Find all positive integers n such that n² + 15 is divisible by n + 3.',
+              key: 'n² + 15 = (n + 3)(n − 3) + 24, so n + 3 must divide 24; n + 3 ∈ {4, 6, 8, 12, 24} → n = 1, 3, 5, 9, 21. Marks: 2 division with remainder 24, 1 listing divisors of 24 greater than 3, 1 all n, 1 checking one value.' }
+          ],
+          words: [
+            { en: 'average speed', ru: 'средняя скорость' },
+            { en: 'whole trip', ru: 'весь путь' },
+            { en: 'divisible by', ru: 'делится на' },
+            { en: 'divisor', ru: 'делитель' },
+            { en: 'remainder', ru: 'остаток' },
+            { en: 'to list', ru: 'перечислить' }
+          ]
+        }
       ]
     }
   ]

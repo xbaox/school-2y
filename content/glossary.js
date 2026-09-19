@@ -275,9 +275,9 @@
   },
   'end behaviour': {
     en: 'end behaviour',
-    def: 'what f(x) does as x → +∞ and as x → −∞ — only the two ends of the graph, not the middle',
-    ex: 'for f(x) = x²: as x → ±∞, f(x) → +∞',
-    non: 'where the graph crosses the x-axis',
+    def: 'what f(x) does as x → +∞ and as x → −∞ — only the two ends of the graph, not the middle; for a polynomial it is set by the leading term; even degree — same direction both ends; odd — opposite',
+    ex: 'for f(x) = x²: as x → ±∞, f(x) → +∞; y = −x³ rises on the left, falls on the right',
+    non: 'where the graph crosses the x-axis; the y-intercept',
     ru: 'Поведение на концах — куда уходит f(x), когда x → +∞ и x → −∞; только концы графика, не середина.'
   },
   'zero': {
@@ -414,5 +414,224 @@
     ex: 'for (x − 1)(x + 3) > 0 the boundary points are 1 and −3',
     non: 'x = 0 for (x − 1)(x + 3) > 0 — it is a test point, not a boundary',
     ru: 'Граничная точка (boundary point, critical value) — нуль многочлена, единственное место, где может смениться знак; в ответ входит только при ≤ или ≥.'
+  },
+
+  /* ---------- 2.8.1: рациональные, тригонометрия, показательные и логарифмы, финалы ---------- */
+  'vertical asymptote': {
+    en: 'vertical asymptote',
+    def: 'a vertical line x = a that the graph approaches but never touches, where the denominator is 0 and the numerator is not; found from the zeros of the denominator after simplifying; the function is undefined there',
+    ex: 'f(x) = 1/(x − 3) → x = 3',
+    non: 'x = 2 for 1/(x² + 4) — the denominator is never 0',
+    ru: 'Вертикальная асимптота (vertical asymptote) — вертикальная прямая x = a, к которой график приближается, но не касается; там знаменатель равен 0, а числитель — нет.'
+  },
+  'horizontal asymptote': {
+    en: 'horizontal asymptote',
+    def: 'a horizontal line y = L that the graph approaches as x → ±∞; for 1/(linear) and 1/(quadratic) it is y = 0; the graph may cross it',
+    ex: 'y = 0 for 1/(x − 3)',
+    non: 'y = 3 for 1/(x − 3) — that is the asymptote\'s x-value, not a horizontal line',
+    ru: 'Горизонтальная асимптота (horizontal asymptote) — горизонтальная прямая y = L, к которой приближается график при x → ±∞; график может её пересекать.'
+  },
+  'hole (removable discontinuity)': {
+    en: 'hole (removable discontinuity)',
+    def: 'a point missing from the graph where a factor cancels from numerator and denominator; the simplified function gives the y-value of the hole; the x-value is still excluded from the domain',
+    ex: '(x² − 9)/(x − 3) → hole at (3, 6)',
+    non: 'x = 3 for 1/(x − 3) — nothing cancels, it is an asymptote',
+    ru: '«дырка», устранимый разрыв (hole (removable discontinuity)) — выколотая точка графика там, где множитель сокращается в числителе и знаменателе; x этой точки из области определения всё равно исключён.'
+  },
+  'oblique asymptote': {
+    en: 'oblique asymptote',
+    def: 'a slanted line y = mx + b the graph approaches when the numerator\'s degree is one more than the denominator\'s; found by division — the quotient is the asymptote',
+    ex: '(x² + 1)/(x − 2) → y = x + 2',
+    non: '(x + 1)/(x − 2) — degrees equal, the asymptote is horizontal',
+    ru: 'Наклонная асимптота (oblique asymptote) — наклонная прямая y = mx + b, к которой приближается график, когда степень числителя на единицу больше степени знаменателя; находится делением — частное и есть асимптота.'
+  },
+  'restriction': {
+    en: 'restriction',
+    def: 'a value of x that makes a denominator zero and must be excluded before solving; write restrictions first; a solution equal to a restriction is rejected',
+    ex: 'for 3/(x − 2) = 5, x ≠ 2',
+    non: 'x ≠ 5 — the number on the right side is not a restriction',
+    ru: 'Ограничение (на переменную) (restriction) — значение x, при котором знаменатель равен нулю; его исключают до решения, а корень, совпавший с ним, отбрасывают.'
+  },
+  'extraneous root': {
+    en: 'extraneous root',
+    def: 'a value obtained by algebra that does not satisfy the original equation, usually because it equals a restriction; appears when multiplying both sides by an expression that can be zero',
+    ex: 'x = 3 for x²/(x − 3) = 9/(x − 3)',
+    non: 'a root rejected because it is negative when the problem allows negatives',
+    ru: 'Посторонний корень (extraneous root) — значение, полученное преобразованиями, которое не удовлетворяет исходному уравнению — обычно совпадает с ограничением.'
+  },
+  'critical values of a rational inequality': {
+    en: 'critical values of a rational inequality',
+    def: 'the zeros of the numerator and the zeros of the denominator; together they split the number line; a zero of the numerator may be included (≤, ≥); a zero of the denominator is never included',
+    ex: '(x + 1)/(x − 3) ≤ 0 → −1 included, 3 excluded',
+    non: 'x = 0 here — it is a test point, not critical',
+    ru: 'Критические точки (critical values of a rational inequality) — нули числителя и нули знаменателя; вместе они делят числовую прямую. Нуль числителя может войти в ответ (≤, ≥), нуль знаменателя — никогда.'
+  },
+  'never cross-multiply an inequality': {
+    en: 'never cross-multiply an inequality',
+    def: 'multiplying both sides by an expression of unknown sign may flip the inequality; instead move all terms to one side and use one fraction',
+    ex: '(x − 1)/(x + 2) ≥ 2 → (x − 1 − 2(x + 2))/(x + 2) ≥ 0',
+    non: 'x − 1 ≥ 2(x + 2) — wrong when x + 2 < 0',
+    ru: 'Не умножать крест-накрест (never cross-multiply an inequality) — умножение обеих частей на выражение неизвестного знака может перевернуть знак неравенства; вместо этого всё переносят в одну сторону и приводят к одной дроби.'
+  },
+  'radian': {
+    en: 'radian',
+    def: 'the angle at the centre of a circle that cuts an arc equal in length to the radius; π rad = 180°; s = rθ and A = ½r²θ only when θ is in radians',
+    ex: '150° = 5π/6',
+    non: '150 rad — a radian measure is a plain number, 150° is not 150 rad',
+    ru: 'Радиан (radian) — центральный угол, опирающийся на дугу длиной в радиус; π рад = 180°. Формулы s = rθ и A = ½r²θ верны только в радианах.'
+  },
+  'special angles': {
+    en: 'special angles',
+    def: 'π/6, π/4, π/3 (and their multiples) whose sine and cosine are exact from the 1-√3-2 and 1-1-√2 triangles; signs come from the quadrant (CAST)',
+    ex: 'cos(3π/4) = −√2/2',
+    non: 'sin(1) — 1 rad is not a special angle',
+    ru: 'Особые углы (special angles) — π/6, π/4, π/3 и кратные им: синус и косинус точно берутся из треугольников 1-√3-2 и 1-1-√2; знак — по четверти (CAST).'
+  },
+  'amplitude': {
+    en: 'amplitude',
+    def: 'half the distance between the maximum and minimum; |a|; always positive; a negative a means a reflection, not a negative amplitude',
+    ex: 'y = −2cos x has amplitude 2',
+    non: '4 for y = 3sin(2x) + 1 — the maximum is 4, the amplitude is 3',
+    ru: 'Амплитуда (amplitude) — половина расстояния между максимумом и минимумом, |a|; всегда положительна — отрицательное a означает отражение.'
+  },
+  'period': {
+    en: 'period',
+    def: 'the length of one full cycle, 2π/k for y = sin(kx); k > 1 compresses, 0 < k < 1 stretches',
+    ex: 'y = sin(x/2) has period 4π',
+    non: '2 for y = sin(2x) — the period is π',
+    ru: 'Период (period) — длина одного полного цикла, 2π/k для y = sin(kx); k > 1 сжимает, 0 < k < 1 растягивает.'
+  },
+  'identity': {
+    en: 'identity',
+    def: 'an equation true for every value of the variable where both sides are defined; to prove one, transform one side into the other; never cross the equals sign with algebra',
+    ex: 'sin²x + cos²x = 1',
+    non: '2sin x = 1 — true only for some x, an equation',
+    ru: 'Тождество (identity) — равенство, верное при всех значениях переменной, при которых обе части определены; доказывают, преобразуя одну сторону в другую.'
+  },
+  'compound-angle formula': {
+    en: 'compound-angle formula',
+    def: 'sin(A ± B) = sin A cos B ± cos A sin B; cos(A ± B) = cos A cos B ∓ sin A sin B; gives exact values for 15°, 75°, π/12',
+    ex: 'sin 75° = sin(45° + 30°)',
+    non: 'sin(A + B) = sin A + sin B — false',
+    ru: 'Формула сложения углов (compound-angle formula) — sin(A ± B) = sin A cos B ± cos A sin B; cos(A ± B) = cos A cos B ∓ sin A sin B; даёт точные значения для 15°, 75°, π/12.'
+  },
+  'general vs. restricted solution': {
+    en: 'general vs. restricted solution',
+    def: 'on [0, 2π) an equation has a finite list of solutions; without a restriction each has a period added (+2πn); always check the given interval; sin(2x) = k on [0, 2π) means 2x on [0, 4π)',
+    ex: 'sin x = 1/2 → π/6, 5π/6',
+    non: 'writing 13π/6 when the interval is [0, 2π)',
+    ru: 'Общее и частное решение (general vs. restricted solution) — на [0, 2π) у уравнения конечный список решений; без ограничения к каждому добавляется период (+2πn).'
+  },
+  'quadratic trigonometric equation': {
+    en: 'quadratic trigonometric equation',
+    def: 'an equation that is quadratic in sin x, cos x or tan x; solved by factoring or the formula, then each factor gives its own angles; reject values outside [−1, 1] for sin and cos',
+    ex: '2sin²x − sin x − 1 = 0',
+    non: 'sin(x²) = 0 — the square is on the angle, not the ratio',
+    ru: 'Квадратное тригонометрическое уравнение (quadratic trigonometric equation) — уравнение, квадратное относительно sin x, cos x или tan x; решается разложением или формулой, затем каждый множитель даёт свои углы.'
+  },
+  'exponential function': {
+    en: 'exponential function',
+    def: 'y = a · bˣ with b > 0, b ≠ 1; the variable is in the exponent; horizontal asymptote y = 0; y-intercept a; b > 1 grows, 0 < b < 1 decays',
+    ex: 'y = 3 · 2ˣ',
+    non: 'y = x² — the variable is the base, a power function',
+    ru: 'Показательная функция (exponential function) — y = a · bˣ, где b > 0, b ≠ 1; переменная — в показателе степени.'
+  },
+  'half-life': {
+    en: 'half-life',
+    def: 'the time for a quantity to halve; M(t) = M₀ · (1/2)^(t/h); doubling time works the same way with base 2',
+    ex: '8 days → after 20 days the exponent is 20/8 = 2.5',
+    non: '"half-life 8 days" meaning it loses 1/8 per day',
+    ru: 'Период полураспада (half-life) — время, за которое величина уменьшается вдвое; M(t) = M₀ · (1/2)^(t/h).'
+  },
+  'logarithm': {
+    en: 'logarithm',
+    def: 'log_b a is the exponent to which b must be raised to get a; log_b a = c ⇔ bᶜ = a, with b > 0, b ≠ 1, a > 0; log with no base is base 10; ln is base e',
+    ex: 'log₂ 32 = 5',
+    non: 'log₂(−8) — undefined, a must be positive',
+    ru: 'Логарифм (logarithm) — log_b a — показатель степени, в которую надо возвести b, чтобы получить a; log_b a = c ⇔ bᶜ = a, при b > 0, b ≠ 1, a > 0.'
+  },
+  'exponential form / logarithmic form': {
+    en: 'exponential form / logarithmic form',
+    def: 'two ways to write the same fact; converting is the main tool for solving',
+    ex: 'log₅ 125 = 3 ⇔ 5³ = 125',
+    non: 'log₅ 125 = 3 ⇔ 3⁵ = 125 — base and exponent swapped',
+    ru: 'Показательная / логарифмическая запись (exponential form / logarithmic form) — два способа записать один и тот же факт; переход между ними — главный инструмент решения.'
+  },
+  'laws of logarithms': {
+    en: 'laws of logarithms',
+    def: 'log(xy) = log x + log y; log(x/y) = log x − log y; log xⁿ = n log x (same base throughout); there is no law for log(x + y)',
+    ex: 'log₆ 4 + log₆ 9 = log₆ 36 = 2',
+    non: 'log(x + y) = log x + log y — false',
+    ru: 'Свойства логарифмов (laws of logarithms) — log(xy) = log x + log y; log(x/y) = log x − log y; log xⁿ = n log x (основание везде одно); для log(x + y) свойства нет.'
+  },
+  'change of base': {
+    en: 'change of base',
+    def: 'log_b a = log a / log b = ln a / ln b; lets a calculator evaluate any base',
+    ex: 'log₅ 40 = ln 40 / ln 5 ≈ 2.292',
+    non: 'log₅ 40 = ln 5 / ln 40',
+    ru: 'Переход к другому основанию (change of base) — log_b a = log a / log b = ln a / ln b; так калькулятор считает логарифм по любому основанию.'
+  },
+  'taking the logarithm of both sides': {
+    en: 'taking the logarithm of both sides',
+    def: 'applying the same log to both sides of bˣ = k, then using the power law to bring x down; any base works; check that both sides are positive',
+    ex: '5ˣ = 20 → x = log 20 / log 5',
+    non: 'taking the log of one side only',
+    ru: 'Логарифмирование обеих частей (taking the logarithm of both sides) — к обеим частям bˣ = k применяют один и тот же логарифм, затем свойство степени выносит x вперёд.'
+  },
+  'logarithmic scale': {
+    en: 'logarithmic scale',
+    def: 'a scale where each step multiplies the quantity by a fixed factor (pH, decibels, Richter); pH = −log[H⁺]; one pH unit = a factor of 10 in concentration',
+    ex: 'pH 4.5',
+    non: 'reading pH 5 as "half as acidic as pH 10"',
+    ru: 'Логарифмическая шкала (logarithmic scale) — шкала, где каждый шаг умножает величину на одно и то же число (pH, децибелы, шкала Рихтера); pH = −log[H⁺].'
+  },
+  'composition of functions': {
+    en: 'composition of functions',
+    def: '(f ∘ g)(x) = f(g(x)) — apply g first, then f; order matters; the domain needs x in the domain of g and g(x) in the domain of f',
+    ex: 'f(x) = 2x − 3, g(x) = x² + 1: f(g(2)) = 7',
+    non: '(f ∘ g)(x) = f(x) · g(x) — that is the product',
+    ru: 'Композиция функций (composition of functions) — (f ∘ g)(x) = f(g(x)): сначала g, потом f; порядок важен.'
+  },
+  'instantaneous rate of change': {
+    en: 'instantaneous rate of change',
+    def: 'the rate at a single point, estimated by the average rate over a very small interval [a, a + h]; the estimate improves as h shrinks; graphically it is the slope of the tangent',
+    ex: 'f(x) = x² at x = 3 → about 6',
+    non: '(f(3) − f(1))/2 — that is an average rate over [1, 3]',
+    ru: 'Мгновенная скорость изменения (instantaneous rate of change) — скорость в одной точке; оценивается средней скоростью на очень малом отрезке [a, a + h]; на графике — наклон касательной.'
+  },
+  'leading coefficient test': {
+    en: 'leading coefficient test',
+    def: 'the sign of the leading coefficient and the parity of the degree together fix the end behaviour',
+    ex: '2x⁴: both ends up',
+    non: 'judging end behaviour from the constant term',
+    ru: 'По старшему коэффициенту (leading coefficient test) — знак старшего коэффициента и чётность степени вместе задают поведение на концах.'
+  },
+  'CAST rule': {
+    en: 'CAST rule',
+    def: 'which ratios are positive in each quadrant: IV Cos, I All, II Sin, III Tan; used to pick the sign when a ratio is given with a quadrant',
+    ex: 'θ in III → sin < 0, tan > 0',
+    non: 'cos > 0 in quadrant II',
+    ru: 'Правило знаков по четвертям (CAST rule) — какие отношения положительны в каждой четверти: IV — Cos, I — All, II — Sin, III — Tan.'
+  },
+  'parameters of a sinusoid': {
+    en: 'parameters of a sinusoid',
+    def: 'in y = a sin(k(x − d)) + c: a amplitude, 2π/k period, d phase shift, c vertical shift; factor k out before reading d',
+    ex: 'y = 4sin(3(x − π/6)) − 1 → shift π/6 right',
+    non: 'reading d = π/2 from y = sin(3x − π/2) without factoring (it is π/6)',
+    ru: 'Параметры синусоиды (parameters of a sinusoid) — в y = a sin(k(x − d)) + c: a — амплитуда, 2π/k — период, d — сдвиг по фазе, c — сдвиг по вертикали; k выносят за скобку, прежде чем читать d.'
+  },
+  'inverse functions (exponential and logarithm)': {
+    en: 'inverse functions (exponential and logarithm)',
+    def: 'y = bˣ and y = log_b x undo each other; their graphs are reflections in y = x; b^(log_b x) = x and log_b(bˣ) = x',
+    ex: 'log₃(2x − 1) = 2 ⇔ 2x − 1 = 3²',
+    non: 'y = −bˣ as the inverse of bˣ',
+    ru: 'Взаимно обратные функции (inverse functions (exponential and logarithm)) — y = bˣ и y = log_b x отменяют друг друга; их графики симметричны относительно прямой y = x.'
+  },
+  'rate of change of an exponential': {
+    en: 'rate of change of an exponential',
+    def: 'the average rate over equal intervals grows by the same factor as the function; growth accelerates — not a constant slope',
+    ex: '2ˣ on [0, 2]: 1.5; on [2, 4]: 6',
+    non: 'expecting the same rate on both intervals',
+    ru: 'Скорость роста показательной функции (rate of change of an exponential) — средняя скорость на равных отрезках растёт во столько же раз, что и сама функция; рост ускоряется.'
   }
 });

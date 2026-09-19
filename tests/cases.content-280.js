@@ -76,7 +76,8 @@
     Object.keys(State.s.blocks).forEach(function (b) {
       State.blockLessons(b).forEach(function (l) { if (Array.isArray(l.tasks) && l.tasks.length) n++; });
     });
-    eq(n, 11 + 7, 'было 11 (Б7, Б8, К.1–К.3), стало 18');
+    // 2.8.1: ещё 20 (Б11, Б13, Б15, Б16, К.7–К.10) — счёт 18 → 38 проверяет cases.content-281
+    eq(n, 11 + 7 + 20, 'было 11 (Б7, Б8, К.1–К.3), с 2.8.0 — 18, с 2.8.1 — 38');
   });
 
   describe('2.8.0 C2: промпты B9.1 и B53.4 печатают задания и ключи', function () {
