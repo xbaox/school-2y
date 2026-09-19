@@ -1987,6 +1987,30 @@ window.State = (function () {
     return null;
   }
 
+  /**
+   * Урок К субботы (2.8.0, A2): открытый К текущей фазы; если в фазе блока К
+   * нет или его уроки закрыты — старший незакрытый К прошлых фаз (хвост К после
+   * Ф1 иначе не назначался нигде). Будущие фазы не берутся. Тот же урок — у
+   * строки К в свапе и у строк «будних уроков нет — К.x в субботу».
+   */
+  function saturdayContestLesson(iso) {
+    var cur = currentPhase(iso);
+    var own = nextContestLesson(cur);
+    if (own) return own;
+    var ci = phaseIndex(cur);
+    var ids = Object.keys(s.blocks).sort(compareBlocks);
+    for (var i = 0; i < ids.length; i++) {
+      if (phaseIndex(s.blocks[ids[i]].phase) >= ci) continue;
+      var list = activeLessons(ids[i]);
+      for (var j = 0; j < list.length; j++) {
+        if (!isContestLesson(list[j])) continue;
+        var st = s.lessons[list[j].id];
+        if (!st || !st.done) return list[j].id;
+      }
+    }
+    return null;
+  }
+
   /** Блок К (первый в очереди блок с конкурсными уроками) или null — строка К в свапе только при нём. */
   function contestBlockId() {
     var ids = Object.keys(s.blocks).sort(compareBlocks);
@@ -3100,7 +3124,7 @@ window.State = (function () {
     readyForNextStage: readyForNextStage, nextStageOffer: nextStageOffer,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
     lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
-    nextContestLesson: nextContestLesson, contestBlockId: contestBlockId,
+    nextContestLesson: nextContestLesson, contestBlockId: contestBlockId, saturdayContestLesson: saturdayContestLesson,
     freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,
     markVideoWatched: markVideoWatched, videoWatched: videoWatched,
     markPromptCopied: markPromptCopied, promptCopied: promptCopied,

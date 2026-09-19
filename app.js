@@ -1008,9 +1008,9 @@ window.App = (function () {
   }
 
   /** Непройденных уроков не осталось — говорим, когда и что начнётся. */
-  /** Открытый урок К текущей фазы (2.7.8): в будни его дают только суббота и свап. */
+  /** Урок К ближайшей субботы (2.7.8; 2.8.0 A2 — и хвост прошлых фаз): в будни его дают только суббота и свап. */
   function contestLeft() {
-    return State.nextContestLesson ? State.nextContestLesson(State.currentPhase()) : null;
+    return State.saturdayContestLesson ? State.saturdayContestLesson() : null;
   }
 
   function phaseClosedLine() {

@@ -272,13 +272,38 @@
     });
   });
 
-  describe('2.7.8 ревью: К прошлой фазы в Ф2 — «Программа» не обещает субботу', function () {
+  describe('2.8.0 A2: К прошлой фазы — суббота берёт старший незакрытый; свап, «Программа» и «Сегодня» — тот же урок', function () {
     withToday('2027-02-06', function () {
       scene(ALL_OWN.concat(['B16']));
-      ok(isK(State.nextContestLesson()), 'К Ф1 не закрыт');
-      eq(State.currentPhase(), 'p2', 'идёт Ф2');
-      eq(Waterfall.pick('2027-02-06'), null, 'суббота Ф2 К прошлой фазы не берёт');
-      eq(Waterfall.nextLine('math'), 'следующий: уроков в контенте нет', 'строка — как у «Сегодня»');
+      closeLessons(['B53.1', 'B53.2'], '2027-01-30');
+      eq(State.currentPhase(), 'p2', 'идёт Ф2, блока К в ней нет');
+      eq(State.saturdayContestLesson(), 'B53.3', 'старший незакрытый К прошлой фазы — К.3');
+      var r = Waterfall.pick('2027-02-06');
+      eq([r.lessonId, r.reason.text], ['B53.3', 'суббота ⭐: задачи CEMC'], 'суббота Ф2 берёт К.3');
+      var rows = picks(swapSheet().body);
+      eq(rows[rows.length - 1], 'B53.3', 'строка К в свапе — тот же урок');
+      eq(Waterfall.nextLine('math'), 'следующий: только К по субботам · К.3 · ' + CONTENT.lesson('B53.3').title,
+        '«Программа» — тот же урок');
+      eq(Waterfall.second('2027-02-06', 'B53.3'), null, 'вторым уроком К не берётся');
+    });
+    withToday('2027-02-09', function () {
+      eq(Waterfall.pick('2027-02-09'), null, 'в будни Ф2 К не назначается');
+      State.day('2027-02-09', true).level = 'norm';
+      var l1 = App.planItems('2027-02-09', State.day('2027-02-09')).filter(function (x) { return x.id === 'l1'; })[0];
+      eq(l1.sub, 'будних уроков нет — К.3 в субботу', '«Сегодня» — тот же урок');
+    });
+    withToday('2027-02-13', function () {
+      closeBlock('B53', '2027-02-06');
+      eq([State.saturdayContestLesson(), Waterfall.pick('2027-02-13')], [null, null], 'К закрыт — суббота молчит');
+      eq(Waterfall.nextLine('math'), 'следующий: уроков в контенте нет', 'и «Программа» — прежняя строка');
+    });
+  });
+
+  describe('2.8.0 A2: в Ф1 суббота по-прежнему берёт К текущей фазы', function () {
+    withToday(SAT, function () {
+      scene();
+      eq(State.saturdayContestLesson(), State.nextContestLesson('p1'), 'К текущей фазы первым');
+      eq(Waterfall.pick(SAT).lessonId, 'B53.1', 'суббота — К.1');
     });
   });
 

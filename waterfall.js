@@ -294,23 +294,15 @@ window.Waterfall = (function () {
   function ruleSaturday(t, exclude) {
     if (U.weekday(t) !== 6) return null;
     if (!window.CONTENT) return null;
-    var phase = State.currentPhase(t);
-    var blocks = CONTENT.phaseBlocks(phase);
-    for (var i = 0; i < blocks.length; i++) {
-      var b = blocks[i];
-      if (exclude && b.track === exclude) continue;
-      var list = State.activeLessons(b.id);
-      for (var j = 0; j < list.length; j++) {
-        if (!PROMPTS.isContest(list[j])) continue;
-        var st = State.s.lessons[list[j].id];
-        if (st && st.done) continue;
-        return {
-          track: b.track, blockId: b.id, lessonId: list[j].id,
-          reason: { kind: 'contest', text: 'суббота ⭐: задачи CEMC' }
-        };
-      }
-    }
-    return null;
+    // 2.8.0 (A2): К текущей фазы, а если его нет — старший незакрытый К прошлых фаз
+    var id = State.saturdayContestLesson(t);
+    var l = id ? CONTENT.lesson(id) : null;
+    var b = l ? State.block(l.blockId) : null;
+    if (!b || (exclude && b.track === exclude)) return null;
+    return {
+      track: b.track, blockId: l.blockId, lessonId: id,
+      reason: { kind: 'contest', text: 'суббота ⭐: задачи CEMC' }
+    };
   }
 
   var RULES = [ruleSaturday, ruleDeadline, ruleRadar, ruleFreshness, rulePace, ruleDebts, ruleTemplate];
@@ -475,9 +467,9 @@ window.Waterfall = (function () {
     var l = next && window.CONTENT ? CONTENT.lesson(next) : null;
     if (!l) {
       // 2.7.8 (ревью Б1): у дорожки остался только К — он идёт по субботам
-      // К — только текущей фазы: суббота берёт К лишь своей фазы (как «Сегодня»)
+      // К — тот, что возьмёт суббота (2.8.0, A2: и хвост прошлых фаз)
       var kb = State.contestBlockId ? State.contestBlockId() : null;
-      var k = kb && State.block(kb).track === trackId ? State.nextContestLesson(State.currentPhase()) : null;
+      var k = kb && State.block(kb).track === trackId ? State.saturdayContestLesson() : null;
       var kl = k && window.CONTENT ? CONTENT.lesson(k) : null;
       return kl ? 'следующий: только К по субботам · ' + State.lessonLabel(k) + ' · ' + kl.title
         : 'следующий: уроков в контенте нет';
@@ -524,7 +516,7 @@ window.Waterfall = (function () {
   function contestRow() {
     var kb = State.contestBlockId();
     if (!kb) return '';
-    var next = State.nextContestLesson();
+    var next = State.saturdayContestLesson();          // 2.8.0 (A2): тот же урок, что возьмёт суббота
     var l = next ? CONTENT.lesson(next) : null;
     return '<button class="swap-row" ' + (next ? 'data-pick="' + U.esc(next) + '"' : 'disabled') + '>' +
       '<div class="tname">' + UI.trackDot(State.block(kb).track) + ' ' + U.esc(State.blockLabel(kb)) + ' · субботы ⭐</div>' +
