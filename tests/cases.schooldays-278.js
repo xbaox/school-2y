@@ -36,11 +36,25 @@
     return n;
   }
 
+  /**
+   * Уроки К закрыты: таблица учебных дней проверяется без субботы, отданной К
+   * (2.8.0, A3 — субботу К не считает ни один режим; это — в cases.schooldays-280.js).
+   */
+  function noK() {
+    State.activeLessons('B53').forEach(function (l) { State.s.lessons[l.id] = { done: true, score: 8, date: '2026-09-05' }; });
+  }
+
   function fresh(mode) {
     State.reset();
     State.syncContent();
     State.setMode(mode);
+    noK();
   }
+
+  // и для сцен ниже, что читают таблицу без fresh
+  State.reset();
+  State.syncContent();
+  noK();
 
   describe('2.7.8 Б4: учебный день по режиму — одна таблица', function () {
     var week = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return U.addDays(MON, i); });

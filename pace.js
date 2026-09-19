@@ -3,8 +3,11 @@
    Чистый модуль без доступа к состоянию и DOM: на вход цифры,
    на выход цвет и текст. Проверяется тестами (tests/cases.pace.js).
 
-   Формула: осталось_уроков / норматив = сколько дней нужно.
+   Формула: осталось_уроков / норматив = сколько учебных дней нужно.
    Норматив: 2 урока в неделю в режиме «Школа», 1 урок в день до школы.
+   2.8.0 (A3): дни — учебные (U.schoolDays по режиму: «Школа» пн–пт, лето и
+   мост — пн–сб, суббота К не учебная); норматив — на учебный день: 2/5 в
+   «Школе» (те же 2 в неделю), 1 летом и в мосту. Просрочка — в днях календаря.
    Летний норматив 1.3 был оптимистичным: жёлтый загорался позже, чем
    надо, и блок успевал протухнуть незаметно.
    Зелёный: запас ≥1 день · Жёлтый: впритык · Красный: не успеть.
@@ -13,8 +16,8 @@
 window.PACE = (function () {
   'use strict';
 
-  var RATE_SCHOOL = 2 / 7;   // уроков в день
-  var RATE_SUMMER = 1;       // уроков в день
+  var RATE_SCHOOL = 2 / 5;   // уроков в учебный день: 2 в неделю из пяти
+  var RATE_SUMMER = 1;       // уроков в учебный день
 
   function rate(mode) { return mode === 'school' ? RATE_SCHOOL : RATE_SUMMER; }
 
@@ -36,7 +39,9 @@ window.PACE = (function () {
 
     // дни, которые ещё можно использовать: сегодня и день дедлайна включительно
     var daysLeft = U.diffDays(o.today, o.deadline) + 1;
-    out.daysLeft = daysLeft;
+    // учебные из них (2.8.0, A3): норматив считается на учебный день
+    var schoolLeft = daysLeft > 0 ? U.schoolDays(o.today, o.deadline, o.mode) : 0;
+    out.daysLeft = schoolLeft;
 
     if (remaining === 0) {
       out.done = true;
@@ -45,7 +50,7 @@ window.PACE = (function () {
     }
 
     var need = remaining / rate(o.mode);
-    var slack = daysLeft - need;
+    var slack = schoolLeft - need;
     out.needDays = need;
     out.slack = slack;
 

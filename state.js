@@ -1594,8 +1594,8 @@ window.State = (function () {
    */
   function hwAvailable(todayIso) {
     var t = todayIso || today();
-    var wd = U.weekday(t);
-    if (wd > 5) return false;
+    // 2.8.0 (A3): учебный день — по единой таблице U (в «Школе» пн–пт, как было)
+    if (!U.schoolDay(t, lessonMode(t))) return false;
     var d = s.days[t];
     if (d && (d.lessons || []).length) return false;      // норма дня закрыта
     return hwWeekCount(t) < HW_WEEK_CAP;
@@ -1820,7 +1820,7 @@ window.State = (function () {
     if (!b) return null;
     var p = blockProgress(blockId);
     if (!p.total) return null;
-    return PACE.status({ remaining: p.remaining, deadline: b.deadline, today: today(), mode: mode() });
+    return PACE.status({ remaining: p.remaining, deadline: b.deadline, today: today(), mode: lessonMode(today()) });
   }
 
   /** Пересчитать флаг done блока (все уроки закрыты). */

@@ -78,9 +78,20 @@ window.U = (function () {
     return Object.prototype.hasOwnProperty.call(SCHOOL_WEEKDAYS, mode) ? SCHOOL_WEEKDAYS[mode] : SCHOOL_WEEKDAYS.school;
   }
 
+  /**
+   * Суббота отдана К (2.8.0, A3): её берёт правило «Суббота ⭐»
+   * (State.saturdayContestLesson — К текущей фазы, а без него хвост прошлых).
+   * Тогда суббота не учебный день ни в каком режиме: урок блока в неё не
+   * встанет. Решено самостоятельно: признак — тот же урок, что берёт суббота.
+   */
+  function contestSaturday(isoDate) {
+    return weekday(isoDate) === 6 && !!(window.State && State.saturdayContestLesson &&
+      State.saturdayContestLesson(isoDate));
+  }
+
   /** Учебный ли день дата в режиме mode ('school' | 'summer' | 'bridge'). */
   function schoolDay(isoDate, mode) {
-    return schoolWeekdays(mode).indexOf(weekday(isoDate)) >= 0;
+    return schoolWeekdays(mode).indexOf(weekday(isoDate)) >= 0 && !contestSaturday(isoDate);
   }
 
   /** Учебных дней от from до to, оба конца включительно; to раньше from — ноль. */
@@ -90,6 +101,12 @@ window.U = (function () {
     var list = schoolWeekdays(mode), wd = weekday(from);
     var n = Math.floor(total / 7) * list.length;
     for (var i = 0; i < total % 7; i++) if (list.indexOf((wd - 1 + i) % 7 + 1) >= 0) n++;
+    // субботы, отданные К, — не учебные (в «Школе» субботы в таблице и так нет)
+    if (list.indexOf(6) >= 0) {
+      for (var sat = addDays(from, (6 - wd + 7) % 7); diffDays(sat, to) >= 0; sat = addDays(sat, 7)) {
+        if (contestSaturday(sat)) n--;
+      }
+    }
     return n;
   }
 

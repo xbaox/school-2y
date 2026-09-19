@@ -416,7 +416,7 @@ window.App = (function () {
    */
   function hwOffer(t) {
     var iso = t || State.today();
-    if (U.weekday(iso) > 5) return '';
+    if (!U.schoolDay(iso, State.lessonMode(iso))) return '';   // 2.8.0 (A3): единая таблица учебных дней
     var used = State.hwWeekCount(iso);
     var cap = State.HW_WEEK_CAP;
     var taken = State.hwOfDay(iso);
