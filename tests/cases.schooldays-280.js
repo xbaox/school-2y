@@ -98,8 +98,10 @@
       fresh('school');
       ['B7.1', 'B7.2', 'B7.3'].forEach(function (id) { State.s.lessons[id] = { done: true, score: 8, date: '2026-09-15' }; });
       var p = State.blockPace('B7');
-      eq([p.daysLeft, p.color], [2, 'red'],
-        'Б7: 1 урок, до вс 20.09 учебных — чт и пт; по норме 2/5 урок — это 2,5 учебных дня: красный');
+      // 2.8.1 (B1): было красным по норме 2/5 (урок = 2,5 учебных дня) — вопрос 23;
+      // последний урок при учебном дне до срока укладывается в день
+      eq([p.daysLeft, p.color, p.text], [2, 'green', 'запас 1 день'],
+        'Б7: 1 урок, до вс 20.09 учебных — чт и пт: последний урок — один день, запас 1');
       State.s.lessons['B7.4'] = { done: false };
       State.s.blocks.B7.deadline = '2026-09-22';
       eq([State.blockPace('B7').daysLeft, State.blockPace('B7').color], [4, 'green'], 'до вт 22.09 — четыре учебных дня: запас');
