@@ -473,7 +473,15 @@ window.Waterfall = (function () {
     if (!tr || tr.embedded) return '';
     var next = State.nextLessonInTrack(trackId);
     var l = next && window.CONTENT ? CONTENT.lesson(next) : null;
-    if (!l) return 'следующий: уроков в контенте нет';
+    if (!l) {
+      // 2.7.8 (ревью Б1): у дорожки остался только К — он идёт по субботам
+      // К — только текущей фазы: суббота берёт К лишь своей фазы (как «Сегодня»)
+      var kb = State.contestBlockId ? State.contestBlockId() : null;
+      var k = kb && State.block(kb).track === trackId ? State.nextContestLesson(State.currentPhase()) : null;
+      var kl = k && window.CONTENT ? CONTENT.lesson(k) : null;
+      return kl ? 'следующий: только К по субботам · ' + State.lessonLabel(k) + ' · ' + kl.title
+        : 'следующий: уроков в контенте нет';
+    }
     var b = State.block(l.blockId) || {};
     return 'следующий: ' + State.lessonLabel(next) + ' · ' + l.title +
       (b.track === 'all' ? ' · общий блок' : '') +

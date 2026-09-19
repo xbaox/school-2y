@@ -98,7 +98,9 @@
           eq(ms(), [true, false], 'шаг «Карточки» поставлен');
           eq(said, ['Карточки засчитаны'], 'тост');
           eq(emits, 0, 'без второй перерисовки: render → touch → render не бывает');
-          ok(State.s.meta.updatedAt !== STAMP, 'updatedAt сдвинут — правка дня уходит в облако');
+          eq(State.s.meta.updatedAt, STAMP, 'updatedAt не сдвинут: отметка выводится из состояния дня');
+          ok(JSON.parse(window.__store['study-system-v2']).days[MON].minimalSteps[0] === true,
+            'и сохранена локально — в облако уйдёт со следующей правкой');
           eq(cardsItem().done, true, 'пункт отмечен');
           eq(html.indexOf('карточки: 10/'), -1, 'разметка уже видит отметку — прогресса нет');
 
@@ -276,11 +278,15 @@
       var emits = 0;
       var off = State.subscribe(function () { emits++; });
       try {
-        eq([State.autoCardsStep(MON, { silent: true }), emits], [true, 0], 'silent — без перерисовки');
+        var at = State.s.meta.updatedAt = STAMP;
+        eq([State.autoCardsStep(MON, { derived: true }), emits, State.s.meta.updatedAt], [true, 0, at],
+          'derived — без перерисовки и без сдвига updatedAt');
         App.setMinimalStep(0, true);
         State.day(MON).minimalSteps = [false, false];
         emits = 0;
-        eq([State.autoCardsStep(MON), emits], [true, 1], 'без silent — одна, как в 2.7.7');
+        State.s.meta.updatedAt = STAMP;
+        eq([State.autoCardsStep(MON), emits], [true, 1], 'колода — одна перерисовка, как в 2.7.7');
+        ok(State.s.meta.updatedAt !== STAMP, 'и сдвиг updatedAt: это действие человека');
       } finally { off(); }
     });
   });

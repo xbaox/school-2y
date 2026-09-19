@@ -116,4 +116,43 @@
 
   State.reset();
   State.syncContent();
+  describe('2.7.8 ревью: правило из [ФИНАЛ], переписанное ИИ внутрь блока, данными не становится', function () {
+    var prompt = PROMPTS.lesson('B7.1');
+    var fin = prompt.slice(prompt.indexOf('[ФИНАЛ]'));
+    var rule = fin.split('\n').filter(function (l) { return l.indexOf('В строке «Слова»') === 0; })[0];
+    var note = fin.split('\n').filter(function (l) { return l.indexOf('Первую строку — заголовок') === 0; })[0];
+    ok(!!rule && !!note, 'обе инструкции есть в промпте');
+    function itog(extra, after) {
+      var lines = ['=== ИТОГ УРОКА B7.1 ===', 'Пройдено: т', 'Уровень: L2', 'Счёт: 8/10', 'Стретч: —',
+        'Слова (3–5): slope — наклон; vertex — вершина; domain — область определения'];
+      if (after === 'words') lines = lines.concat(extra);
+      lines.push('Долги: П3 — пропустил знак');
+      if (after === 'debts') lines = lines.concat(extra);
+      lines.push('=== КОНЕЦ ===');
+      return PROMPTS.parse(lines.join('\n'), 'B7.1');
+    }
+    var a = itog([rule], 'words');
+    eq(a.words.map(function (w) { return w.en; }), ['slope', 'vertex', 'domain'], 'правило под «Слова» — не слова');
+    var b = itog([note, '  ' + rule + '  '], 'words');
+    eq(b.words.length, 3, 'и инструкция о заголовке, и правило с пробелами по краям');
+    var c = itog([rule], 'debts');
+    eq(c.debts, ['П3 — пропустил знак'], 'под «Долги» — не долг');
+    var d = itog(['curve — кривая'], 'words');
+    eq(d.words.length, 4, 'обычная строка без инструкции по-прежнему дописывается к полю');
+    var cut = rule.indexOf('; ');
+    var variants = {
+      'список «- »': '- ' + rule, 'цитата «> »': '> ' + rule, 'нумерация «1. »': '1. ' + rule,
+      'без точки': rule.replace(/\.$/, ''), 'прямые кавычки': rule.replace(/[«»]/g, '"'),
+      'дефис вместо тире': rule.replace(/ — /g, ' - '), 'жирный': '**' + rule + '**'
+    };
+    Object.keys(variants).forEach(function (k) {
+      eq(itog([variants[k]], 'words').words.length, 3, 'правило с оформлением: ' + k);
+    });
+    eq(itog([rule.slice(0, cut + 1), rule.slice(cut + 2)], 'words').words.length, 3, 'правило, перенесённое на две строки');
+    var cutN = note.indexOf('; ');
+    eq(itog([note.slice(0, cutN + 1), note.slice(cutN + 2)], 'debts').debts, ['П3 — пропустил знак'],
+      'указание о заголовке, перенесённое на две строки, — не долг');
+    eq(itog(['- curve — кривая'], 'words').words.length, 4, 'слово с маркером списка по-прежнему слово');
+  });
+
 })();

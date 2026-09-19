@@ -753,6 +753,19 @@ window.App = (function () {
       };
     }
 
+    // 2.7.8 (ревью Б1): у дорожек фазы уроков нет, а К открыт — К идёт по
+    // субботам; «фаза закрыта» тут неправда, и свап со строкой К должен быть под рукой
+    var onlyK = !sel && n === 1 ? contestLeft() : null;
+    if (onlyK) {
+      return {
+        id: 'l1', tick: 'lesson', title: head, sub: 'будних уроков нет — ' + lessonCode(onlyK) + ' в субботу',
+        done: done,
+        body: '<p class="pnote">Уроки дорожек текущей фазы закрыты. Остались задачи К — они идут по ' +
+          'субботам. Взять К сегодня можно свапом.</p>' +
+          '<button class="btn sec pact" data-swap>Поменять урок</button>'
+      };
+    }
+
     if (!sel) {
       return {
         id: 'l' + n, tick: 'lesson', title: head, sub: 'уроков в контенте не осталось',
@@ -845,12 +858,12 @@ window.App = (function () {
    * отмечен и сегодня не снят руками (day.cardsUntick). Отметка тихая: разметка
    * строится после неё и уже её видит, второй отрисовки нет (render → touch →
    * render). Тост — один: дальше шаг отмечен, и условие не выполняется.
-   * Синк: отметка двигает updatedAt, а облако решает «кто новее» по нему. Пока
-   * вошедший синк в этом заходе не получил ответа на pull (старт приложения,
-   * возврат на экран, сеть вернулась), устройство может держать устаревшее
-   * состояние — автоматическая правка сделала бы его «новее» облака и затёрла
-   * бы чужие изменения. Поэтому до ответа синка отметку ставит только колода
-   * (действие человека); Sync после ответа сам перерисует «Сегодня».
+   * Синк: отметка выводится из состояния дня и, как подъём рекорда (2.7.7, Э4),
+   * meta.updatedAt не двигает — сохраняется локально, в облако уходит со
+   * следующей правкой, другое устройство поставит её само своей отрисовкой.
+   * Сдвиг сделал бы устаревшее устройство «новее» облака, и его состояние
+   * затёрло бы чужие изменения (ревью 2.7.8). Колода — действие человека —
+   * двигает updatedAt, как любая правка.
    * → true, если отметка поставлена сейчас
    */
   function autoCards(t) {
@@ -858,8 +871,7 @@ window.App = (function () {
     var d = State.day(iso);
     if (!d || State.planOf(d) === 'none' || !State.autoCardsStep) return false;
     if ((d.minimalSteps || [])[0] || d.cardsUntick) return false;    // дёшево, до колоды
-    if (window.Sync && Sync.settled && !Sync.settled()) return false;
-    if (!State.autoCardsStep(iso, { silent: true })) return false;
+    if (!State.autoCardsStep(iso, { derived: true })) return false;
     UI.toast('Карточки засчитаны', 'ok');
     return true;
   }
@@ -983,7 +995,12 @@ window.App = (function () {
     var res = window.Waterfall ? Waterfall.pick(t, { force: true }) : null;
     var id = res && res.lessonId;
     var l = id && window.CONTENT ? CONTENT.lesson(id) : null;
-    if (!l) return phaseClosedLine();
+    if (!l) {
+      var k = contestLeft();
+      var kl = k && window.CONTENT ? CONTENT.lesson(k) : null;
+      return kl ? 'Дальше: будних уроков нет · ' + lessonCode(k) + ' „' + kl.title + '“ — в субботу'
+        : phaseClosedLine();
+    }
 
     var b = State.block(l.blockId) || {};
     var code = State.blockLabel(l.blockId) + '.' + State.lessonNum(id);
@@ -991,6 +1008,11 @@ window.App = (function () {
   }
 
   /** Непройденных уроков не осталось — говорим, когда и что начнётся. */
+  /** Открытый урок К текущей фазы (2.7.8): в будни его дают только суббота и свап. */
+  function contestLeft() {
+    return State.nextContestLesson ? State.nextContestLesson(State.currentPhase()) : null;
+  }
+
   function phaseClosedLine() {
     var phases = State.phases();
     var cur = State.currentPhase();

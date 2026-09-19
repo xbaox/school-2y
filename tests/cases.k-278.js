@@ -249,4 +249,37 @@
 
   State.reset();
   State.syncContent();
+  describe('2.7.8 ревью: будний день, остался только К — «Сегодня» и «Программа» говорят «в субботу», свап под рукой', function () {
+    withToday(TUE, function () {
+      scene(ALL_OWN.concat(['B16']));
+      State.day(TUE, true).level = 'norm';
+      var k = State.nextContestLesson('p1');
+      ok(isK(k), 'К открыт: ' + k);
+      var code = State.lessonLabel(k), title = CONTENT.lesson(k).title;
+      eq(Waterfall.pick(TUE), null, 'будни К не отдают');
+      var l1 = App.planItems(TUE, State.day(TUE)).filter(function (x) { return x.id === 'l1'; })[0];
+      eq(l1.sub, 'будних уроков нет — ' + code + ' в субботу', 'пункт урока — не «фаза закрыта»');
+      ok(l1.body.indexOf('data-swap') >= 0, 'в пункте кнопка свапа — строка К в нём');
+      eq(App.nextUp(TUE), 'Дальше: будних уроков нет · ' + code + ' „' + title + '“ — в субботу', 'строка «Дальше»');
+      eq(Waterfall.nextLine('math'), 'следующий: только К по субботам · ' + code + ' · ' + title, '«Программа»: у математики — К');
+      eq(Waterfall.nextLine('write'), 'следующий: уроков в контенте нет', 'у письма К нет');
+
+      closeBlock('B53', TUE);
+      l1 = App.planItems(TUE, State.day(TUE)).filter(function (x) { return x.id === 'l1'; })[0];
+      eq(l1.sub, 'уроков в контенте не осталось', 'К закрыт — прежний пункт');
+      eq(Waterfall.nextLine('math'), 'следующий: уроков в контенте нет', 'и прежняя строка');
+      ok(App.nextUp(TUE).indexOf('Фаза закрыта') === 0, 'и прежняя строка «Дальше»');
+    });
+  });
+
+  describe('2.7.8 ревью: К прошлой фазы в Ф2 — «Программа» не обещает субботу', function () {
+    withToday('2027-02-06', function () {
+      scene(ALL_OWN.concat(['B16']));
+      ok(isK(State.nextContestLesson()), 'К Ф1 не закрыт');
+      eq(State.currentPhase(), 'p2', 'идёт Ф2');
+      eq(Waterfall.pick('2027-02-06'), null, 'суббота Ф2 К прошлой фазы не берёт');
+      eq(Waterfall.nextLine('math'), 'следующий: уроков в контенте нет', 'строка — как у «Сегодня»');
+    });
+  });
+
 })();

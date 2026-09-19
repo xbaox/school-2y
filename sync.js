@@ -42,27 +42,9 @@ window.Sync = (function () {
   var lastSync = null;
   var lastError = null;
   var listeners = [];
-  // 2.7.8 (Б8): облако ответило в этом заходе (pull или push прошли). До ответа
-  // локальное состояние может быть устаревшим — автоматические правки ждут
-  var answered = false;
 
   function available() { return !!(URL_BASE && ANON_KEY); }
   function signedIn() { return !!(session && session.access_token); }
-
-  /**
-   * Можно ли делать автоматические правки (App.autoCards): синка нет, входа нет
-   * или облако уже ответило в этом заходе. Сбрасывается, когда приложение уходит
-   * с экрана и когда возвращается сеть: пока нас не было, другое устройство
-   * могло записать более новое состояние.
-   */
-  function settled() { return !available() || !signedIn() || answered; }
-
-  /** Облако ответило; rendered — «Сегодня» уже перерисован этим ответом. */
-  function markAnswered(rendered) {
-    var was = answered;
-    answered = true;
-    if (!was && !rendered && window.App && App.render) App.render();
-  }
 
   /** Все сравнения времён — только через Date.parse: строки ISO из разных
       источников (локальная правка, столбец updated_at) сравнивать как текст нельзя. */
@@ -273,7 +255,6 @@ window.Sync = (function () {
       saveSession(fromAuth(j));
       setAuthLost(false);
       setStatus('idle');
-      answered = false;                     // новый вход — облако этого входа ещё не отвечало
       return pull();
     }).catch(function (e) {
       setStatus('error', e.message);
@@ -312,7 +293,6 @@ window.Sync = (function () {
         setStatus('idle');
         // в облаке пусто — отдаём своё, если оно не пустое
         if (hasLocalData()) push();
-        markAnswered(false);
         return { ok: true, applied: false, empty: true };
       }
       var cloudAt = row.state.meta.updatedAt || row.updated_at || '';
@@ -326,7 +306,6 @@ window.Sync = (function () {
         if (window.Radar && Radar.seedQuestions) Radar.seedQuestions();
         lastSync = new Date().toISOString();
         setStatus('idle');
-        answered = true;                   // перерисовка ниже видит свежее состояние
         if (window.App) App.render();
         return { ok: true, applied: true, at: cloudAt };
       }
@@ -334,7 +313,6 @@ window.Sync = (function () {
       setStatus('idle');
       // конфликт решает более поздний updatedAt: локальное новее — отдаём его
       if (ts(localAt) > ts(cloudAt)) push();
-      markAnswered(false);
       return { ok: true, applied: false, at: cloudAt };
     }).catch(function (e) {
       if (!e.authLost) setStatus(navigator.onLine ? 'error' : 'queued', e.message);
@@ -366,7 +344,6 @@ window.Sync = (function () {
       setLastPushedAt(stamp);
       lastSync = new Date().toISOString();
       setStatus('idle');
-      markAnswered(false);                  // облако держит ровно это состояние
       if (pending) { pending = false; return push(); }
       return { ok: true };
     }).catch(function (e) {
@@ -423,7 +400,6 @@ window.Sync = (function () {
     if (bound) return;
     bound = true;
     window.addEventListener('online', function () {
-      answered = false;
       if (!signedIn()) return;
       UI.toast('Сеть вернулась — догоняю облако', '', 2200);
       flush();
@@ -432,10 +408,7 @@ window.Sync = (function () {
       if (signedIn()) setStatus('queued');
     });
     document.addEventListener('visibilitychange', function () {
-      // уход с экрана: к возвращению облако могло измениться — ждём ответа.
-      // Сброс здесь, а не при возврате: «Сегодня» перерисовывается раньше pull
-      if (document.hidden) { answered = false; return; }
-      if (!signedIn()) return;
+      if (document.hidden || !signedIn()) return;
       flush();
       pull();
     });
@@ -490,7 +463,7 @@ window.Sync = (function () {
   return {
     available: available, signedIn: signedIn, authLost: authLost,
     state: state, status: statusText,
-    init: init, signIn: signIn, signOut: signOut, pull: pull, push: push, settled: settled,
+    init: init, signIn: signIn, signOut: signOut, pull: pull, push: push,
     onLocalChange: onLocalChange, flush: flush, onChange: onChange,
     lastPushedAt: lastPushedAt, hasUnpushed: hasUnpushed,
     loginFormHtml: loginFormHtml, wireLoginForm: wireLoginForm,

@@ -2365,8 +2365,9 @@ window.State = (function () {
    * 2.7.8 (Б8): шаг ставит и отрисовка «Сегодня» — по состоянию, без перехода.
    * Поэтому снятая руками галочка держится отметкой дня day.cardsUntick
    * (App.setMinimalStep): с ней шаг в этот день сам не ставится ни колодой, ни
-   * отрисовкой. opts.silent — без перерисовки (зовёт сама отрисовка); updatedAt
-   * двигается и так: это правка дня, она уходит в облако.
+   * отрисовкой. opts.derived — отметку ставит отрисовка «Сегодня»: без
+   * перерисовки и без сдвига updatedAt (выводится из состояния, как подъём
+   * рекорда; устаревшее устройство не должно стать «новее» облака).
    * → true, если отметка поставлена сейчас (день пересчитан, одна перерисовка)
    */
   function autoCardsStep(todayIso, opts) {
@@ -2379,7 +2380,8 @@ window.State = (function () {
     var ms = d.minimalSteps || [];
     d.minimalSteps = [true, !!ms[1]];
     recount(t);
-    touch(!!(opts && opts.silent));
+    if (opts && opts.derived) writeNow();
+    else touch();
     return true;
   }
 
