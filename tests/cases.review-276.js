@@ -51,7 +51,7 @@
           { id: 'mt4vmss12dy03k', title: seed2.title, why: seed2.why, due: seed2.due, window: null, source: 'seed', done: true, doneDate: '2026-09-14' }
         ]
       });
-      eq(st.meta.migrations, ['2.7.6', '2.7.7'], 'маркер записан');
+      eq(st.meta.migrations, ['2.7.6', '2.7.7', '2.7.8'], 'маркер записан');
       // так делает Radar.migrateTodos 2.7.5 на следующей загрузке: тексты 2.6.2 поверх M4
       var reverted = clone(st);
       reverted.todos[0].title = seed0.title; reverted.todos[0].why = seed0.why; reverted.todos[0].due = seed0.due;

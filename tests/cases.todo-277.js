@@ -39,7 +39,7 @@
   describe('2.7.7 Э5: прыжок с 2.7.5 — 2.7.6 и 2.7.7 за один migrate', function () {
     withToday('2026-09-13', function () {
       var st = State.migrate(state275());
-      eq(st.meta.migrations, ['2.7.6', '2.7.7'], 'оба маркера, по порядку');
+      eq(st.meta.migrations, ['2.7.6', '2.7.7', '2.7.8'], 'все маркеры, по порядку');
       eq(st.meta.updatedAt, STAMP, 'updatedAt не сдвинут');
       eq(State.migrationReport277().todo, TODO_IDS, 'отчёт: пять событий');
       TODO_IDS.forEach(function (id) {
@@ -71,7 +71,7 @@
       byId(src.radar, 'ev-2026-09-14-guidance').type = 'test';           // сменил тип руками
       byId(src.radar, 'ev-2026-09-15-volunteer-letter').done = true;
       var st = State.migrate(src);
-      eq(st.meta.migrations, ['2.7.6', '2.7.7'], 'маркер 2.7.7 дописан');
+      eq(st.meta.migrations, ['2.7.6', '2.7.7', '2.7.8'], 'маркер 2.7.7 дописан (и 2.7.8 следом)');
       eq(State.migrationReport276(), null, '2.7.6 не перезапускалась');
       eq(byId(st.radar, 'ev-2026-09-14-guidance').type, 'test', 'тип, выбранный руками, не тронут');
       eq([byId(st.radar, 'ev-2026-09-15-volunteer-letter').type, byId(st.radar, 'ev-2026-09-15-volunteer-letter').done],

@@ -182,6 +182,33 @@ window.State = (function () {
     'ev-2026-09-16-ics3ue-zoom', 'ev-2026-09-17-ics3ue-start'
   ];
 
+  /* ---------- 2.7.8: страна прошлой школы в посевах (ТЗ 2.7.8, B9) ----------
+     Посев дел, третий вопрос карточки и «зачем» дела M4 называли страну, где
+     училась прошлая школа, а репозиторий публичный: это квазиидентификатор.
+     Тексты переписаны («прошлая школа за границей»). Прежних текстов в дереве
+     нет — и ничего, вычисленного из них: хэш прежнего текста, который отличается
+     от публичного нового одним словом, выдаёт это слово перебором (ревью
+     2.7.8). Прежний текст узнаётся по новому с масками: все неизменные куски
+     нового текста стоят по порядку, а на месте каждой замены — другая короткая
+     вставка. Правленный руками вне этих мест текст не совпадёт и не трогается.
+     Маркер — meta.migrations; meta.updatedAt не двигается (урок 2.7.5). */
+
+  var MIG_278 = '2.7.8';
+
+  /**
+   * Места замен — фразы новой редакции, в порядке текста: «зачем» дела
+   * guidance в посеве (Radar.SEED_TODOS, match 'guidance'), «зачем» дела
+   * guidance в M4 (M4_TODOS[0]) и третий вопрос посева карточки
+   * (Radar.QUESTIONS_SEED, пункт про CHC2D) — английская и русская строки.
+   */
+  var QUASI_278 = {
+    seedWhy: ['(оригинал + перевод)', 'previous school abroad', 'за прошлую школу за границей', 'зачётом за прошлую школу'],
+    m4Why: ['годы за границей'],
+    qEn: ['school years abroad'],
+    qRu: ['годы за границей']
+  };
+  var QUASI_GAP = 40;       // вставка на месте замены — несколько слов, не абзац
+
   /** M3. Карточка вопросов: тип не меняется, пунктов ровно три. */
   var M3_ID = 'q-2026-09-08';
   var M3_TITLE = 'Консультант, пн 14.09 — три вопроса';
@@ -580,6 +607,24 @@ window.State = (function () {
       if (lastMig277.todo.length) console.log('[migrate 2.7.7] событий → дело: ' + lastMig277.todo.join(', '));
     }
 
+    // 2.7.8 (B9): после 2.7.7, один раз — под маркером. На каждой загрузке
+    // нельзя: маска узнаёт любую короткую вставку на месте замены, и своя
+    // правка владельца там откатывалась бы (ревью 2.7.8). Откат дела M4
+    // клиентом 2.7.5 чинит healTodos276 — он сравнивает «зачем» после перевода.
+    // Отчёт не null, когда маркер дописан сейчас: boot сохраняет без подъёма
+    var done278 = migrationsOf(out);
+    var fresh278 = done278.indexOf(MIG_278) < 0;
+    var rep278 = fresh278 ? migrate278(out) : null;
+    lastMig278 = null;
+    if (rep278) {
+      out.meta.migrations = done278.concat(MIG_278);
+      lastMig278 = rep278;
+      if (rep278.todos.length || rep278.items.length) {
+        console.log('[migrate 2.7.8] тексты без страны: дела ' + (rep278.todos.join(', ') || '—') +
+          ' · вопросы ' + (rep278.items.join(', ') || '—'));
+      }
+    }
+
     // 2.7.7 (Э4): рекорд серии не ниже текущей серии. Серия выводится из дней,
     // поэтому поправка детерминирована, повторяется на каждом устройстве и
     // updatedAt не двигает: так рекорд сходится с серией и без действий
@@ -594,6 +639,7 @@ window.State = (function () {
 
   var lastMig276 = null;
   var lastMig277 = null;
+  var lastMig278 = null;
 
   /** 2.7.7 (Э5): пять событий M2 → тип todo. → отчёт {todo: [id]} */
   function migrate277(out) {
@@ -602,6 +648,105 @@ window.State = (function () {
       if (!e || MIG_277_TODO.indexOf(e.id) < 0 || e.type !== 'assignment') return;
       e.type = 'todo';
       rep.todo.push(e.id);
+    });
+    return rep;
+  }
+
+  function squash278(s) { return String(s).replace(/\s+/g, ' ').trim(); }
+
+  /**
+   * 2.7.8 (B9): text — прежняя редакция нового fresh? fresh режется по фразам
+   * slots на неизменные куски; прежний обязан начинаться первым куском,
+   * кончаться последним, средние содержать по порядку, а между кусками — по
+   * вставке от 1 до QUASI_GAP знаков. Совпадение с новым — не прежняя.
+   * Фразы, которой в fresh нет (смесь версий: старый radar.js), — не прежняя.
+   */
+  function quasiWas278(text, fresh, slots) {
+    if (typeof text !== 'string' || typeof fresh !== 'string') return false;
+    var t = squash278(text), n = squash278(fresh);
+    if (t === n) return false;
+    var fixed = [], pos = 0;
+    for (var i = 0; i < slots.length; i++) {
+      var at = n.indexOf(slots[i], pos);
+      if (at < 0) return false;
+      fixed.push(n.slice(pos, at));
+      pos = at + slots[i].length;
+    }
+    fixed.push(n.slice(pos));
+    var head = fixed[0], tail = fixed[fixed.length - 1];
+    if (t.length < head.length + tail.length + slots.length) return false;
+    if (t.slice(0, head.length) !== head || t.slice(t.length - tail.length) !== tail) return false;
+    var cur = head.length, end = t.length - tail.length;
+    for (var k = 1; k < fixed.length; k++) {
+      var j = k === fixed.length - 1 ? end : t.indexOf(fixed[k], cur + 1);
+      if (j < 0 || j > end) return false;
+      var gap = j - cur;
+      if (gap < 1 || gap > QUASI_GAP) return false;
+      cur = j + fixed[k].length;
+    }
+    return true;
+  }
+
+  /**
+   * 2.7.8 (B9): новые тексты с их местами замен — из посева (Radar) и M4.
+   * → {why: [{text, slots}], en: […], ru: […]} или null — смесь версий:
+   * посев старого radar.js фраз новой редакции не знает; тогда маркер не
+   * ставится, и перевод повторит следующая загрузка
+   */
+  function quasiMaps278() {
+    var R = window.Radar || {};
+    var seed = (R.SEED_TODOS || []).filter(function (t) { return t && t.match === 'guidance'; })[0];
+    var q = ((R.QUESTIONS_SEED && R.QUESTIONS_SEED.items) || [])[2];
+    var maps = { why: [], en: [], ru: [] };
+    var mixed = false;
+    function put(list, text, slots) {
+      if (typeof text !== 'string') { mixed = true; return; }
+      var pos = 0;
+      slots.forEach(function (sl) { var at = text.indexOf(sl, pos); if (at < 0) mixed = true; else pos = at + sl.length; });
+      list.push({ text: text, slots: slots });
+    }
+    put(maps.why, seed && seed.why, QUASI_278.seedWhy);
+    put(maps.why, M4_TODOS[0].set.why, QUASI_278.m4Why);
+    put(maps.en, q && q.en, QUASI_278.qEn);
+    put(maps.ru, q && q.ru, QUASI_278.qRu);
+    return mixed ? null : maps;
+  }
+
+  /** Прежняя редакция одного из текстов списка → этот текст; иначе как есть. */
+  function quasiText278(maps, list, text) {
+    if (!maps || typeof text !== 'string') return text;
+    for (var i = 0; i < list.length; i++) {
+      if (quasiWas278(text, list[i].text, list[i].slots)) return list[i].text;
+    }
+    return text;
+  }
+
+  /**
+   * 2.7.8 (B9): «зачем» дел и строки вопросов прежней редакции → новая.
+   * Отметки, ответы, сроки, done не трогаются.
+   * → отчёт {todos: [id], items: ['id события#номер пункта']} или null (смесь версий)
+   */
+  function migrate278(out) {
+    var maps = quasiMaps278();
+    if (!maps) return null;
+    var rep = { todos: [], items: [] };
+    out.todos.forEach(function (t) {
+      if (!t) return;
+      var why = quasiText278(maps, maps.why, t.why);
+      if (why === t.why) return;
+      t.why = why;
+      rep.todos.push(t.id);
+    });
+    out.radar.forEach(function (e) {
+      if (!e || !Array.isArray(e.items)) return;
+      e.items.forEach(function (x, i) {
+        if (!x) return;
+        var en = quasiText278(maps, maps.en, x.en), ru = quasiText278(maps, maps.ru, x.ru);
+        if (en === x.en && ru === x.ru) return;
+        x.en = en;
+        x.ru = ru;
+        rep.items.push(e.id + '#' + i);
+      });
     });
     return rep;
   }
@@ -727,15 +872,19 @@ window.State = (function () {
    * с маркером в состоянии. Такое дело узнаётся точно: название и «зачем»
    * дословно те, что в посеве плана; руками их так не набирают. Тогда M4
    * применяется снова; своё «done» дело сохраняет.
+   * 2.7.8 (B9): клиент 2.7.5 возвращает «зачем» редакции 2.7.7, которой в
+   * посеве больше нет, — «зачем» сравнивается после перевода в новую редакцию.
    */
   function healTodos276(out) {
     var seeds = (window.Radar && Radar.SEED_TODOS) || [];
     if (!seeds.length) return 0;
+    var maps = quasiMaps278();
     var n = 0;
     M4_TODOS.forEach(function (fix) {
       out.todos.forEach(function (t) {
         if (!t || t.id !== fix.id) return;
-        var reverted = seeds.some(function (seed) { return t.title === seed.title && t.why === seed.why; });
+        var why = maps ? quasiText278(maps, maps.why, t.why) : t.why;
+        var reverted = seeds.some(function (seed) { return t.title === seed.title && why === seed.why; });
         if (!reverted) return;
         Object.keys(fix.set).forEach(function (k) { t[k] = fix.set[k]; });
         n++;
@@ -2929,6 +3078,7 @@ window.State = (function () {
     migrationReport: function () { return lastV3; },
     migrationReport276: function () { return lastMig276; }, MIG_276: MIG_276, isM3Card: isM3Card,
     migrationReport277: function () { return lastMig277; }, MIG_277: MIG_277, MIG_277_TODO: MIG_277_TODO,
+    migrationReport278: function () { return lastMig278; }, MIG_278: MIG_278, QUASI_278: QUASI_278,
     M2_EVENTS: M2_EVENTS, M3_ITEMS: M3_ITEMS, M4_TODOS: M4_TODOS,
     holdsStreak: holdsStreak, streakPoints: streakPoints, bumpBestStreak: bumpBestStreak,
     subscribe: subscribe, emit: emit,

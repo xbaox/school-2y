@@ -1061,7 +1061,9 @@ window.App = (function () {
     ['PROMPTS', 'headerMatches'], ['Waterfall', 'nextOwnLesson'], ['State', 'enrollWords'],
     ['State', 'cardsStep'], ['State', 'planOf'], ['State', 'isM3Card'],
     // 2.7.7: дедлайн заранее, миграция событий-дел
-    ['Waterfall', 'schoolDays'], ['State', 'migrationReport277'], ['State', 'autoCardsStep']
+    ['Waterfall', 'schoolDays'], ['State', 'migrationReport277'], ['State', 'autoCardsStep'],
+    // 2.7.8: миграция текстов посева
+    ['State', 'migrationReport278']
   ];
 
   function mixedBundle() {
@@ -1099,7 +1101,8 @@ window.App = (function () {
     // миграция 2.7.6 прошла при load() в памяти: сохраняем маркер без подъёма
     // updatedAt — load() сам не пишет, а «новее» правка состояние не делает
     if ((State.migrationReport276 && State.migrationReport276()) ||
-      (State.migrationReport277 && State.migrationReport277())) State.save();
+      (State.migrationReport277 && State.migrationReport277()) ||
+      (State.migrationReport278 && State.migrationReport278())) State.save();
     register('today', Today);
     buildShell();
     booted = true;
