@@ -2213,18 +2213,24 @@ window.State = (function () {
    * было до карточки, и зовёт только тогда. Поэтому снятая руками галочка
    * следующей карточкой не возвращается — шаг уже набран, перехода нет.
    * Пустая колода сама шаг не ставит: вместо неё видео, его отмечает человек.
+   * 2.7.8 (Б8): шаг ставит и отрисовка «Сегодня» — по состоянию, без перехода.
+   * Поэтому снятая руками галочка держится отметкой дня day.cardsUntick
+   * (App.setMinimalStep): с ней шаг в этот день сам не ставится ни колодой, ни
+   * отрисовкой. opts.silent — без перерисовки (зовёт сама отрисовка); updatedAt
+   * двигается и так: это правка дня, она уходит в облако.
    * → true, если отметка поставлена сейчас (день пересчитан, одна перерисовка)
    */
-  function autoCardsStep(todayIso) {
+  function autoCardsStep(todayIso, opts) {
     var t = todayIso || today();
+    var d0 = day(t);
+    if (d0 && ((d0.minimalSteps || [])[0] || d0.cardsUntick)) return false;
     var cs = cardsStep(t);
     if (!cs.ok || !cs.need) return false;
     var d = day(t, true);
     var ms = d.minimalSteps || [];
-    if (ms[0]) return false;
     d.minimalSteps = [true, !!ms[1]];
     recount(t);
-    touch();
+    touch(!!(opts && opts.silent));
     return true;
   }
 

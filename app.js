@@ -93,6 +93,7 @@ window.App = (function () {
   var Today = {
     render: function () {
       var t = State.today();
+      autoCards(t);                      // 2.7.8 (Б8): до разметки — она уже видит отметку
       var d = State.day(t) || { level: 'none', addons: [], lessons: [] };
       return cloudAlert() + topRow(t) + weekStrip(t) + badges() +
         (window.Radar && Radar.questionsBlock ? Radar.questionsBlock(t) : '') +
@@ -621,7 +622,9 @@ window.App = (function () {
     return {
       id: 'cards', tick: 'm0', title: 'Карточки', sub: cardsSub(c), done: !!ms[0],
       body: c.size
-        ? (prog ? '<p class="pnote"><b class="mono">' + U.esc(prog) + '</b> — шаг засчитается сам, ' +
+        ? (prog ? '<p class="pnote"><b class="mono">' + U.esc(prog) + '</b> — ' +
+          // 2.7.8 (Б8): снятый сегодня руками шаг сам не вернётся — ставит человек
+          (d.cardsUntick ? 'шаг снят руками: отметь его, ' : 'шаг засчитается сам, ') +
           'когда просмотришь ' + State.cardsStep().need + ' или добьёшь колоду.</p>' : '') +
         '<p class="pnote">Колода дня: слова последнего урока и в работе, до трёх долгов, ' +
         'затем повторы — не больше ' + State.DECK_CAP + ' карточек. ' +
@@ -821,6 +824,7 @@ window.App = (function () {
    * Шаги минималки. Снять можно всегда; «Карточки» ставятся только колодой
    * (State.cardsStep, 2.7.6): свободная галочка держала серию без карточек.
    * 2.7.7 (Э7): набранный шаг ставит сама колода (Cards.markSeen → State.autoCardsStep).
+   * 2.7.8 (Б8): и отрисовка «Сегодня» (autoCards); снятый руками — отметка дня.
    * → true, если отметка записана
    */
   function cardsRefused() {
@@ -832,12 +836,47 @@ window.App = (function () {
     return true;
   }
 
+  /**
+   * 2.7.8 (Б8): шаг «Карточки» — по состоянию, на каждой отрисовке «Сегодня».
+   * 2.7.7 ставила его только на переходе внутри листалки, и шаг, набранный без
+   * перехода, висел неотмеченным: карточки просмотрены на другом устройстве и
+   * пришли синком, колода укоротилась (повтор ушёл на интервал, долг закрыт).
+   * Ставится: только сегодня; план дня не «Пусто»; колода шаг набрала; шаг не
+   * отмечен и сегодня не снят руками (day.cardsUntick). Отметка тихая: разметка
+   * строится после неё и уже её видит, второй отрисовки нет (render → touch →
+   * render). Тост — один: дальше шаг отмечен, и условие не выполняется.
+   * Синк: отметка двигает updatedAt, а облако решает «кто новее» по нему. Пока
+   * вошедший синк в этом заходе не получил ответа на pull (старт приложения,
+   * возврат на экран, сеть вернулась), устройство может держать устаревшее
+   * состояние — автоматическая правка сделала бы его «новее» облака и затёрла
+   * бы чужие изменения. Поэтому до ответа синка отметку ставит только колода
+   * (действие человека); Sync после ответа сам перерисует «Сегодня».
+   * → true, если отметка поставлена сейчас
+   */
+  function autoCards(t) {
+    var iso = t || State.today();
+    var d = State.day(iso);
+    if (!d || State.planOf(d) === 'none' || !State.autoCardsStep) return false;
+    if ((d.minimalSteps || [])[0] || d.cardsUntick) return false;    // дёшево, до колоды
+    if (window.Sync && Sync.settled && !Sync.settled()) return false;
+    if (!State.autoCardsStep(iso, { silent: true })) return false;
+    UI.toast('Карточки засчитаны', 'ok');
+    return true;
+  }
+
   function setMinimalStep(i, on) {
     var was = ((State.day(State.today()) || {}).minimalSteps || [])[i];
     if (i === 0 && on && !was && cardsRefused()) return false;
     var d = State.day(State.today(), true);
     d.minimalSteps = d.minimalSteps || [false, false];
     d.minimalSteps[i] = !!on;
+    // 2.7.8 (Б8): снятые руками «Карточки» — отметка дня: шаг в этот день сам не
+    // вернётся ни отрисовкой, ни колодой. Поставленные руками отметку снимают.
+    // Пишется в той же правке, отдельного touch нет
+    if (i === 0) {
+      if (on) delete d.cardsUntick;
+      else d.cardsUntick = true;
+    }
     // шаги минималки — часть достигнутого уровня (2.7.6): уровень и очки пересчитываются
     State.recount(State.today());
     State.touch();
@@ -1148,7 +1187,7 @@ window.App = (function () {
     // сам объект экрана, а не только его запись в реестре: реестр можно
     // перерегистрировать, а проверять надо настоящий «Сегодня»
     Today: Today, nextUp: nextUp,
-    minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick,
+    minimalSteps: minimalSteps, setMinimalStep: setMinimalStep, tick: tick, autoCards: autoCards,
     stageOffer: stageOffer, debtsLine: debtsLine, hwOffer: hwOffer, openHw: openHw,
     mixedBundle: mixedBundle, warnMixed: warnMixed,
     resetOpen: function () { openItem = null; },
