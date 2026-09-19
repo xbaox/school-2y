@@ -123,6 +123,7 @@ window.App = (function () {
         render();
       });
       U.on(host, 'click', '[data-goto-cloud]', function () { gotoCloud(); });
+      U.on(host, 'click', '[data-goto-conflicts]', function () { gotoConflicts(); });
 
       // аккордеон плана: раскрыт один пункт за раз
       U.on(host, 'click', '[data-open]', function (e, el) {
@@ -152,6 +153,25 @@ window.App = (function () {
    * Оффлайн сюда не попадает — там очередь, и она догоняет сама.
    */
   function cloudAlert() {
+    return conflictAlert() + authAlert();
+  }
+
+  /**
+   * 2.8.1 (A2): синк разрешил конфликт двух устройств. Проигравшее состояние
+   * лежит снимком в этом браузере — плашка висит, пока её не откроют.
+   */
+  function conflictAlert() {
+    if (!window.Sync || !Sync.available() || !Sync.conflictPending || !Sync.conflictPending()) return '';
+    return '<button class="cloud-off" data-goto-conflicts' +
+      ' aria-label="Конфликт синка. Открыть «Конфликты синка» в Настройках">' +
+      '<span class="co-ic" aria-hidden="true">⇄</span>' +
+      '<span class="co-txt"><b>Синк: два устройства правили одно и то же — копия сохранена, ' +
+      'Настройки → Конфликты синка</b></span>' +
+      '<span class="co-go" aria-hidden="true">→</span>' +
+      '</button>';
+  }
+
+  function authAlert() {
     if (!window.Sync || !Sync.available() || !Sync.authLost()) return '';
     return '<button class="cloud-off" data-goto-cloud' +
       ' aria-label="Облако отключено. Открыть вход в Настройках">' +
@@ -170,6 +190,14 @@ window.App = (function () {
   function gotoCloud() {
     go('settings');
     var el = U.el('[data-cloud]');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+  }
+
+  /** Плашку открыли — напоминание снимается, снимки остаются в Настройках. */
+  function gotoConflicts() {
+    if (window.Sync && Sync.ackConflict) Sync.ackConflict();
+    go('settings');
+    var el = U.el('[data-conflicts]') || U.el('[data-cloud]');
     if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
   }
 
@@ -1150,9 +1178,11 @@ window.App = (function () {
       // «Сегодня» перерисовываем только когда плашка реально появляется или
       // уходит: статус синка дёргается на каждом push, экран тут ни при чём
       var wasLost = Sync.authLost();
+      var wasConflict = !!(Sync.conflictPending && Sync.conflictPending());
       Sync.onChange(function (st) {
-        if (!!st.authLost === wasLost) return;
+        if (!!st.authLost === wasLost && !!st.conflict === wasConflict) return;
         wasLost = !!st.authLost;
+        wasConflict = !!st.conflict;
         render();
       });
       Sync.init();

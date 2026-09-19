@@ -20,6 +20,9 @@
     });
     if (opts.pushedAt) window.__store[PUSHED_KEY] = opts.pushedAt;
     else delete window.__store[PUSHED_KEY];
+    // 2.8.1: метка схождения, снимки и плашка конфликта — от прошлого стенда не тянутся
+    ['study-system-v2-synced', 'study-system-v2-snapshots', 'study-system-v2-conflict']
+      .forEach(function (k) { delete window.__store[k]; });
     State.reset();
     State.s.meta.updatedAt = opts.localAt;
     State.s.onboarded = true;
@@ -36,8 +39,15 @@
     return [{ state: s, updated_at: updatedAt }];
   }
 
+  /** 2.8.1: запись в облако — POST (строки нет) или условный PATCH (строка есть). */
+  function writes() {
+    return window.__calls.filter(function (c) {
+      return (c.method === 'POST' || c.method === 'PATCH') && c.url.indexOf('/rest/v1/app_state') >= 0;
+    });
+  }
+
   describe('синк A-01: локальная правка переживает закрытие вкладки', function () {
-    defer('init отдаёт непушенное', function () {
+    defer('init отдаёт непушенное — после чтения облака (2.8.1)', function () {
       // вчера отправили в облако, потом правили офлайн — метка push осталась старой
       stand({ pushedAt: '2026-08-20T10:00:00.000Z', localAt: '2026-08-21T09:00:00.000Z' });
       window.__fetch = function () { return Promise.resolve(window.__res(201, {})); };
@@ -49,7 +59,8 @@
         });
         var gets = window.__calls.filter(function (c) { return c.method === 'GET'; });
         eq(posts.length, 1, 'при старте ушёл push');
-        eq(gets.length, 0, 'pull за ним не побежал');
+        eq(gets.length, 1, 'а перед ним — ровно одно чтение облака');
+        eq(window.__calls[0].method, 'GET', 'чтение первым');
         eq(State.s.meta.updatedAt, '2026-08-21T09:00:00.000Z', 'локальное состояние цело');
         eq(Sync.lastPushedAt(), '2026-08-21T09:00:00.000Z', 'метка push обновилась');
       });
@@ -87,8 +98,8 @@
       Sync.init();
       return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
         eq(State.s.stats.bestStreak, 0, 'облако в 08:30 UTC старше локального 09:00 — не применили');
-        var posts = window.__calls.filter(function (c) { return c.method === 'POST'; });
-        eq(posts.length, 1, 'зато локальное новее — отдали его');
+        eq(writes().length, 1, 'зато локальное новее — отдали его');
+        eq(writes()[0].method, 'PATCH', 'условной записью поверх прочитанной строки');
       });
     });
   });
@@ -240,7 +251,8 @@
   describe('синк C-05: наружу только человеческие тексты', function () {
     defer('тело ответа в сообщение не попадает', function () {
       stand({ pushedAt: '2026-08-22T09:00:00.000Z', localAt: '2026-08-22T10:00:00.000Z' });
-      window.__fetch = function () {
+      window.__fetch = function (url, o) {
+        if (!o || !o.method || o.method === 'GET') return Promise.resolve(window.__res(200, []));
         return Promise.resolve(window.__res(500, { hint: 'null value in column "state"' }));
       };
       Sync.init();
@@ -263,8 +275,7 @@
 
       Sync.init();
       return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
-        var posts = window.__calls.filter(function (c) { return c.method === 'POST'; });
-        eq(posts.length, 1, 'в пустое облако ушло локальное состояние');
+        eq(writes().length, 1, 'в пустое облако ушло локальное состояние');
       });
     });
   });
