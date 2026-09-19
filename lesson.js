@@ -171,11 +171,13 @@ window.Lesson = (function () {
       (sel.reason.kind === 'fresh' ? 'w-fresh' : (sel.reason.kind === 'swap' ? 'w-swap' : 'w-plan'));
 
     var pos = State.lessonNum(lessonId);
-    var place = State.trackName(b.track) + ' · ' + State.blockLabel(blockId) + ' „' + U.esc(b.title) + '“ · урок ' +
+    // 2.8.1: дорожка урока, если задана, иначе блока — как в промпте
+    var tr = State.lessonTrack(lessonId) || b.track;
+    var place = State.trackName(tr) + ' · ' + State.blockLabel(blockId) + ' „' + U.esc(b.title) + '“ · урок ' +
       pos + '/' + (pr.total || 4);
 
-    var debts = State.debtsCount(b.track);
-    var last = State.recentSummaries(b.track, 1, lessonId)[0];
+    var debts = State.debtsCount(tr);
+    var last = State.recentSummaries(tr, 1, lessonId)[0];
     var lastScore = last && last.parsed && last.parsed.score != null
       ? 'прошлый урок дорожки: ' + last.parsed.score + '/10' : 'прошлых уроков дорожки нет';
     // ⭐N — взятые стретчи: в счёт урока они не идут, и это единственное место,
@@ -187,7 +189,7 @@ window.Lesson = (function () {
       '<button class="why ' + whyClass + '" data-why="' + U.esc(sel.reason.kind) +
       '" aria-label="Почему выбран этот урок">выбор: ' +
       U.esc(whyText(sel.reason.text)) + ' ⓘ</button>' +
-      '<div class="place">' + UI.trackDot(b.track) + ' ' + place + '</div>' +
+      '<div class="place">' + UI.trackDot(tr) + ' ' + place + '</div>' +
       (withOfDay ? ofDayLine(lessonId, d) : '') +
       '<h4>' + U.esc(lesson.title) + '</h4>' +
       '<div class="meta">цель: ' + U.esc(lesson.goal || '—') + '</div>' +

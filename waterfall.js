@@ -367,12 +367,13 @@ window.Waterfall = (function () {
   /** Второй урок полной: другая дорожка; если другой нет — разрешается та же (7.8). */
   function second(todayIso, firstLessonId) {
     var t = todayIso || State.today();
-    var firstTrack = State.lessonTrack(firstLessonId);
+    // по блоку, как до 2.8.1: поле урока водопад не перестраивает
+    var firstTrack = State.lessonBlockTrack(firstLessonId);
     var res = pick(t, { exclude: firstTrack, force: true });
     if (res && res.lessonId && res.lessonId !== firstLessonId && !isAll(res.lessonId)) {
       // водопад мог свалиться в запасной вариант и вернуть ту же дорожку —
       // бейдж обязан сказать это честно, а не «свободная дорожка»
-      if (State.lessonTrack(res.lessonId) === firstTrack) res.reason = NO_OTHER;
+      if (State.lessonBlockTrack(res.lessonId) === firstTrack) res.reason = NO_OTHER;
       return res;
     }
     var same = State.nextLesson();
@@ -383,7 +384,7 @@ window.Waterfall = (function () {
     // дорожки нет» про него соврал бы
     return {
       lessonId: same,
-      reason: State.lessonTrack(same) === firstTrack ? NO_OTHER : { kind: 'plan', text: 'второй урок: свободная дорожка' }
+      reason: State.lessonBlockTrack(same) === firstTrack ? NO_OTHER : { kind: 'plan', text: 'второй урок: свободная дорожка' }
     };
   }
 
@@ -393,7 +394,7 @@ window.Waterfall = (function () {
    * будня «вторая дорожка» обязана быть другой дорожкой, а не общей.
    */
   function isAll(lessonId) {
-    return State.lessonTrack(lessonId) === 'all';
+    return State.lessonBlockTrack(lessonId) === 'all';
   }
 
   /* ---------- свежесть ---------- */
@@ -463,7 +464,7 @@ window.Waterfall = (function () {
   function nextLine(trackId) {
     var tr = State.track(trackId);
     if (!tr || tr.embedded) return '';
-    var next = State.nextLessonInTrack(trackId);
+    var next = State.nextLessonInTrack(trackId, null, false, true);   // как свап (2.8.1)
     var l = next && window.CONTENT ? CONTENT.lesson(next) : null;
     if (!l) {
       // 2.7.8 (ревью Б1): у дорожки остался только К — он идёт по субботам
@@ -528,7 +529,7 @@ window.Waterfall = (function () {
   function openSwap() {
     var t = State.today();
     var rows = State.s.tracks.filter(function (tr) { return !tr.embedded; }).map(function (tr) {
-      var next = State.nextLessonInTrack(tr.id);
+      var next = State.nextLessonInTrack(tr.id, null, false, true);   // дорожка урока (2.8.1)
       var l = next ? CONTENT.lesson(next) : null;
       var f = State.freshness(tr.id);
       return '<button class="swap-row" ' + (next ? 'data-pick="' + U.esc(next) + '"' : 'disabled') + '>' +

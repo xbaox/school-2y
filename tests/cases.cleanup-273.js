@@ -48,7 +48,8 @@
       });
     });
     ok(all && all.lessons.length, 'общий блок в фазе есть — есть что проверять');
-    eq(State.lessonTrack(all.lessons[0].id), 'all', 'и дорожка у него общая');
+    // 2.8.1: у уроков Б16 своя дорожка (math); «общий блок» водопад судит по блоку
+    eq(State.lessonBlockTrack(all.lessons[0].id), 'all', 'и дорожка блока у него общая');
 
     var res = Waterfall.second(WED, 'B2.1');
     ok(!res, 'вторым уроком общий блок не отдаётся — лучше ни одного');

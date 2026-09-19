@@ -961,6 +961,7 @@
       note: 'MHF4U — продвинутые функции (12 класс); ENG2D — английский 10 класса. Порядок и даты уточняются по планам учителей. Опорные задания и глоссарий — есть (2.8.1).',
       lessons: [
         {
+          track: 'math',
           title: 'Композиция и скорость изменения',
           goal: 'Combining functions and rates of change',
           youtube: 'MHF4U composition of functions average instantaneous rate of change',
@@ -998,6 +999,7 @@
           ]
         },
         {
+          track: 'math',
           title: 'Повтор: многочлены и дроби',
           goal: 'Exam review: polynomials and rationals',
           youtube: 'MHF4U exam review polynomial rational functions',
@@ -1035,6 +1037,7 @@
           ]
         },
         {
+          track: 'math',
           title: 'Повтор: тригонометрия',
           goal: 'Exam review: trigonometry',
           youtube: 'MHF4U exam review trigonometric functions',
@@ -1072,6 +1075,7 @@
           ]
         },
         {
+          track: 'math',
           title: 'Повтор: показательные и логарифмы',
           goal: 'Exam review: exponentials, logarithms and mixed',
           youtube: 'MHF4U exam review exponential logarithmic functions',

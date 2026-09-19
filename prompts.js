@@ -584,7 +584,8 @@ window.PROMPTS = (function () {
     var blockId = lesson.blockId;
     var block = hw ? { phase: State.currentPhase(todayIso), track: hw.track, title: 'школьное ДЗ' }
       : (State.block(blockId) || {});
-    var trackId = block.track || 'eng';
+    // 2.8.1: дорожка урока, если задана, иначе блока (Б16: блок «все», уроки — математика)
+    var trackId = (!hw && lesson.track) || block.track || 'eng';
     var p = STEPS.params(State.s.step, todayIso, State.mode(), State.stageName());
     var contest = isContest(lesson);
     // в конкурсном уроке заданий ровно три — контракт должен говорить то же,

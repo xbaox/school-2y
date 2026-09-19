@@ -62,12 +62,16 @@
     });
   });
 
-  describe('2.7.6 Э3: урок общего блока по-прежнему обновляет свежесть всем', function () {
+  // 2.8.1: у уроков Б16 своя дорожка — math; закрытие освежает только её
+  // (до 2.8.1 урок общего блока освежал все четыре дорожки)
+  describe('2.8.1: урок Б16 (дорожка урока math) освежает только математику', function () {
     withToday(THU, function () {
       scene();
+      var before = ['write', 'cs', 'biz'].map(function (id) { return State.track(id).lastLessonDate; });
       State.applySummary('B16.1', summary(), { date: THU });
-      eq(['math', 'write', 'cs', 'biz'].map(function (id) { return State.track(id).lastLessonDate; }),
-        [THU, THU, THU, THU], 'четыре дорожки получили 10.09');
+      eq(State.track('math').lastLessonDate, THU, 'математика получила 10.09');
+      eq(['write', 'cs', 'biz'].map(function (id) { return State.track(id).lastLessonDate; }), before,
+        'письмо, информатика, бизнес — прежние');
     });
   });
 

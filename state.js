@@ -1935,8 +1935,19 @@ window.State = (function () {
     if (hwp) return hwp.track;
     var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
     if (!l) return null;
+    // 2.8.1: поле track урока перекрывает дорожку блока (Б16 — блок «все
+    // дорожки», а его уроки — математика): промпт, долги, свежесть при
+    // закрытии, колода и «прошлый раз» берут дорожку урока
+    if (l.track) return l.track;
     var b = s.blocks[l.blockId];
     return b ? b.track : null;
+  }
+
+  /** Дорожка блока урока — без поля урока (водопад: общий блок вторым уроком не берётся). */
+  function lessonBlockTrack(lessonId) {
+    var l = window.CONTENT ? CONTENT.lesson(lessonId) : null;
+    var b = l ? s.blocks[l.blockId] : null;
+    return b ? b.track : lessonTrack(lessonId);
   }
 
   function phaseIndex(phaseId) {
@@ -1982,7 +1993,7 @@ window.State = (function () {
    * долги и запасные пути отдавали конкурсные задачи в будни. К ждёт субботы
    * (Waterfall.ruleSaturday), вне субботы — State.nextContestLesson и свап.
    */
-  function nextLessonInTrack(trackId, phaseId, ownOnly) {
+  function nextLessonInTrack(trackId, phaseId, ownOnly, byLesson) {
     var ids = Object.keys(s.blocks).sort(compareBlocks);
     for (var i = 0; i < ids.length; i++) {
       var b = s.blocks[ids[i]];
@@ -1991,6 +2002,9 @@ window.State = (function () {
       var list = activeLessons(ids[i]);
       for (var j = 0; j < list.length; j++) {
         if (isContestLesson(list[j])) continue;
+        // byLesson (2.8.1, свап и строка «следующий»): урок со своей дорожкой —
+        // только в очереди своей дорожки. Водопад зовёт без флага, как раньше
+        if (byLesson && trackId && list[j].track && list[j].track !== trackId) continue;
         var st = s.lessons[list[j].id];
         if (!st || !st.done) return list[j].id;
       }
@@ -3184,7 +3198,7 @@ window.State = (function () {
     stageName: stageName, stageParams: stageParams, setStage: setStage,
     readyForNextStage: readyForNextStage, nextStageOffer: nextStageOffer,
     blockNum: blockNum, blockLabel: blockLabel, lessonNum: lessonNum,
-    lessonTrack: lessonTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
+    lessonTrack: lessonTrack, lessonBlockTrack: lessonBlockTrack, nextLessonInTrack: nextLessonInTrack, nextLesson: nextLesson,
     nextContestLesson: nextContestLesson, contestBlockId: contestBlockId, saturdayContestLesson: saturdayContestLesson,
     saturdayContestCount: saturdayContestCount,
     freshness: freshness, hasTrackHistory: hasTrackHistory, touchTrack: touchTrack,

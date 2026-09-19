@@ -67,8 +67,9 @@
       november(function () { closeBlock('B14', '2026-10-30'); State.setDeadline('B12', null); });
       eq(State.nextLessonInTrack('write'), 'B12.1', 'письмо: свой Б12 без срока раньше общего Б16');
       eq(State.nextLessonInTrack('write'), Waterfall.nextOwnLesson('write', 'p1'), 'та же очередь, что у водопада');
-      eq(swapRows(), ['B11.1', 'B12.1', 'B16.1', 'B16.1', 'B53.1'],
-        'свап: у письма Б12, у информатики и бизнеса — общий блок; 2.7.8 — строка К последней');
+      // 2.8.1: уроки Б16 — математика, информатике и бизнесу свап их не предлагает
+      eq(swapRows(), ['B11.1', 'B12.1', 'B53.1'],
+        'свап: у письма Б12, у информатики и бизнеса уроков нет; 2.7.8 — строка К последней');
       var first = Waterfall.pick('2026-11-02');
       eq([first.lessonId, first.reason.text], ['B11.1', 'шаблон: понедельник — математика'], 'первый урок');
       var two = Waterfall.second('2026-11-02', 'B11.1');
